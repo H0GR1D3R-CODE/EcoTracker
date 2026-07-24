@@ -193,16 +193,16 @@ a:hover {
    4. GLASSMORPHISM CARDS
    =========================================================================== */
 
+/* The standard card. Note there is NO backdrop-filter here.
+   backdrop-filter is the most expensive property on this page: the browser has
+   to re-render everything behind the element and blur it, and it repeats that
+   work while the page scrolls. With a dozen cards visible at once that is the
+   difference between smooth and stuttering.
+   Over a dark background a translucent fill is visually almost identical, so
+   real glass is opt-in via .eco-glass below - used only on the navbar and the
+   auth cards, where it sits over moving content and actually earns its cost. */
 .eco-card {
   background: var(--eco-glass-bg);
-  /* backdrop-filter blurs whatever sits BEHIND the element - this is the
-     single property that creates the frosted glass effect.
-     Kept at 12px rather than higher: backdrop-filter is one of the most
-     expensive things a browser can composite, and this page shows a dozen
-     cards at once. The visual difference above 12px is barely noticeable;
-     the scrolling cost is not. */
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--eco-glass-border);
   border-radius: var(--eco-radius);
   box-shadow: var(--eco-shadow);
@@ -211,12 +211,33 @@ a:hover {
     border-color var(--eco-transition), background-color var(--eco-transition);
 }
 
-/* Add this class for the lift-on-hover effect */
+/* Real frosted glass. Add alongside .eco-card only where it is worth the cost:
+   an element floating over content that moves behind it. */
+.eco-glass {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Lift-on-hover. The card rises straight up on its own centre and nothing
+   around it moves - no rotation, no cursor tracking. A card that tilts toward
+   the pointer looks impressive in isolation but makes a grid of cards feel
+   unstable, because several of them are always mid-tilt at different angles. */
 .eco-card-hover:hover {
   transform: translateY(-4px);
   background: var(--eco-card-hover);
   border-color: rgba(var(--eco-primary-rgb), 0.3);
   box-shadow: var(--eco-shadow), var(--eco-glow);
+}
+
+/* The arrow inside a button nudges forward on hover. It is 3px, it happens
+   inside the button, and it moves nothing else - the whole point is that it
+   reads as the button acknowledging you rather than dodging you. */
+.eco-btn svg {
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.eco-btn:hover svg {
+  transform: translateX(3px);
 }
 
 /* A card with a coloured strip down its left edge, used for category cards */
@@ -535,21 +556,33 @@ a:hover {
   background-size: 48px 48px;
 }
 
-/* A soft coloured glow, positioned behind hero content.
-   blur() is expensive because the browser has to render the shape offscreen,
-   blur it, then composite it back - every frame it changes. 60px still reads
-   as a soft glow but costs far less than 90px on a laptop GPU.
-   translateZ(0) promotes the orb to its own compositor layer, so scrolling the
-   page moves the layer instead of re-blurring it from scratch. */
+/* A soft coloured glow behind hero content.
+   NO filter: blur() here, deliberately. blur() forces the browser to render the
+   shape offscreen, blur it, then composite it back - and it redoes that work
+   whenever the element moves. A radial-gradient that fades to transparent looks
+   the same but is painted once and then simply composited, so it can be moved
+   around every frame for free.
+   translateZ(0) puts each orb on its own GPU layer so animating it never
+   repaints the page behind it. */
 .eco-glow-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.22;
   pointer-events: none; /* so it never blocks clicks on what is above it */
   z-index: 0;
+  opacity: 0.5;
   transform: translateZ(0);
-  will-change: transform;
+}
+
+.eco-glow-orb-green {
+  background: radial-gradient(circle closest-side, rgba(0, 255, 135, 0.55), transparent 100%);
+}
+
+.eco-glow-orb-purple {
+  background: radial-gradient(circle closest-side, rgba(124, 58, 237, 0.5), transparent 100%);
+}
+
+[data-theme='light'] .eco-glow-orb {
+  opacity: 0.3;
 }
 
 .eco-section {
