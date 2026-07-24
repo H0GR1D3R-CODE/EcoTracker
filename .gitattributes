@@ -1,0 +1,24 @@
+# EcoTrack/.gitattributes
+# Normalises line endings so the repository stays consistent no matter which
+# operating system a file was written on.
+#
+# Windows ends lines with CRLF, Linux and macOS use LF. Without this file, git
+# warns on every single commit ("LF will be replaced by CRLF"), and a file saved
+# on Windows can show up as entirely rewritten in a diff even when only one line
+# actually changed.
+#
+# "text=auto eol=lf" means: store everything as LF inside the repository, and
+# let git convert on checkout. Render and Firebase Hosting both run Linux, so
+# LF in the repository is what production wants anyway.
+
+* text=auto eol=lf
+
+# Binary files must never be converted - doing so corrupts them
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

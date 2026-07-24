@@ -1,0 +1,12 @@
+# EcoTrack/backend/requirements.txt
+# Install everything with:  pip install -r requirements.txt
+
+Flask==3.1.0
+Flask-Cors==5.0.0
+firebase-admin==6.6.0
+python-dotenv==1.0.1
+
+# gunicorn is the production web server used by Render.
+# It is not needed on Windows for local development, but keeping it here
+# means Render installs it automatically during deployment.
+gunicorn==23.0.0

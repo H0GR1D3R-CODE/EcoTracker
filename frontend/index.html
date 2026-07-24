@@ -1,0 +1,56 @@
+<!-- EcoTrack/frontend/index.html -->
+<!-- This is the only real HTML page in the whole app. React builds every screen
+     inside the <div id="root"> below - that is what "single page application" means. -->
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>EcoTrack - Carbon Footprint Tracker</title>
+    <meta
+      name="description"
+      content="Track, understand and reduce your personal carbon footprint across seven categories. Built for SDG 13: Climate Action."
+    />
+    <!-- Colours the browser chrome on mobile to match the dark theme -->
+    <meta name="theme-color" content="#0a0a0f" />
+
+    <!-- Google Fonts: Space Grotesk for headings, Inter for body text.
+         preconnect tells the browser to open the connection early, which makes
+         the fonts arrive noticeably faster. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- A leaf favicon drawn inline as an SVG, so there is no image file to load -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%8C%BF</text></svg>"
+    />
+
+    <script>
+      // Runs BEFORE React and before anything is painted.
+      // Without this, a user who chose light mode would see a flash of dark
+      // background on every page load while React starts up.
+      (function applySavedTheme() {
+        try {
+          var saved = localStorage.getItem('ecotrack-theme');
+          if (saved === 'light' || saved === 'dark') {
+            document.documentElement.setAttribute('data-theme', saved);
+          }
+        } catch (error) {
+          // localStorage can throw in private browsing mode - dark stays as the default
+        }
+      })();
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <!-- type="module" lets the browser use modern import syntax directly -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

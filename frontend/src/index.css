@@ -1,0 +1,817 @@
+/* EcoTrack/frontend/src/index.css
+   ===========================================================================
+   GLOBAL STYLESHEET - the design system for the whole application.
+
+   Everything visual is defined here as CSS variables, so changing one value
+   updates every page at once. The two themes are just two sets of the same
+   variable names: switching theme swaps the values, not the CSS rules.
+
+   Contents:
+     1.  Theme variables (dark + light)
+     2.  Base and typography
+     3.  Custom scrollbar
+     4.  Glassmorphism cards
+     5.  Buttons and micro-interactions
+     6.  Forms (floating labels, focus glow, validation)
+     7.  Tables
+     8.  Skeleton loaders
+     9.  Backgrounds and decorative effects
+     10. Navbar and mobile bottom navigation
+     11. Third-party overrides (NProgress, toasts, date picker)
+     12. Animations
+     13. Reduced motion (accessibility)
+   =========================================================================== */
+
+/* ===========================================================================
+   1. THEME VARIABLES
+   =========================================================================== */
+
+/* Dark is the default theme. :root applies before JavaScript has run. */
+:root,
+[data-theme='dark'] {
+  --eco-primary: #00ff87;        /* neon green - the brand colour */
+  --eco-primary-dark: #00c96b;
+  --eco-primary-rgb: 0, 255, 135; /* rgb parts, so we can build rgba() shadows */
+
+  --eco-bg: #0a0a0f;             /* near black page background */
+  --eco-bg-alt: #0d0d14;
+  --eco-card: #12121a;
+  --eco-card-hover: #1a1a28;
+
+  --eco-text: #f0f0f0;
+  --eco-text-muted: #8888aa;
+
+  --eco-purple: #7c3aed;         /* second colour on charts */
+  --eco-orange: #f59e0b;         /* warnings */
+  --eco-danger: #ef4444;         /* errors and destructive actions */
+
+  --eco-border: rgba(255, 255, 255, 0.08);
+  --eco-glass-bg: rgba(18, 18, 26, 0.55);
+  --eco-glass-border: rgba(255, 255, 255, 0.1);
+
+  --eco-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --eco-glow: 0 0 24px rgba(0, 255, 135, 0.25);
+
+  --eco-radius: 16px;
+  --eco-radius-sm: 10px;
+
+  /* One transition speed everywhere keeps the whole app feeling consistent */
+  --eco-transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme='light'] {
+  /* The neon green is unreadable on white, so light mode uses the darker green.
+     Same variable name, different value - no component code changes. */
+  --eco-primary: #00b862;
+  --eco-primary-dark: #00914d;
+  --eco-primary-rgb: 0, 184, 98;
+
+  --eco-bg: #f4f6f9;
+  --eco-bg-alt: #eef1f6;
+  --eco-card: #ffffff;
+  --eco-card-hover: #ffffff;
+
+  --eco-text: #10121a;
+  --eco-text-muted: #5b5b73;
+
+  --eco-purple: #6d28d9;
+  --eco-orange: #d97706;
+  --eco-danger: #dc2626;
+
+  --eco-border: rgba(10, 10, 15, 0.09);
+  --eco-glass-bg: rgba(255, 255, 255, 0.7);
+  --eco-glass-border: rgba(10, 10, 15, 0.07);
+
+  --eco-shadow: 0 8px 28px rgba(16, 18, 26, 0.1);
+  --eco-glow: 0 0 20px rgba(0, 184, 98, 0.2);
+}
+
+/* ===========================================================================
+   2. BASE AND TYPOGRAPHY
+   =========================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  /* Makes anchor links glide instead of jumping */
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--eco-bg);
+  color: var(--eco-text);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  /* Both properties transition so switching theme fades rather than snaps */
+  transition: background-color var(--eco-transition), color var(--eco-transition);
+  /* Stops the decorative glow orbs creating a sideways scrollbar.
+     MUST be "clip", not "hidden": overflow-x:hidden turns body into a scroll
+     container, which silently stops position:sticky working on the navbar. */
+  overflow-x: clip;
+}
+
+h1, h2, h3, h4, h5, h6,
+.eco-heading {
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--eco-text);
+}
+
+/* Gradient text used on every major heading */
+.eco-gradient-text {
+  background: linear-gradient(135deg, var(--eco-primary), var(--eco-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* Without this, descenders like 'g' and 'y' get clipped */
+  padding-bottom: 0.08em;
+  display: inline-block;
+}
+
+.eco-text-muted {
+  color: var(--eco-text-muted) !important;
+}
+
+.eco-primary-text {
+  color: var(--eco-primary) !important;
+}
+
+a {
+  color: var(--eco-primary);
+  text-decoration: none;
+  transition: opacity var(--eco-transition);
+}
+
+a:hover {
+  opacity: 0.8;
+  color: var(--eco-primary);
+}
+
+/* Text selection matches the brand instead of the browser default blue */
+::selection {
+  background: rgba(var(--eco-primary-rgb), 0.3);
+  color: var(--eco-text);
+}
+
+/* ===========================================================================
+   3. CUSTOM SCROLLBAR
+   =========================================================================== */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--eco-bg-alt);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--eco-primary-dark), var(--eco-purple));
+  border-radius: 10px;
+  /* The border creates padding around the thumb so it looks slimmer */
+  border: 2px solid var(--eco-bg-alt);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(var(--eco-primary), var(--eco-purple));
+}
+
+/* Firefox uses two completely different properties for the same job */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--eco-primary-dark) var(--eco-bg-alt);
+}
+
+/* ===========================================================================
+   4. GLASSMORPHISM CARDS
+   =========================================================================== */
+
+.eco-card {
+  background: var(--eco-glass-bg);
+  /* backdrop-filter blurs whatever sits BEHIND the element - this is the
+     single property that creates the frosted glass effect */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--eco-glass-border);
+  border-radius: var(--eco-radius);
+  box-shadow: var(--eco-shadow);
+  padding: 1.5rem;
+  transition: transform var(--eco-transition), box-shadow var(--eco-transition),
+    border-color var(--eco-transition), background-color var(--eco-transition);
+}
+
+/* Add this class for the lift-on-hover effect */
+.eco-card-hover:hover {
+  transform: translateY(-4px);
+  background: var(--eco-card-hover);
+  border-color: rgba(var(--eco-primary-rgb), 0.3);
+  box-shadow: var(--eco-shadow), var(--eco-glow);
+}
+
+/* A card with a coloured strip down its left edge, used for category cards */
+.eco-card-accent {
+  position: relative;
+  overflow: hidden;
+}
+
+.eco-card-accent::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(var(--eco-primary), var(--eco-purple));
+}
+
+/* ===========================================================================
+   5. BUTTONS AND MICRO-INTERACTIONS
+   =========================================================================== */
+
+.eco-btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--eco-radius-sm);
+  padding: 0.7rem 1.6rem;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden; /* keeps the ripple inside the rounded corners */
+  transition: transform 0.15s ease, box-shadow var(--eco-transition),
+    opacity var(--eco-transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.eco-btn-primary {
+  background: linear-gradient(135deg, var(--eco-primary), var(--eco-primary-dark));
+  color: #04140c; /* very dark green text - readable on the bright button */
+}
+
+.eco-btn-primary:hover:not(:disabled) {
+  transform: scale(1.04);
+  box-shadow: 0 0 26px rgba(var(--eco-primary-rgb), 0.45);
+}
+
+.eco-btn-outline {
+  background: transparent;
+  color: var(--eco-primary);
+  border: 1px solid var(--eco-primary);
+}
+
+.eco-btn-outline:hover:not(:disabled) {
+  transform: scale(1.04);
+  background: rgba(var(--eco-primary-rgb), 0.1);
+}
+
+.eco-btn-ghost {
+  background: transparent;
+  color: var(--eco-text-muted);
+  border: 1px solid var(--eco-border);
+}
+
+.eco-btn-ghost:hover:not(:disabled) {
+  color: var(--eco-text);
+  border-color: var(--eco-text-muted);
+}
+
+.eco-btn-danger {
+  background: var(--eco-danger);
+  color: #fff;
+}
+
+.eco-btn-danger:hover:not(:disabled) {
+  transform: scale(1.04);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+}
+
+.eco-btn:active:not(:disabled) {
+  transform: scale(0.97); /* the press-down feel */
+}
+
+.eco-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Ripple - a circle that expands from the middle of the button on click.
+   ::after starts invisible and scaled to nothing, then grows on :active. */
+.eco-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  transform: translate(-50%, -50%);
+  transition: width 0.45s ease-out, height 0.45s ease-out, opacity 0.45s ease-out;
+  opacity: 0;
+}
+
+.eco-btn:active::after {
+  width: 260px;
+  height: 260px;
+  opacity: 1;
+  transition: 0s; /* snap to full size instantly, then fade out on release */
+}
+
+/* Pulsing gradient glow for the main call to action.
+   This is a box-shadow rather than a bordered pseudo-element on purpose:
+   .eco-btn needs overflow:hidden to keep the ripple inside its rounded
+   corners, and that would clip any ::before drawn outside the button. A
+   box-shadow is painted outside the box, so it survives the clipping. */
+.eco-btn-pulse {
+  animation: eco-btn-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes eco-btn-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 16px rgba(var(--eco-primary-rgb), 0.35);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(124, 58, 237, 0.55);
+  }
+}
+
+/* ===========================================================================
+   6. FORMS
+   =========================================================================== */
+
+/* Bootstrap's .form-floating gives us the floating label behaviour for free -
+   these rules restyle it to match the dark theme. */
+.eco-form .form-control,
+.eco-form .form-select {
+  background-color: rgba(var(--eco-primary-rgb), 0.03);
+  border: 1px solid var(--eco-border);
+  border-radius: var(--eco-radius-sm);
+  color: var(--eco-text);
+  padding: 1rem 0.9rem;
+  transition: border-color var(--eco-transition), box-shadow var(--eco-transition),
+    background-color var(--eco-transition);
+}
+
+.eco-form .form-control:focus,
+.eco-form .form-select:focus {
+  background-color: rgba(var(--eco-primary-rgb), 0.06);
+  border-color: var(--eco-primary);
+  color: var(--eco-text);
+  /* The focus glow specified in the design rules */
+  box-shadow: 0 0 0 3px rgba(var(--eco-primary-rgb), 0.15), var(--eco-glow);
+  outline: none;
+}
+
+.eco-form .form-control::placeholder {
+  color: transparent; /* the floating label replaces the placeholder */
+}
+
+.eco-form .form-floating > label {
+  color: var(--eco-text-muted);
+  padding: 1rem 0.9rem;
+}
+
+.eco-form .form-floating > .form-control:focus ~ label,
+.eco-form .form-floating > .form-control:not(:placeholder-shown) ~ label {
+  color: var(--eco-primary);
+  opacity: 1;
+}
+
+/* Bootstrap paints a white pill behind the floated label; make it match us */
+.eco-form .form-floating > .form-control:focus ~ label::after,
+.eco-form .form-floating > .form-control:not(:placeholder-shown) ~ label::after {
+  background-color: var(--eco-card) !important;
+}
+
+/* Autofill in Chrome forces a blue background - this overrides it */
+.eco-form input:-webkit-autofill,
+.eco-form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--eco-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--eco-card) inset;
+  caret-color: var(--eco-text);
+}
+
+/* --- inline validation feedback --- */
+.eco-form .form-control.is-invalid {
+  border-color: var(--eco-danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  background-image: none; /* removes Bootstrap's built-in warning icon */
+}
+
+.eco-form .form-control.is-valid {
+  border-color: var(--eco-primary);
+  background-image: none;
+}
+
+.eco-field-error {
+  color: var(--eco-danger);
+  font-size: 0.82rem;
+  margin-top: 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.eco-field-hint {
+  color: var(--eco-text-muted);
+  font-size: 0.82rem;
+  margin-top: 0.35rem;
+}
+
+/* --- password strength bar --- */
+.eco-strength-bar {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--eco-border);
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.eco-strength-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease, background-color 0.4s ease;
+}
+
+/* ===========================================================================
+   7. TABLES
+   =========================================================================== */
+
+.eco-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--eco-text);
+}
+
+.eco-table thead th {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--eco-text-muted);
+  border-bottom: 1px solid var(--eco-border);
+  padding: 0.9rem 1rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.eco-table tbody td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--eco-border);
+  vertical-align: middle;
+}
+
+/* Alternating row colours - nth-child(even) targets every second row */
+.eco-table tbody tr:nth-child(even) {
+  background: rgba(var(--eco-primary-rgb), 0.02);
+}
+
+.eco-table tbody tr {
+  transition: background-color var(--eco-transition);
+}
+
+.eco-table tbody tr:hover {
+  background: rgba(var(--eco-primary-rgb), 0.07);
+}
+
+/* Wrap wide tables in this so they scroll instead of breaking the layout */
+.eco-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--eco-radius);
+}
+
+/* ===========================================================================
+   8. SKELETON LOADERS
+   =========================================================================== */
+
+/* A grey block with a shine sweeping across it, shown while data loads.
+   Never leave the user looking at blank white space. */
+.eco-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--eco-card) 25%,
+    var(--eco-card-hover) 50%,
+    var(--eco-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: eco-shimmer 1.4s infinite linear;
+  border-radius: var(--eco-radius-sm);
+}
+
+/* ===========================================================================
+   9. BACKGROUNDS AND DECORATIVE EFFECTS
+   =========================================================================== */
+
+/* Faint dot grid for hero sections */
+.eco-dot-grid {
+  background-image: radial-gradient(
+    circle,
+    rgba(var(--eco-primary-rgb), 0.14) 1px,
+    transparent 1px
+  );
+  background-size: 28px 28px;
+}
+
+/* Faint line grid, an alternative to the dots */
+.eco-line-grid {
+  background-image:
+    linear-gradient(rgba(var(--eco-primary-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--eco-primary-rgb), 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* A soft coloured glow, positioned behind hero content */
+.eco-glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.25;
+  pointer-events: none; /* so it never blocks clicks on what is above it */
+  z-index: 0;
+}
+
+.eco-section {
+  padding: 5rem 0;
+  position: relative;
+}
+
+.eco-hero {
+  min-height: 100vh;
+  /* dvh accounts for the mobile address bar hiding on scroll; the 100vh line
+     above stays as a fallback for browsers that do not understand dvh */
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Small rounded label, e.g. the SDG 13 badge */
+.eco-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--eco-glass-border);
+  background: var(--eco-glass-bg);
+  backdrop-filter: blur(8px);
+}
+
+.eco-badge-low    { color: var(--eco-primary); border-color: rgba(var(--eco-primary-rgb), 0.4); }
+.eco-badge-medium { color: var(--eco-orange);  border-color: rgba(245, 158, 11, 0.4); }
+.eco-badge-high   { color: var(--eco-danger);  border-color: rgba(239, 68, 68, 0.4); }
+
+/* ===========================================================================
+   10. NAVBAR AND MOBILE BOTTOM NAVIGATION
+   =========================================================================== */
+
+.eco-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  transition: background-color var(--eco-transition), backdrop-filter var(--eco-transition),
+    border-color var(--eco-transition), box-shadow var(--eco-transition);
+  background: transparent;
+  border-bottom: 1px solid transparent;
+}
+
+/* JavaScript adds this class once the page is scrolled past 80px */
+.eco-navbar-scrolled {
+  background: var(--eco-glass-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--eco-glass-border);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+}
+
+.eco-nav-link {
+  color: var(--eco-text-muted);
+  font-weight: 500;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--eco-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  transition: color var(--eco-transition), background-color var(--eco-transition);
+  position: relative;
+}
+
+.eco-nav-link:hover {
+  color: var(--eco-text);
+  background: rgba(var(--eco-primary-rgb), 0.07);
+  opacity: 1;
+}
+
+.eco-nav-link-active {
+  color: var(--eco-primary);
+}
+
+/* The bottom navigation bar shown only on phones */
+.eco-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1040;
+  display: none; /* the media query at the end turns this on */
+  background: var(--eco-glass-bg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-top: 1px solid var(--eco-glass-border);
+  padding: 0.4rem 0 0.3rem;
+}
+
+.eco-bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.68rem;
+  color: var(--eco-text-muted);
+  padding: 0.3rem 0;
+  transition: color var(--eco-transition);
+}
+
+.eco-bottom-nav-item.active {
+  color: var(--eco-primary);
+}
+
+/* ===========================================================================
+   11. THIRD-PARTY OVERRIDES
+   =========================================================================== */
+
+/* NProgress - the thin loading bar across the top on route changes */
+#nprogress .bar {
+  background: linear-gradient(90deg, var(--eco-primary), var(--eco-purple)) !important;
+  height: 3px !important;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 12px var(--eco-primary), 0 0 6px var(--eco-primary) !important;
+}
+
+#nprogress .spinner {
+  display: none; /* the corner spinner duplicates our own loaders */
+}
+
+/* react-datepicker, used on the Reports page */
+.react-datepicker {
+  background-color: var(--eco-card) !important;
+  border: 1px solid var(--eco-glass-border) !important;
+  border-radius: var(--eco-radius) !important;
+  font-family: 'Inter', sans-serif !important;
+  color: var(--eco-text) !important;
+}
+
+.react-datepicker__header {
+  background-color: var(--eco-bg-alt) !important;
+  border-bottom: 1px solid var(--eco-border) !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name,
+.react-datepicker__day {
+  color: var(--eco-text) !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: rgba(var(--eco-primary-rgb), 0.2) !important;
+  border-radius: 6px !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: var(--eco-primary) !important;
+  color: #04140c !important;
+  border-radius: 6px !important;
+}
+
+.react-datepicker__day--disabled {
+  color: var(--eco-text-muted) !important;
+  opacity: 0.4;
+}
+
+/* ===========================================================================
+   12. ANIMATIONS
+   =========================================================================== */
+
+@keyframes eco-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes eco-gradient-shift {
+  0%,
+  100% { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+}
+
+@keyframes eco-float {
+  0%,
+  100% { transform: translateY(0); }
+  50%  { transform: translateY(-12px); }
+}
+
+@keyframes eco-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--eco-primary-rgb), 0.5); }
+  70%  { box-shadow: 0 0 0 14px rgba(var(--eco-primary-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--eco-primary-rgb), 0); }
+}
+
+@keyframes eco-spin {
+  to { transform: rotate(360deg); }
+}
+
+.eco-float { animation: eco-float 5s ease-in-out infinite; }
+.eco-pulse { animation: eco-pulse-ring 2.2s infinite; }
+
+/* GSAP ScrollTrigger reveals: elements start hidden, the hook adds .eco-revealed */
+.eco-reveal {
+  opacity: 0;
+  transform: translateY(36px);
+}
+
+.eco-revealed {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+/* ===========================================================================
+   13. RESPONSIVE
+   =========================================================================== */
+
+@media (max-width: 768px) {
+  body {
+    font-size: 15px;
+  }
+
+  .eco-section {
+    padding: 3rem 0;
+  }
+
+  .eco-card {
+    padding: 1.15rem;
+  }
+
+  /* Show the bottom navigation and leave room for it above the page content */
+  .eco-bottom-nav {
+    display: flex;
+  }
+
+  .eco-page-content {
+    padding-bottom: 76px;
+  }
+}
+
+/* ===========================================================================
+   14. REDUCED MOTION (ACCESSIBILITY)
+
+   Some people get motion sickness from animation, and their operating system
+   lets them ask for less of it. This block honours that request by switching
+   nearly all movement off. Framer Motion and GSAP are handled separately in
+   JavaScript, because CSS cannot reach inside them.
+   =========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .eco-card-hover:hover,
+  .eco-btn:hover:not(:disabled),
+  .eco-btn:active:not(:disabled) {
+    transform: none; /* no lift, no scale, no press */
+  }
+
+  /* Reveal elements immediately rather than fading them in on scroll */
+  .eco-reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .eco-float,
+  .eco-pulse {
+    animation: none;
+  }
+}

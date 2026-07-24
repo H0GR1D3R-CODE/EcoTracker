@@ -1,0 +1,339 @@
+# EcoTrack/backend/routes/carbon.py
+"""
+Carbon calculation and record routes.
+
+THE CORE ALGORITHM OF THE WHOLE PROJECT
+---------------------------------------
+    emission (kgCO2) = quantity x emissionFactor
+
+Example: driving 30 km in a petrol car
+    30 km  x  0.141 kgCO2/km  =  4.23 kgCO2
+
+The emission factor is never hardcoded here. It is read from the
+emissionFactors collection in Firestore every time, so an admin can update a
+factor when a new DEFRA or IPCC report is published without any code change.
+
+Mounted at /api/carbon
+"""
+
+from datetime import date, timedelta
+
+from flask import Blueprint, g, request
+from google.cloud import firestore as gcloud_firestore
+
+from config import Config, get_db
+from routes import (
+    api_error,
+    api_success,
+    fetch_user_records,
+    group_by_category,
+    month_bounds,
+    parse_date_string,
+    parse_month_string,
+    require_auth,
+    serialize_record,
+    today_string,
+    total_emission,
+)
+
+carbon_bp = Blueprint("carbon", __name__, url_prefix="/api/carbon")
+
+# A single entry larger than this is almost certainly a typo (someone typing
+# their phone number into the quantity box), so we reject it with a clear message.
+MAX_QUANTITY = 1_000_000
+
+# Nothing in this app should be dated before the year 2000
+EARLIEST_DATE = "2000-01-01"
+
+# Severity thresholds in kgCO2, used for the colour-coded badge on the
+# Calculator result card: green / amber / red
+SEVERITY_LOW_MAX = 5.0
+SEVERITY_MEDIUM_MAX = 20.0
+
+# How many days of history the "compared to your daily average" ring looks at
+DAILY_AVERAGE_WINDOW_DAYS = 30
+
+
+# ---------------------------------------------------------------------------
+# Helpers used only inside this file
+# ---------------------------------------------------------------------------
+
+def _find_emission_factor(category, sub_type, preferred_region=""):
+    """
+    Look up one emission factor in Firestore.
+
+    Returns (factor_dict, None) on success or (None, error_message) if missing.
+
+    When several documents exist for the same category and subType - which is
+    exactly what happens once region-specific factors are added - the one
+    matching the user's own region wins. Otherwise the first match is used.
+    """
+    db = get_db()
+    matches = list(
+        db.collection(Config.COLLECTION_EMISSION_FACTORS)
+        .where(filter=gcloud_firestore.FieldFilter("category", "==", category))
+        .where(filter=gcloud_firestore.FieldFilter("subType", "==", sub_type))
+        .stream()
+    )
+
+    if not matches:
+        return None, (
+            f"No emission factor is configured for {category}/{sub_type}. "
+            "Please pick a different option."
+        )
+
+    chosen = matches[0].to_dict()
+
+    # Prefer a factor defined for this user's region, if one exists
+    if preferred_region:
+        for doc in matches:
+            data = doc.to_dict()
+            if str(data.get("region", "")).lower() == preferred_region.lower():
+                chosen = data
+                break
+
+    return {
+        "factorValue": float(chosen.get("factorValue", 0)),
+        "unit": chosen.get("unit", ""),
+        "region": chosen.get("region", ""),
+        "source": chosen.get("source", ""),
+    }, None
+
+
+def _severity_for(emission):
+    """Colour band for the result badge on the Calculator page."""
+    if emission < SEVERITY_LOW_MAX:
+        return "low"
+    if emission <= SEVERITY_MEDIUM_MAX:
+        return "medium"
+    return "high"
+
+
+def _user_region(uid):
+    """Read the user's region so region-specific factors can be applied."""
+    db = get_db()
+    user_doc = db.collection(Config.COLLECTION_USERS).document(uid).get()
+    if not user_doc.exists:
+        return ""
+    return user_doc.to_dict().get("region", "")
+
+
+def _daily_average(uid):
+    """
+    The user's average emissions per day over the last 30 days.
+
+    Dividing by a fixed 30 rather than by "days that had entries" is deliberate:
+    a day with no entries is still a real day, and counting it keeps the number
+    honest instead of flattering the user for forgetting to log.
+    """
+    window_start = (date.today() - timedelta(days=DAILY_AVERAGE_WINDOW_DAYS)).isoformat()
+    records = fetch_user_records(uid, start_date=window_start, end_date=today_string())
+    if not records:
+        return 0.0
+    return round(total_emission(records) / DAILY_AVERAGE_WINDOW_DAYS, 2)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/carbon/calculate
+# ---------------------------------------------------------------------------
+
+@carbon_bp.route("/calculate", methods=["POST"])
+@require_auth
+def calculate():
+    """
+    Calculate an emission, save it, and return it with display context.
+
+    Body: {"category": "transport", "subType": "petrol_car",
+           "quantity": 30, "unit": "km", "recordedDate": "2026-07-24"}
+    """
+    body = request.get_json(silent=True) or {}
+
+    category = str(body.get("category", "")).strip().lower()
+    sub_type = str(body.get("subType", "")).strip().lower()
+    unit = str(body.get("unit", "")).strip()
+    recorded_date_raw = body.get("recordedDate") or today_string()
+
+    # --- validate category and subType ---
+    if category not in Config.CATEGORIES:
+        return api_error(
+            f"Invalid category. Choose one of: {', '.join(Config.CATEGORIES)}.",
+            400,
+            code="invalid_category",
+        )
+
+    if not sub_type:
+        return api_error("subType is required.", 400, code="missing_sub_type")
+
+    # --- validate quantity ---
+    try:
+        # float() accepts both 30 and "30", which keeps the frontend simple
+        quantity = float(body.get("quantity"))
+    except (TypeError, ValueError):
+        return api_error("Quantity must be a number.", 400, code="invalid_quantity")
+
+    if quantity <= 0:
+        return api_error("Quantity must be greater than zero.", 400, code="invalid_quantity")
+
+    if quantity > MAX_QUANTITY:
+        return api_error(
+            f"Quantity looks too large. Please enter a value under {MAX_QUANTITY:,}.",
+            400,
+            code="quantity_too_large",
+        )
+
+    # --- validate the date ---
+    recorded_date, date_error = parse_date_string(recorded_date_raw, "recordedDate")
+    if date_error:
+        return api_error(date_error, 400, code="invalid_date")
+
+    if recorded_date > date.today():
+        return api_error("You cannot log emissions for a future date.", 400, code="future_date")
+
+    if recorded_date.isoformat() < EARLIEST_DATE:
+        return api_error(f"Date must be on or after {EARLIEST_DATE}.", 400, code="date_too_early")
+
+    # --- look up the factor and do the maths ---
+    factor, factor_error = _find_emission_factor(category, sub_type, _user_region(g.uid))
+    if factor_error:
+        return api_error(factor_error, 404, code="factor_not_found")
+
+    # If the frontend sent a unit, it must agree with the factor's unit.
+    # Catching this stops silently wrong data - for example a quantity entered
+    # in miles being multiplied by a per-kilometre factor.
+    if unit and factor["unit"] and unit.lower() != factor["unit"].lower():
+        return api_error(
+            f"Unit mismatch: {category}/{sub_type} is measured in "
+            f"'{factor['unit']}', not '{unit}'.",
+            400,
+            code="unit_mismatch",
+        )
+
+    # THE CALCULATION
+    emission = round(quantity * factor["factorValue"], 3)
+
+    # --- save the record ---
+    db = get_db()
+    record_ref = db.collection(Config.COLLECTION_CARBON_RECORDS).document()
+    record_ref.set({
+        "userId": g.uid,  # taken from the verified token, never from the request body
+        "category": category,
+        "subType": sub_type,
+        "quantity": quantity,
+        "unit": factor["unit"] or unit,  # the factor's unit is the authoritative one
+        "emissionKgco2": emission,
+        "recordedDate": recorded_date.isoformat(),
+        "createdAt": gcloud_firestore.SERVER_TIMESTAMP,
+    })
+
+    saved = serialize_record(record_ref.get())
+
+    # --- extra context for the animated result card ---
+    daily_average = _daily_average(g.uid)
+    percent_of_average = (
+        round((emission / daily_average) * 100, 1) if daily_average > 0 else None
+    )
+
+    return api_success(
+        {
+            "record": saved,
+            "emissionKgco2": emission,
+            "factorUsed": factor["factorValue"],
+            "factorSource": factor["source"],
+            "severity": _severity_for(emission),
+            "dailyAverage": daily_average,
+            "percentOfDailyAverage": percent_of_average,
+        },
+        message=f"Logged {emission} kg CO2 for {sub_type.replace('_', ' ')}.",
+        status=201,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/carbon/records
+# ---------------------------------------------------------------------------
+
+@carbon_bp.route("/records", methods=["GET"])
+@require_auth
+def list_records():
+    """
+    List the signed-in user's records.
+
+    Query parameters (both optional, month wins if you send both):
+        ?month=2026-07   every record in that month
+        ?year=2026       every record in that year
+    With neither, the current month is returned.
+    """
+    month_param = (request.args.get("month") or "").strip()
+    year_param = (request.args.get("year") or "").strip()
+
+    if month_param:
+        parsed, error = parse_month_string(month_param)
+        if error:
+            return api_error(error, 400, code="invalid_month")
+        year, month = parsed
+        start_date, end_date = month_bounds(year, month)
+        period = month_param
+
+    elif year_param:
+        if not year_param.isdigit() or len(year_param) != 4:
+            return api_error("year must be a 4-digit number, e.g. 2026.", 400, code="invalid_year")
+        year = int(year_param)
+        if year < 2000 or year > date.today().year + 1:
+            return api_error(
+                f"year must be between 2000 and {date.today().year + 1}.",
+                400,
+                code="invalid_year",
+            )
+        start_date, end_date = f"{year}-01-01", f"{year}-12-31"
+        period = year_param
+
+    else:
+        today = date.today()
+        start_date, end_date = month_bounds(today.year, today.month)
+        period = f"{today.year}-{today.month:02d}"
+
+    records = fetch_user_records(g.uid, start_date=start_date, end_date=end_date)
+
+    return api_success({
+        "records": records,
+        "count": len(records),
+        "totalEmission": total_emission(records),
+        "categoryBreakdown": group_by_category(records),
+        "period": period,
+        "periodStart": start_date,
+        "periodEnd": end_date,
+    })
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/carbon/records/<record_id>
+# ---------------------------------------------------------------------------
+
+@carbon_bp.route("/records/<record_id>", methods=["DELETE"])
+@require_auth
+def delete_record(record_id):
+    """
+    Delete one record.
+
+    The ownership check on the line marked below is the important part: without
+    it, any logged-in user could delete any other user's data just by guessing a
+    document id. Verifying the token proves WHO you are; this proves the record
+    is YOURS.
+    """
+    db = get_db()
+    record_ref = db.collection(Config.COLLECTION_CARBON_RECORDS).document(record_id)
+    record_doc = record_ref.get()
+
+    if not record_doc.exists:
+        return api_error("Record not found.", 404, code="record_not_found")
+
+    # OWNERSHIP CHECK
+    if record_doc.to_dict().get("userId") != g.uid:
+        return api_error(
+            "You do not have permission to delete this record.",
+            403,
+            code="not_record_owner",
+        )
+
+    record_ref.delete()
+    return api_success({"id": record_id}, message="Record deleted successfully.")
