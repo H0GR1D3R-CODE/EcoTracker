@@ -124,9 +124,12 @@ function CountUpStat({ value, suffix, label, decimals }) {
         className="eco-gradient-text"
         style={{
           fontFamily: 'Space Grotesk, sans-serif',
-          fontSize: 'clamp(1.7rem, 4vw, 2.5rem)',
+          fontSize: 'clamp(1.5rem, 3.4vw, 2.2rem)',
           fontWeight: 700,
           lineHeight: 1.1,
+          // Without this, "12,480 kg" breaks across two lines in a narrow
+          // grid column and the row loses its alignment
+          whiteSpace: 'nowrap',
         }}
       >
         {formatted}
@@ -213,10 +216,17 @@ export default function Home() {
     () => ({
       fullScreen: { enable: false }, // stay inside the hero, not over the whole page
       background: { color: { value: 'transparent' } },
-      fpsLimit: 60,
-      detectRetina: true,
+      // 45 rather than 60: the particles drift slowly, so a third fewer frames
+      // is invisible to the eye but noticeably cheaper on a laptop GPU
+      fpsLimit: 45,
+      // detectRetina renders at 2x pixel density on high-DPI screens, which
+      // quadruples the pixels being drawn every frame. Off is much smoother.
+      detectRetina: false,
       particles: {
-        number: { value: 42, density: { enable: true, width: 1400, height: 900 } },
+        // Particle count is the main cost driver here, because linking checks
+        // the distance between every PAIR of particles on every frame. 26
+        // particles is 325 pairs per frame; 42 would be 861 - nearly triple.
+        number: { value: 26, density: { enable: true, width: 1400, height: 900 } },
         color: { value: ['#00ff87', '#7c3aed', '#00c96b'] },
         shape: { type: 'circle' },
         opacity: { value: { min: 0.15, max: 0.5 } },
@@ -231,22 +241,30 @@ export default function Home() {
         },
         links: {
           enable: true,
-          distance: 145,
+          distance: 105, // shorter links mean fewer lines drawn per frame
           color: '#00ff87',
           opacity: 0.12,
           width: 1,
         },
       },
+      // Hover interaction is deliberately switched off. "grab" mode rebuilds
+      // the link web on every single mouse-move event, which is the biggest
+      // cause of stutter on this page - and it is a background decoration that
+      // most people never notice they can interact with.
       interactivity: {
-        events: { onHover: { enable: true, mode: 'grab' } },
-        modes: { grab: { distance: 150, links: { opacity: 0.28 } } },
+        events: { onHover: { enable: false }, onClick: { enable: false } },
       },
     }),
     []
   );
 
   // --- scroll animations ---
-  const heroContentRef = useParallax(0.12);
+  // The parallax drifts the BACKGROUND layer, not the headline. Transforming
+  // the text subtree on every scroll frame forces the browser to re-rasterise
+  // it constantly, which is what made scrolling stutter. Moving only the two
+  // blurred orbs is cheap, and background-slower-than-foreground is the effect
+  // parallax is supposed to create anyway.
+  const heroBackgroundRef = useParallax(0.18);
   const statsRef = useScrollReveal({ y: 30 });
   const categoriesRef = useStaggerReveal('.category-chip', { stagger: 0.06, y: 24 });
   const featuresRef = useStaggerReveal('.feature-card', { stagger: 0.12 });
@@ -296,18 +314,21 @@ export default function Home() {
           />
         )}
 
-        {/* Coloured glows */}
-        <div
-          className="eco-glow-orb"
-          style={{ width: 520, height: 520, background: 'var(--eco-primary)', top: '-12%', left: '-8%' }}
-        />
-        <div
-          className="eco-glow-orb"
-          style={{ width: 440, height: 440, background: 'var(--eco-purple)', bottom: '-14%', right: '-6%' }}
-        />
+        {/* Coloured glows, grouped into one layer so the parallax moves them
+            together with a single transform rather than one each */}
+        <div ref={heroBackgroundRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <div
+            className="eco-glow-orb"
+            style={{ width: 460, height: 460, background: 'var(--eco-primary)', top: '-12%', left: '-8%' }}
+          />
+          <div
+            className="eco-glow-orb"
+            style={{ width: 400, height: 400, background: 'var(--eco-purple)', bottom: '-14%', right: '-6%' }}
+          />
+        </div>
 
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
-          <div ref={heroContentRef} style={{ maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
             {/* SDG 13 badge with an animated gradient border */}
             <motion.div
               initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
