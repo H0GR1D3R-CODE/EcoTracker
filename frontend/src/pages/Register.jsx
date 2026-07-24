@@ -31,6 +31,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import SelectField from '../components/SelectField';
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -543,27 +544,19 @@ export default function Register() {
               {step === 3 && (
                 <>
                   <div className="mb-3">
-                    <div className="form-floating">
-                      <select
-                        id="reg-region"
-                        name="region"
-                        className={`form-select ${fieldClass('region')}`}
-                        value={form.region}
-                        onChange={handleChange}
-                        onBlur={handleBlur}
-                      >
-                        {REGIONS.map((region) => (
-                          <option key={region} value={region}>
-                            {region}
-                          </option>
-                        ))}
-                      </select>
-                      <label htmlFor="reg-region">
-                        <MapPin size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                        Region
-                      </label>
-                    </div>
+                    <SelectField
+                      id="reg-region"
+                      label="Region"
+                      value={form.region}
+                      // SelectField hands back the value directly rather than an
+                      // event, so it is reshaped to match the other fields
+                      onChange={(region) =>
+                        setForm((previous) => ({ ...previous, region }))
+                      }
+                      options={REGIONS.map((region) => ({ value: region, label: region }))}
+                    />
                     <div className="eco-field-hint">
+                      <MapPin size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
                       Emission factors vary by region — this keeps your results accurate.
                     </div>
                   </div>

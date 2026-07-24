@@ -36,6 +36,7 @@ import { carbonApi, factorsApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
 import GoalRing from '../components/GoalRing';
 import ImpactEquivalents from '../components/ImpactEquivalents';
+import SelectField from '../components/SelectField';
 import SkeletonCard from '../components/SkeletonCard';
 import {
   CATEGORY_META,
@@ -361,25 +362,22 @@ export default function Calculator() {
           </p>
 
           <form className="eco-form" onSubmit={handleSubmit} noValidate>
-            {/* Sub-type */}
+            {/* Sub-type. The factor goes in the hint line rather than the label,
+                so the option reads as a name with its evidence underneath
+                instead of one long run-on string. */}
             <div className="mb-3">
-              <div className="form-floating">
-                <select
-                  id="calc-subtype"
-                  className={`form-select ${fieldClass('subType')}`}
-                  value={subType}
-                  onChange={(event) => setSubType(event.target.value)}
-                  disabled={submitting || availableSubTypes.length === 0}
-                >
-                  {availableSubTypes.length === 0 && <option value="">No options available</option>}
-                  {availableSubTypes.map((item) => (
-                    <option key={item.subType} value={item.subType}>
-                      {formatSubType(item.subType)} — {item.factorValue} kg CO₂/{item.unit}
-                    </option>
-                  ))}
-                </select>
-                <label htmlFor="calc-subtype">Type</label>
-              </div>
+              <SelectField
+                id="calc-subtype"
+                label="Type"
+                value={subType}
+                onChange={setSubType}
+                disabled={submitting || availableSubTypes.length === 0}
+                options={availableSubTypes.map((item) => ({
+                  value: item.subType,
+                  label: formatSubType(item.subType),
+                  hint: `${item.factorValue} kg CO₂ per ${item.unit} · ${item.source}`,
+                }))}
+              />
             </div>
 
             {/* Quantity */}

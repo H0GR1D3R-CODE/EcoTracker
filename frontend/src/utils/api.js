@@ -262,6 +262,27 @@ export const adminApi = {
 };
 
 // ---------------------------------------------------------------------------
+// ASSISTANT
+//
+// The Anthropic API key lives only on the Flask server. The browser never
+// holds it and never calls Anthropic directly - every request below goes to
+// our own backend, which verifies the Firebase token before spending anything.
+// ---------------------------------------------------------------------------
+
+export const assistantApi = {
+  // Called once on load so the UI can hide the assistant entirely when the
+  // server has no API key configured
+  getStatus: () => api.get('/api/assistant/status').then(unwrap),
+
+  // history is [{role: 'user'|'assistant', content: string}]
+  chat: (message, history = []) =>
+    api.post('/api/assistant/chat', { message, history }).then(unwrap),
+
+  summarise: (periodStart, periodEnd) =>
+    api.post('/api/assistant/summary', { periodStart, periodEnd }).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
 // HEALTH (public - used to check whether the backend is awake)
 // ---------------------------------------------------------------------------
 
