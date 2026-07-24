@@ -66,10 +66,10 @@ class Config:
     # Get one free (no card needed) at https://aistudio.google.com
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-    # Which Gemini model the assistant uses. The "flash" models are the fast,
-    # free-tier-friendly ones. If this exact name is ever retired, the assistant
-    # returns a clear config error - change it here rather than in the code.
-    ASSISTANT_MODEL = os.getenv("ASSISTANT_MODEL", "gemini-2.5-flash")
+    # Which Gemini model the assistant uses. "gemini-flash-latest" is an alias
+    # Google keeps pointed at a current fast model, so it survives the retirement
+    # of any specific version. Override in .env if you want to pin a version.
+    ASSISTANT_MODEL = os.getenv("ASSISTANT_MODEL", "gemini-flash-latest")
 
     # Firestore collection names kept in one place so a typo can only happen once.
     COLLECTION_USERS = "users"
