@@ -59,6 +59,18 @@ class Config:
     # Which frontend URLs are allowed to call this API from a browser
     CORS_ORIGINS = _split_origins(os.getenv("CORS_ORIGINS", "http://localhost:5173"))
 
+    # --- EcoTrack Assistant (Google Gemini) ---
+    # This key is a REAL secret. It lives only on the server: the React app
+    # never sees it and never talks to Google directly. Every assistant request
+    # goes through Flask, which checks the user's Firebase token first.
+    # Get one free (no card needed) at https://aistudio.google.com
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+    # Which Gemini model the assistant uses. The "flash" models are the fast,
+    # free-tier-friendly ones. If this exact name is ever retired, the assistant
+    # returns a clear config error - change it here rather than in the code.
+    ASSISTANT_MODEL = os.getenv("ASSISTANT_MODEL", "gemini-2.5-flash")
+
     # Firestore collection names kept in one place so a typo can only happen once.
     COLLECTION_USERS = "users"
     COLLECTION_CARBON_RECORDS = "carbonRecords"

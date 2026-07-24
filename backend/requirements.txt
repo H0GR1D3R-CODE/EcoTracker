@@ -6,6 +6,13 @@ Flask-Cors==5.0.0
 firebase-admin==6.6.0
 python-dotenv==1.0.1
 
+# Powers the EcoTrack Assistant (routes/assistant.py).
+# Google AI Studio has a free tier that needs no credit card, which is why the
+# assistant uses Gemini rather than a paid API.
+# The app still runs without this installed - the assistant routes simply
+# report that the feature is unavailable instead of crashing the server.
+google-genai>=2.0.0
+
 # gunicorn is the production web server used by Render.
 # It is not needed on Windows for local development, but keeping it here
 # means Render installs it automatically during deployment.

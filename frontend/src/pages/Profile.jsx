@@ -17,6 +17,7 @@ import { AlertCircle, Check, Mail, MapPin, Save, Shield, User } from 'lucide-rea
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import SelectField from '../components/SelectField';
 import { formatDate, getInitials } from '../utils/formatters';
 
 const REGIONS = [
@@ -244,33 +245,24 @@ export default function Profile() {
           </div>
 
           <div className="mb-3">
-            <div className="form-floating">
-              <select
-                id="profile-region"
-                name="region"
-                className={`form-select ${fieldClass('region')}`}
-                value={form.region}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                disabled={saving}
-              >
-                {/* If the saved region is not in the list (for example an older
-                    account), add it so the dropdown does not silently change it */}
-                {!REGIONS.includes(form.region) && form.region && (
-                  <option value={form.region}>{form.region}</option>
-                )}
-                {REGIONS.map((region) => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
-              <label htmlFor="profile-region">
-                <MapPin size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                Region
-              </label>
-            </div>
+            <SelectField
+              id="profile-region"
+              label="Region"
+              value={form.region}
+              onChange={(region) => setForm((previous) => ({ ...previous, region }))}
+              disabled={saving}
+              options={[
+                // If the saved region is not in the standard list (an older
+                // account, or one edited by hand), it is added at the top so
+                // opening the dropdown cannot silently change the saved value
+                ...(!REGIONS.includes(form.region) && form.region
+                  ? [{ value: form.region, label: form.region }]
+                  : []),
+                ...REGIONS.map((region) => ({ value: region, label: region })),
+              ]}
+            />
             <div className="eco-field-hint">
+              <MapPin size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
               Used to pick region-specific emission factors where they exist.
             </div>
           </div>

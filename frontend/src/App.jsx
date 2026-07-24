@@ -11,6 +11,7 @@ import { AlertTriangle, RotateCw } from 'lucide-react';
 
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import Assistant from './components/Assistant';
 import { useTheme } from './context/ThemeContext';
 
 import Home from './pages/Home';
@@ -239,6 +240,11 @@ export default function App() {
           </Routes>
         </AnimatePresence>
       </ErrorBoundary>
+
+      {/* Rendered outside the ErrorBoundary and outside Routes so it floats
+          above every page and survives navigation. It returns null by itself
+          for signed-out visitors and when the server has no API key. */}
+      <Assistant />
     </>
   );
 }

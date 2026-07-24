@@ -401,6 +401,18 @@ a:hover {
   color: transparent; /* the floating label replaces the placeholder */
 }
 
+/* Fallback for any native <select> left in the app.
+   The open list of a native select is drawn by the operating system, and CSS
+   mostly cannot reach into it - on Windows that means a white popup with dark
+   text, which is invisible against this theme. Chrome does at least honour
+   colours set directly on <option>, so this stops the worst of it.
+   For anything user-facing, prefer components/SelectField.jsx, which replaces
+   the OS popup entirely and is fully themeable. */
+.eco-form .form-select option {
+  background-color: var(--eco-card);
+  color: var(--eco-text);
+}
+
 .eco-form .form-floating > label {
   color: var(--eco-text-muted);
   padding: 1rem 0.9rem;
@@ -701,6 +713,67 @@ a:hover {
 }
 
 /* ===========================================================================
+   ASSISTANT (floating chat)
+   =========================================================================== */
+
+.eco-assistant-fab {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  /* Below the mobile bottom nav (1040) so it can never cover navigation */
+  z-index: 1035;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--eco-primary), var(--eco-purple));
+  color: #04140c;
+  box-shadow: 0 8px 28px rgba(var(--eco-primary-rgb), 0.35);
+}
+
+.eco-assistant-panel {
+  position: fixed;
+  right: 1.5rem;
+  /* Sits just above the floating button */
+  bottom: calc(1.5rem + 54px + 0.75rem);
+  z-index: 1035;
+  width: 380px;
+  /* Tall enough to hold a conversation, short enough to never run off screen */
+  height: min(560px, calc(100dvh - 200px));
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem;
+}
+
+/* On phones the panel goes full width and lifts clear of the bottom nav */
+@media (max-width: 560px) {
+  .eco-assistant-fab {
+    right: 1rem;
+    bottom: 86px;
+  }
+
+  .eco-assistant-panel {
+    right: 0.75rem;
+    left: 0.75rem;
+    width: auto;
+    bottom: calc(86px + 54px + 0.6rem);
+    height: min(460px, calc(100dvh - 260px));
+  }
+}
+
+/* The assistant is a live control, not content - never print it */
+@media print {
+  .eco-assistant-fab,
+  .eco-assistant-panel {
+    display: none !important;
+  }
+}
+
+/* ===========================================================================
    11. THIRD-PARTY OVERRIDES
    =========================================================================== */
 
@@ -753,6 +826,83 @@ a:hover {
 .react-datepicker__day--disabled {
   color: var(--eco-text-muted) !important;
   opacity: 0.4;
+}
+
+/* react-datepicker renders its input inside a wrapper div that is inline-block
+   by default, which makes it narrower than the fields beside it */
+.eco-datepicker-wrap,
+.eco-datepicker-wrap .react-datepicker__input-container {
+  display: block;
+  width: 100%;
+}
+
+.eco-datepicker-wrap input {
+  width: 100%;
+  background-color: rgba(var(--eco-primary-rgb), 0.03);
+  border: 1px solid var(--eco-border);
+  border-radius: var(--eco-radius-sm);
+  color: var(--eco-text);
+  padding: 0.7rem 0.9rem;
+  min-height: 46px;
+}
+
+.eco-datepicker-wrap input:focus {
+  border-color: var(--eco-primary);
+  box-shadow: 0 0 0 3px rgba(var(--eco-primary-rgb), 0.15);
+  outline: none;
+}
+
+.eco-datepicker-wrap input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ===========================================================================
+   PRINT
+   The Reports page offers "Print / Save as PDF". A browser's print-to-PDF is a
+   perfectly good report export and costs no extra library - but the page has to
+   be told what to leave out, and that dark backgrounds must not be printed.
+   =========================================================================== */
+
+@media print {
+  /* Anything the reader does not need on paper */
+  .eco-no-print,
+  .eco-navbar,
+  .eco-bottom-nav,
+  footer {
+    display: none !important;
+  }
+
+  /* Print on white with black text regardless of the on-screen theme -
+     printing a near-black page wastes an entire ink cartridge */
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .eco-card {
+    background: #ffffff !important;
+    border: 1px solid #cccccc !important;
+    box-shadow: none !important;
+    /* Stops a card being split across two pages mid-sentence */
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .eco-text-muted {
+    color: #444444 !important;
+  }
+
+  /* Gradient text prints as nothing at all, because the fill is transparent */
+  .eco-gradient-text {
+    -webkit-text-fill-color: #000000 !important;
+    color: #000000 !important;
+    background: none !important;
+  }
+
+  .eco-glow-orb {
+    display: none !important;
+  }
 }
 
 /* ===========================================================================
