@@ -196,9 +196,13 @@ a:hover {
 .eco-card {
   background: var(--eco-glass-bg);
   /* backdrop-filter blurs whatever sits BEHIND the element - this is the
-     single property that creates the frosted glass effect */
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+     single property that creates the frosted glass effect.
+     Kept at 12px rather than higher: backdrop-filter is one of the most
+     expensive things a browser can composite, and this page shows a dozen
+     cards at once. The visual difference above 12px is barely noticeable;
+     the scrolling cost is not. */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--eco-glass-border);
   border-radius: var(--eco-radius);
   box-shadow: var(--eco-shadow);
@@ -531,14 +535,21 @@ a:hover {
   background-size: 48px 48px;
 }
 
-/* A soft coloured glow, positioned behind hero content */
+/* A soft coloured glow, positioned behind hero content.
+   blur() is expensive because the browser has to render the shape offscreen,
+   blur it, then composite it back - every frame it changes. 60px still reads
+   as a soft glow but costs far less than 90px on a laptop GPU.
+   translateZ(0) promotes the orb to its own compositor layer, so scrolling the
+   page moves the layer instead of re-blurring it from scratch. */
 .eco-glow-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.25;
+  filter: blur(60px);
+  opacity: 0.22;
   pointer-events: none; /* so it never blocks clicks on what is above it */
   z-index: 0;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .eco-section {
@@ -547,14 +558,19 @@ a:hover {
 }
 
 .eco-hero {
-  min-height: 100vh;
-  /* dvh accounts for the mobile address bar hiding on scroll; the 100vh line
-     above stays as a fallback for browsers that do not understand dvh */
-  min-height: 100dvh;
+  /* The navbar is 68px tall and sits ABOVE this section in the page flow.
+     A full 100dvh here would make the hero overflow the screen by exactly that
+     much, pushing the top of the headline up underneath the navbar. Subtracting
+     the navbar height is what keeps the whole hero visible without scrolling.
+     The 100vh line is a fallback for browsers that do not understand dvh. */
+  min-height: calc(100vh - 68px);
+  min-height: calc(100dvh - 68px);
   display: flex;
   align-items: center;
   position: relative;
   overflow: hidden;
+  /* Breathing room so content never touches the navbar even on short screens */
+  padding: 3.5rem 0 3rem;
 }
 
 /* Small rounded label, e.g. the SDG 13 badge */
