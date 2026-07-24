@@ -12,9 +12,9 @@
 // Every one of those effects checks prefersReducedMotion first, because
 // animation that cannot be switched off is an accessibility failure.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useSpring } from 'framer-motion';
 import Particles, { initParticlesEngine } from '@tsparticles/react';
 import { loadSlim } from '@tsparticles/slim';
 import {
@@ -42,13 +42,21 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useCounter } from '../hooks/useCounter';
-import { useScrollReveal, useStaggerReveal, useParallax } from '../hooks/useScrollReveal';
+import { useScrollReveal, useStaggerReveal } from '../hooks/useScrollReveal';
 
 // ---------------------------------------------------------------------------
 // PAGE DATA
 // The statistics are placeholder figures for the landing page only. Every
 // number a signed-in user sees is calculated from their own real records.
 // ---------------------------------------------------------------------------
+
+// The headline is split into words so each one can be revealed separately.
+// Splitting in the markup rather than with .split(' ') keeps the line break
+// under our control instead of leaving it to the browser.
+const HEADLINE_LINES = [
+  { words: ['Know', 'your', 'carbon.'], accent: false },
+  { words: ['Then', 'change', 'it.'], accent: true },
+];
 
 const HERO_STATS = [
   { value: 12480, suffix: ' kg', label: 'CO₂ tracked', decimals: 0 },
@@ -143,53 +151,68 @@ function CountUpStat({ value, suffix, label, decimals }) {
 }
 
 // ---------------------------------------------------------------------------
-// A feature card that tilts in 3D towards the mouse
+// One word of the headline, revealed by sliding up from behind a mask.
 //
-// The maths: work out where the pointer is inside the card as a fraction from
-// -0.5 to +0.5 on each axis, then rotate by that fraction times a maximum angle.
+// The trick is two nested spans: the outer one has overflow:hidden and acts as
+// a window, the inner one starts pushed fully below that window and slides up
+// into it. The word appears to rise out of nothing rather than just fading.
+//
+// It finishes at exactly y: 0, so the text ends up on whole pixels and renders
+// perfectly crisply once the animation is over.
 // ---------------------------------------------------------------------------
 
-function TiltCard({ children, disabled = false }) {
-  const cardRef = useRef(null);
-
-  const handleMouseMove = (event) => {
-    if (disabled || !cardRef.current) return;
-
-    const bounds = cardRef.current.getBoundingClientRect();
-    const xFraction = (event.clientX - bounds.left) / bounds.width - 0.5;
-    const yFraction = (event.clientY - bounds.top) / bounds.height - 0.5;
-
-    const MAX_TILT = 9; // degrees
-    // Y movement tilts around the X axis, hence the swap - and it is negated
-    // so the card leans towards the pointer rather than away from it
-    cardRef.current.style.transform =
-      `perspective(900px) rotateX(${-yFraction * MAX_TILT}deg) ` +
-      `rotateY(${xFraction * MAX_TILT}deg) translateY(-4px)`;
-  };
-
-  const handleMouseLeave = () => {
-    if (!cardRef.current) return;
-    cardRef.current.style.transform = '';
-  };
+function RevealWord({ word, delay, accent, reduced, isLast }) {
+  if (reduced) {
+    // No animation at all - the word is simply there
+    return (
+      <span className={accent ? 'eco-gradient-text' : undefined}>
+        {word}
+        {isLast ? '' : ' '}
+      </span>
+    );
+  }
 
   return (
-    <div
-      ref={cardRef}
-      className="eco-card"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        height: '100%',
-        transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
-        // transform-style keeps child elements in the same 3D space as the card
-        transformStyle: 'preserve-3d',
-        willChange: 'transform',
-      }}
-    >
-      {children}
-    </div>
+    <>
+      <span
+        style={{
+          display: 'inline-block',
+          overflow: 'hidden',
+          // Without this the mask sits on the text baseline and clips descenders
+          verticalAlign: 'bottom',
+          paddingBottom: '0.08em',
+        }}
+      >
+        <motion.span
+          style={{ display: 'inline-block' }}
+          className={accent ? 'eco-gradient-text' : undefined}
+          initial={{ y: '115%' }}
+          animate={{ y: 0 }}
+          transition={{ duration: 0.85, delay, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {word}
+        </motion.span>
+      </span>
+      {/* The space sits BETWEEN words, never after the last one. A trailing
+          space would add half a space of width to the line, which pushes
+          centred text visibly off to the left. */}
+      {!isLast && <span>&nbsp;</span>}
+    </>
   );
 }
+
+// NOTE ON INTERACTION DESIGN
+//
+// Nothing on this page follows the cursor except light. There were originally a
+// magnetic button and a tilting card here, and both were removed for the same
+// reason: an element that shifts position because the mouse is near it makes
+// the layout look unanchored, and it fights the user rather than responding to
+// them. You cannot aim at a button that moves as you approach it.
+//
+// Hover states are now symmetric and contained - the element grows or glows in
+// place, on its own centre, and never moves anything around it. Entrance
+// animations play once and stop. The only thing that tracks the pointer is the
+// spotlight in the hero, because light has no edges to look misaligned.
 
 // ---------------------------------------------------------------------------
 // THE PAGE
@@ -223,10 +246,7 @@ export default function Home() {
       // quadruples the pixels being drawn every frame. Off is much smoother.
       detectRetina: false,
       particles: {
-        // Particle count is the main cost driver here, because linking checks
-        // the distance between every PAIR of particles on every frame. 26
-        // particles is 325 pairs per frame; 42 would be 861 - nearly triple.
-        number: { value: 26, density: { enable: true, width: 1400, height: 900 } },
+        number: { value: 34, density: { enable: true, width: 1400, height: 900 } },
         color: { value: ['#00ff87', '#7c3aed', '#00c96b'] },
         shape: { type: 'circle' },
         opacity: { value: { min: 0.15, max: 0.5 } },
@@ -239,18 +259,15 @@ export default function Home() {
           straight: false,
           outModes: { default: 'out' },
         },
-        links: {
-          enable: true,
-          distance: 105, // shorter links mean fewer lines drawn per frame
-          color: '#00ff87',
-          opacity: 0.12,
-          width: 1,
-        },
+        // Links are off on purpose. Drawing them means measuring the distance
+        // between every PAIR of particles on every single frame - at 34
+        // particles that is 561 measurements per frame before a single line is
+        // even drawn. It was the largest slice of the stutter, and drifting
+        // motes suit a page about clean air better than a constellation web.
+        links: { enable: false },
       },
-      // Hover interaction is deliberately switched off. "grab" mode rebuilds
-      // the link web on every single mouse-move event, which is the biggest
-      // cause of stutter on this page - and it is a background decoration that
-      // most people never notice they can interact with.
+      // Hover interaction is off for the same reason: "grab" mode recalculated
+      // the entire field on every mouse-move event.
       interactivity: {
         events: { onHover: { enable: false }, onClick: { enable: false } },
       },
@@ -258,13 +275,36 @@ export default function Home() {
     []
   );
 
+  // --- cursor spotlight ---
+  // A soft light that follows the pointer around the hero.
+  //
+  // Note what this deliberately does NOT do: it never moves the headline or the
+  // paragraph. Drifting text with the cursor leaves every glyph sitting at a
+  // fractional pixel position, and the browser has to anti-alias it differently
+  // on every frame - which reads as blurry, unstable text rather than as motion.
+  // Type stays locked to the pixel grid; only light moves.
+  const spotlightX = useMotionValue(0);
+  const spotlightY = useMotionValue(0);
+  const [spotlightVisible, setSpotlightVisible] = useState(false);
+
+  // The spring is what stops the light being welded to the cursor - it trails
+  // slightly behind, which is what makes it feel like a light rather than a dot
+  const smoothSpotlightX = useSpring(spotlightX, { stiffness: 130, damping: 26, mass: 0.5 });
+  const smoothSpotlightY = useSpring(spotlightY, { stiffness: 130, damping: 26, mass: 0.5 });
+
+  const handleHeroPointerMove = (event) => {
+    if (prefersReducedMotion) return;
+
+    const bounds = event.currentTarget.getBoundingClientRect();
+    spotlightX.set(event.clientX - bounds.left);
+    spotlightY.set(event.clientY - bounds.top);
+
+    if (!spotlightVisible) setSpotlightVisible(true);
+  };
+
+  const handleHeroPointerLeave = () => setSpotlightVisible(false);
+
   // --- scroll animations ---
-  // The parallax drifts the BACKGROUND layer, not the headline. Transforming
-  // the text subtree on every scroll frame forces the browser to re-rasterise
-  // it constantly, which is what made scrolling stutter. Moving only the two
-  // blurred orbs is cheap, and background-slower-than-foreground is the effect
-  // parallax is supposed to create anyway.
-  const heroBackgroundRef = useParallax(0.18);
   const statsRef = useScrollReveal({ y: 30 });
   const categoriesRef = useStaggerReveal('.category-chip', { stagger: 0.06, y: 24 });
   const featuresRef = useStaggerReveal('.feature-card', { stagger: 0.12 });
@@ -304,7 +344,11 @@ export default function Home() {
   return (
     <div>
       {/* ================= HERO ================= */}
-      <section className="eco-hero eco-dot-grid">
+      <section
+        className="eco-hero eco-dot-grid"
+        onPointerMove={handleHeroPointerMove}
+        onPointerLeave={handleHeroPointerLeave}
+      >
         {/* Particle canvas, pinned behind everything else in the hero */}
         {particlesReady && !prefersReducedMotion && (
           <Particles
@@ -314,27 +358,59 @@ export default function Home() {
           />
         )}
 
-        {/* Coloured glows, grouped into one layer so the parallax moves them
-            together with a single transform rather than one each */}
-        <div ref={heroBackgroundRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        {/* Static ambient glows. These do not move: a slowly drifting background
+            behind sharp text is what made the page feel unsteady. */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <div
-            className="eco-glow-orb"
-            style={{ width: 460, height: 460, background: 'var(--eco-primary)', top: '-12%', left: '-8%' }}
+            className="eco-glow-orb eco-glow-orb-green"
+            style={{ width: 560, height: 560, top: '-16%', left: '-12%' }}
           />
           <div
-            className="eco-glow-orb"
-            style={{ width: 400, height: 400, background: 'var(--eco-purple)', bottom: '-14%', right: '-6%' }}
+            className="eco-glow-orb eco-glow-orb-purple"
+            style={{ width: 480, height: 480, bottom: '-18%', right: '-10%' }}
           />
         </div>
+
+        {/* The cursor spotlight. It is a fixed-size gradient that gets TRANSLATED
+            to the pointer, rather than a gradient whose position is recalculated -
+            translation is handled by the compositor and costs virtually nothing. */}
+        {!prefersReducedMotion && (
+          <motion.div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: 620,
+              height: 620,
+              // The negative margins centre the light on the cursor
+              marginLeft: -310,
+              marginTop: -310,
+              x: smoothSpotlightX,
+              y: smoothSpotlightY,
+              borderRadius: '50%',
+              background:
+                'radial-gradient(circle closest-side, rgba(0,255,135,0.13), rgba(124,58,237,0.07) 45%, transparent 100%)',
+              pointerEvents: 'none',
+              zIndex: 1,
+              opacity: spotlightVisible ? 1 : 0,
+              transition: 'opacity 0.45s ease',
+            }}
+          />
+        )}
 
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <div style={{ maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
             {/* SDG 13 badge with an animated gradient border */}
             <motion.div
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              style={{ display: 'inline-block', marginBottom: '1.6rem', position: 'relative' }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                display: 'inline-block',
+                marginBottom: '1.6rem',
+                position: 'relative',
+              }}
             >
               <div
                 className="eco-badge"
@@ -366,10 +442,10 @@ export default function Home() {
               )}
             </motion.div>
 
-            <motion.h1
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 26 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.08 }}
+            {/* Each word rises into place one after another, then stops dead.
+                No permanent transform is left behind, so the type is perfectly
+                sharp for as long as anyone actually reads it. */}
+            <h1
               style={{
                 // clamp() picks a size between the two limits based on screen
                 // width, so one line handles phones through to desktops
@@ -378,15 +454,28 @@ export default function Home() {
                 marginBottom: '1.2rem',
               }}
             >
-              Know your carbon.
-              <br />
-              <span className="eco-gradient-text">Then change it.</span>
-            </motion.h1>
+              {HEADLINE_LINES.map((line, lineIndex) => (
+                <span key={line.words.join('-')} style={{ display: 'block' }}>
+                  {line.words.map((word, wordIndex) => (
+                    <RevealWord
+                      key={word}
+                      word={word}
+                      accent={line.accent}
+                      reduced={prefersReducedMotion}
+                      isLast={wordIndex === line.words.length - 1}
+                      // Each word waits a little longer than the last, and the
+                      // second line starts after the first has finished
+                      delay={0.15 + lineIndex * 0.28 + wordIndex * 0.09}
+                    />
+                  ))}
+                </span>
+              ))}
+            </h1>
 
             <motion.p
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.16 }}
+              transition={{ duration: 0.7, delay: 0.72, ease: [0.22, 1, 0.36, 1] }}
               className="eco-text-muted"
               style={{
                 fontSize: 'clamp(1rem, 2.2vw, 1.18rem)',
@@ -400,9 +489,9 @@ export default function Home() {
             </motion.p>
 
             <motion.div
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.24 }}
+              transition={{ duration: 0.7, delay: 0.86, ease: [0.22, 1, 0.36, 1] }}
               style={{
                 display: 'flex',
                 gap: '0.85rem',
@@ -419,7 +508,11 @@ export default function Home() {
                 <ArrowRight size={18} />
               </Link>
 
-              <a href="#how-it-works" className="eco-btn eco-btn-outline" style={{ padding: '0.95rem 1.8rem' }}>
+              <a
+                href="#how-it-works"
+                className="eco-btn eco-btn-outline"
+                style={{ padding: '0.95rem 1.8rem' }}
+              >
                 See how it works
               </a>
             </motion.div>
@@ -536,7 +629,7 @@ export default function Home() {
                 // The GSAP selector and the .eco-reveal starting state must sit
                 // on the SAME element, or the wrapper stays at opacity 0 forever
                 <div key={feature.title} className="feature-card eco-reveal">
-                  <TiltCard disabled={prefersReducedMotion}>
+                  <div className="eco-card eco-card-hover" style={{ height: '100%' }}>
                     <div
                       style={{
                         width: 46,
@@ -556,7 +649,7 @@ export default function Home() {
                     <p className="eco-text-muted" style={{ fontSize: '0.92rem', margin: 0 }}>
                       {feature.body}
                     </p>
-                  </TiltCard>
+                  </div>
                 </div>
               );
             })}

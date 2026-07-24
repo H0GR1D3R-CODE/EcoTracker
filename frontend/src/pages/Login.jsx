@@ -125,7 +125,7 @@ export default function Login() {
         initial={prefersReducedMotion ? false : { opacity: 0, y: 26, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.4, 0, 0.2, 1] }}
-        className="eco-card"
+        className="eco-card eco-glass"
         style={{ width: '100%', maxWidth: 430, padding: '2.4rem 2rem', zIndex: 1 }}
       >
         {/* ---------- Header ---------- */}
