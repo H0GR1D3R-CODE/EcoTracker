@@ -1,0 +1,27 @@
+# EcoTrack/frontend/.gitignore
+
+# ---- Secrets: NEVER commit these ----
+.env
+.env.local
+.env.production
+
+# ---- Dependencies ----
+node_modules/
+
+# ---- Build output ----
+dist/
+dist-ssr/
+
+# ---- Firebase ----
+.firebase/
+firebase-debug.log
+
+# ---- Editor / OS junk ----
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# ---- Logs ----
+*.log
+npm-debug.log*

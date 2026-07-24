@@ -1,0 +1,32 @@
+<!-- EcoTrack/frontend/src/assets/logo.svg -->
+<!-- The EcoTrack mark: a leaf inside a circle, drawn with the brand gradient.
+     Import it in a component with:  import logo from '../assets/logo.svg'
+     then use it as an image source:  <img src={logo} alt="EcoTrack" /> -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="EcoTrack logo">
+  <defs>
+    <!-- The same green-to-purple gradient used on headings throughout the app -->
+    <linearGradient id="ecoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00ff87" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer ring -->
+  <circle cx="32" cy="32" r="29" fill="none" stroke="url(#ecoGradient)" stroke-width="3" />
+
+  <!-- Leaf body: two curves meeting at a point top and bottom -->
+  <path
+    d="M32 15 C 44 22, 46 38, 32 49 C 18 38, 20 22, 32 15 Z"
+    fill="url(#ecoGradient)"
+    opacity="0.9"
+  />
+
+  <!-- Central vein, drawn on top of the leaf in the dark background colour -->
+  <path
+    d="M32 18 L 32 47"
+    stroke="#0a0a0f"
+    stroke-width="2"
+    stroke-linecap="round"
+    opacity="0.55"
+  />
+</svg>

@@ -1,0 +1,28 @@
+# EcoTrack/backend/.gitignore
+
+# ---- Secrets: NEVER commit these ----
+.env
+.env.local
+serviceAccountKey.json
+*serviceAccount*.json
+firebase-adminsdk*.json
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# ---- Virtual environments ----
+venv/
+env/
+.venv/
+
+# ---- Editor / OS junk ----
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# ---- Logs ----
+*.log
