@@ -1,0 +1,50 @@
+# EcoTrack/.gitignore
+# Root ignore rules. backend/.gitignore and frontend/.gitignore add more on top
+# of these - having the rules here too means a secret cannot slip through if one
+# of those files is ever deleted by accident.
+
+# ===== SECRETS - never commit these =====
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.local
+**/.env.production
+!**/.env.example
+
+# Firebase service account keys (these grant full admin access to your database)
+serviceAccountKey.json
+**/serviceAccountKey.json
+*serviceAccount*.json
+firebase-adminsdk*.json
+
+# ===== Python (backend) =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+env/
+.venv/
+
+# ===== Node (frontend) =====
+node_modules/
+dist/
+dist-ssr/
+.vite/
+
+# ===== Firebase CLI =====
+.firebase/
+firebase-debug.log
+.firebaserc
+
+# ===== Editors and OS =====
+.vscode/
+.idea/
+.claude/
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# ===== Logs =====
+*.log
+npm-debug.log*
