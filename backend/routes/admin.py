@@ -303,3 +303,207 @@ def delete_user(user_id):
         },
         message="User and all associated data deleted successfully.",
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/users/<user_id>  - full detail + activity for one user
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/users/<user_id>", methods=["GET"])
+@require_admin
+def user_detail(user_id):
+    """
+    Everything EcoTrack knows about one user, for the admin's per-user
+    drill-down: their profile, every carbon record they have logged, every
+    goal they have set and every report they have generated - plus totals.
+
+    This is READ-ONLY. It changes nothing; it just gathers what already exists
+    so an admin can see a member's full activity in one place. It shares the
+    /users/<user_id> path with the DELETE route above - Flask routes them apart
+    by HTTP method, so GET lands here and DELETE lands on delete_user.
+    """
+    db = get_db()
+
+    user_doc = db.collection(Config.COLLECTION_USERS).document(user_id).get()
+    if not user_doc.exists:
+        return api_error("User not found.", 404, code="user_not_found")
+
+    user_data = user_doc.to_dict()
+    created_at = user_data.get("createdAt")
+
+    # --- carbon records: the activity the user has actually logged ---
+    records = []
+    category_totals = {}
+    total_emission = 0.0
+    for doc in (
+        db.collection(Config.COLLECTION_CARBON_RECORDS)
+        .where(filter=gcloud_firestore.FieldFilter("userId", "==", user_id))
+        .stream()
+    ):
+        data = doc.to_dict()
+        emission = float(data.get("emissionKgco2", 0))
+        category = data.get("category", "")
+        total_emission += emission
+        category_totals[category] = category_totals.get(category, 0.0) + emission
+
+        record_created = data.get("createdAt")
+        records.append({
+            "id": doc.id,
+            "category": category,
+            "subType": data.get("subType", ""),
+            "quantity": data.get("quantity", 0),
+            "unit": data.get("unit", ""),
+            "emissionKgco2": round(emission, 2),
+            "recordedDate": data.get("recordedDate", ""),
+            "createdAt": record_created.isoformat() if record_created else None,
+        })
+
+    # Newest logged day first
+    records.sort(key=lambda item: item["recordedDate"] or "", reverse=True)
+
+    # --- goals the user has set ---
+    goals = []
+    for doc in (
+        db.collection(Config.COLLECTION_GOALS)
+        .where(filter=gcloud_firestore.FieldFilter("userId", "==", user_id))
+        .stream()
+    ):
+        data = doc.to_dict()
+        baseline = float(data.get("baselineEmission", 0))
+        reduction = float(data.get("targetReductionPercent", 0))
+        goal_created = data.get("createdAt")
+        goals.append({
+            "id": doc.id,
+            "category": data.get("category", ""),
+            "baselineEmission": round(baseline, 2),
+            "targetReductionPercent": reduction,
+            "targetEmission": round(baseline * (1 - reduction / 100), 2),
+            "targetDate": data.get("targetDate", ""),
+            "status": data.get("status", "active"),
+            "createdAt": goal_created.isoformat() if goal_created else None,
+        })
+
+    goals.sort(key=lambda item: item["createdAt"] or "", reverse=True)
+
+    # --- reports the user has generated ---
+    reports = []
+    for doc in (
+        db.collection(Config.COLLECTION_REPORTS)
+        .where(filter=gcloud_firestore.FieldFilter("userId", "==", user_id))
+        .stream()
+    ):
+        data = doc.to_dict()
+        report_created = data.get("createdAt")
+        reports.append({
+            "id": doc.id,
+            "reportType": data.get("reportType", ""),
+            "periodStart": data.get("periodStart", ""),
+            "periodEnd": data.get("periodEnd", ""),
+            "createdAt": report_created.isoformat() if report_created else None,
+        })
+
+    reports.sort(key=lambda item: item["createdAt"] or "", reverse=True)
+
+    # --- headline figures for the detail header ---
+    active_categories = {c: round(v, 2) for c, v in category_totals.items() if v > 0}
+    most_common_category = (
+        max(active_categories, key=lambda category: active_categories[category])
+        if active_categories else None
+    )
+    recorded_dates = [item["recordedDate"] for item in records if item["recordedDate"]]
+
+    return api_success({
+        "profile": {
+            "uid": user_doc.id,
+            "name": user_data.get("name", ""),
+            "email": user_data.get("email", ""),
+            "region": user_data.get("region", ""),
+            "createdAt": created_at.isoformat() if created_at else None,
+            "isAdmin": user_doc.id in _all_admin_uids(),
+        },
+        "records": records,
+        "goals": goals,
+        "reports": reports,
+        "summary": {
+            "totalEmission": round(total_emission, 2),
+            "recordCount": len(records),
+            "goalCount": len(goals),
+            "activeGoals": sum(1 for item in goals if item["status"] == "active"),
+            "achievedGoals": sum(1 for item in goals if item["status"] == "achieved"),
+            "reportCount": len(reports),
+            "categoryTotals": active_categories,
+            "mostCommonCategory": most_common_category,
+            "firstActivity": min(recorded_dates) if recorded_dates else None,
+            "lastActivity": max(recorded_dates) if recorded_dates else None,
+            "averagePerEntry": (
+                round(total_emission / len(records), 2) if records else 0.0
+            ),
+        },
+    })
+
+
+# The collection the public feedback form writes to. Named here rather than
+# imported from routes/feedback.py to keep the two route files independent.
+COLLECTION_FEEDBACK = "feedback"
+
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/feedback
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/feedback", methods=["GET"])
+@require_admin
+def list_feedback():
+    """
+    Every piece of feedback submitted through the public form, newest first.
+
+    Feedback can be sent by anyone (it is a public form), so this is the only
+    place it can be read - and only an admin can reach it.
+    """
+    db = get_db()
+    items = []
+
+    for doc in db.collection(COLLECTION_FEEDBACK).stream():
+        data = doc.to_dict()
+        created_at = data.get("createdAt")
+        items.append({
+            "id": doc.id,
+            "name": data.get("name", "Anonymous"),
+            "email": data.get("email", ""),
+            "message": data.get("message", ""),
+            "rating": data.get("rating"),
+            # Firestore timestamps are not JSON-serialisable, so convert to ISO
+            "createdAt": created_at.isoformat() if created_at else None,
+        })
+
+    # Newest first. Sorting in Python avoids needing a Firestore index on
+    # createdAt, the same approach the other admin queries take.
+    items.sort(key=lambda item: item["createdAt"] or "", reverse=True)
+
+    # A couple of headline figures for the section summary
+    rated = [item["rating"] for item in items if item["rating"]]
+    average_rating = round(sum(rated) / len(rated), 1) if rated else None
+
+    return api_success({
+        "feedback": items,
+        "count": len(items),
+        "averageRating": average_rating,
+    })
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/admin/feedback/<feedback_id>
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/feedback/<feedback_id>", methods=["DELETE"])
+@require_admin
+def delete_feedback(feedback_id):
+    """Remove a single piece of feedback (spam, or once it has been actioned)."""
+    db = get_db()
+    ref = db.collection(COLLECTION_FEEDBACK).document(feedback_id)
+
+    if not ref.get().exists:
+        return api_error("Feedback not found.", 404, code="feedback_not_found")
+
+    ref.delete()
+    return api_success({"id": feedback_id}, message="Feedback deleted.")

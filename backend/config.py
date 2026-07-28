@@ -59,6 +59,18 @@ class Config:
     # Which frontend URLs are allowed to call this API from a browser
     CORS_ORIGINS = _split_origins(os.getenv("CORS_ORIGINS", "http://localhost:5173"))
 
+    # --- Admin access ---
+    # Comma-separated list of email addresses allowed into the admin panel.
+    # When this is set, it is the ONLY way to be an admin: exactly these emails,
+    # nothing else. The email is read from the verified Firebase token, so it
+    # cannot be faked. Leave blank to fall back to the admins/{uid} Firestore
+    # collection instead. Stored lowercased so the comparison is case-insensitive.
+    ADMIN_EMAILS = {
+        e.strip().lower()
+        for e in os.getenv("ADMIN_EMAILS", "").split(",")
+        if e.strip()
+    }
+
     # --- EcoTrack Assistant (Google Gemini) ---
     # This key is a REAL secret. It lives only on the server: the React app
     # never sees it and never talks to Google directly. Every assistant request

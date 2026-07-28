@@ -31,7 +31,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-import { getErrorMessage, reportsApi } from '../utils/api';
+import { assistantApi, getErrorMessage, reportsApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ImpactEquivalents from '../components/ImpactEquivalents';
@@ -206,7 +206,48 @@ export default function Reports() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [busyId, setBusyId] = useState(null);
 
-  // Preset ranges follow the report type, so the dates are always sensible
+  // --- AI summary (optional, only if the Gemini assistant is configured) ---
+  // The rule-based summary below always shows. This is an extra, on-demand
+  // written summary from the assistant, keyed to the currently open report.
+  const [assistantOn, setAssistantOn] = useState(false);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // Ask once whether the assistant is available, so the button only appears
+  // when a request would actually succeed
+  useEffect(() => {
+    let cancelled = false;
+    assistantApi
+      .getStatus()
+      .then((s) => {
+        if (!cancelled) setAssistantOn(Boolean(s?.available));
+      })
+      .catch(() => {
+        if (!cancelled) setAssistantOn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const generateAiSummary = async () => {
+    if (!report || aiLoading) return;
+    setAiLoading(true);
+    try {
+      const data = await assistantApi.summarise(report.periodStart, report.periodEnd);
+      setAiSummary(data.summary);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'The assistant could not write a summary.'));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // The two preset periods fill the dates in for you. "Custom" is left alone
+  // on purpose: switching to it keeps whatever dates are already showing, so
+  // you can nudge one end without the range jumping back to a default. When a
+  // date is edited directly (see handleStartChange below) the type flips to
+  // custom, and this effect must NOT then reset it - hence the empty branch.
   useEffect(() => {
     const today = new Date();
     if (reportType === 'monthly') {
@@ -215,12 +256,23 @@ export default function Reports() {
     } else if (reportType === 'yearly') {
       setStartDate(startOfYear(today));
       setEndDate(today);
-    } else {
-      // Custom starts as the last three months, which is a useful default
-      setStartDate(subMonths(today, 3));
-      setEndDate(today);
     }
+    // reportType === 'custom' -> keep the current dates, change nothing
   }, [reportType]);
+
+  // Editing either date is itself a choice to build a custom range, so the
+  // Period dropdown follows along automatically. Without this, a manual date
+  // change under a "This month" preset would be silently overwritten the next
+  // time the preset effect ran.
+  const handleStartChange = (nextDate) => {
+    setStartDate(nextDate);
+    if (reportType !== 'custom') setReportType('custom');
+  };
+
+  const handleEndChange = (nextDate) => {
+    setEndDate(nextDate);
+    if (reportType !== 'custom') setReportType('custom');
+  };
 
   const loadHistory = async () => {
     try {
@@ -257,6 +309,7 @@ export default function Reports() {
       });
 
       setReport(data);
+      setAiSummary(null); // new report - drop any AI summary from the last one
       toast.success('Report generated.');
       loadHistory();
     } catch (error) {
@@ -273,6 +326,7 @@ export default function Reports() {
       // reflects the data as it stands now rather than a frozen snapshot
       const data = await reportsApi.getOne(reportId);
       setReport(data);
+      setAiSummary(null); // new report - drop any AI summary from the last one
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not open that report.'));
@@ -343,10 +397,15 @@ export default function Reports() {
             </label>
             <DatePicker
               selected={startDate}
-              onChange={setStartDate}
+              onChange={handleStartChange}
               dateFormat="dd MMM yyyy"
               maxDate={new Date()}
-              disabled={reportType !== 'custom'}
+              // showMonthDropdown / showYearDropdown add jump menus at the top
+              // of the calendar, so picking a month a year back takes one click
+              // instead of tapping the arrow twelve times
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
               className="form-control"
               wrapperClassName="eco-datepicker-wrap"
             />
@@ -361,11 +420,13 @@ export default function Reports() {
             </label>
             <DatePicker
               selected={endDate}
-              onChange={setEndDate}
+              onChange={handleEndChange}
               dateFormat="dd MMM yyyy"
               minDate={startDate}
               maxDate={new Date()}
-              disabled={reportType !== 'custom'}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
               className="form-control"
               wrapperClassName="eco-datepicker-wrap"
             />
@@ -512,6 +573,75 @@ export default function Reports() {
                   </motion.p>
                 ))}
               </div>
+
+              {/* --- optional AI-written summary ---
+                  The rule-based paragraphs above always show and are what the
+                  report is built on. This is an extra: a written summary from
+                  the Gemini assistant, generated only when asked and only when
+                  the assistant is actually configured on the server. */}
+              {assistantOn && (
+                <div
+                  className="eco-no-print"
+                  style={{ marginTop: '1.5rem', paddingTop: '1.3rem', borderTop: '1px solid var(--eco-border)' }}
+                >
+                  {!aiSummary && !aiLoading && (
+                    <button
+                      type="button"
+                      className="eco-btn eco-btn-outline"
+                      onClick={generateAiSummary}
+                      style={{ fontSize: '0.86rem' }}
+                    >
+                      <Sparkles size={16} />
+                      Write an AI summary of this period
+                    </button>
+                  )}
+
+                  {aiLoading && (
+                    <div
+                      className="eco-text-muted"
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem' }}
+                    >
+                      <Loader2 size={15} style={{ animation: 'eco-spin 0.9s linear infinite' }} />
+                      The assistant is writing your summary…
+                    </div>
+                  )}
+
+                  {aiSummary && (
+                    <motion.div
+                      initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      style={{
+                        padding: '1.1rem 1.2rem',
+                        borderRadius: 'var(--eco-radius-sm)',
+                        background: 'rgba(var(--eco-primary-rgb), 0.05)',
+                        border: '1px solid rgba(var(--eco-primary-rgb), 0.2)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.45rem',
+                          marginBottom: '0.7rem',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          color: 'var(--eco-primary)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        <Sparkles size={13} />
+                        AI summary
+                      </div>
+                      {/* whiteSpace preserves the paragraph breaks the model
+                          returns, without needing a markdown renderer */}
+                      <p style={{ margin: 0, fontSize: '0.92rem', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+                        {aiSummary}
+                      </p>
+                    </motion.div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* --- breakdown + impact --- */}

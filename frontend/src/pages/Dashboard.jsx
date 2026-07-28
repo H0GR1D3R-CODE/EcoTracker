@@ -39,6 +39,9 @@ import { useTheme } from '../context/ThemeContext';
 import { useDashboard } from '../hooks/useDashboard';
 import StatCard from '../components/StatCard';
 import ImpactEquivalents from '../components/ImpactEquivalents';
+import Photo from '../components/Photo';
+import Reveal from '../components/Reveal';
+import { PHOTOS } from '../utils/photos';
 import {
   CategoryDoughnutChart,
   ComparisonBarChart,
@@ -47,6 +50,58 @@ import {
 import { SkeletonChart, SkeletonStatCard } from '../components/SkeletonCard';
 import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
 import { formatCategory, formatEmission, formatNumber } from '../utils/formatters';
+
+// ---------------------------------------------------------------------------
+// THE GLOBAL PICTURE
+//
+// Educational context shown on every dashboard: where the world's emissions
+// actually come from, tied back to the EcoTrack category the user can act on.
+// Every percentage is a published figure with its source named, so it can be
+// cited in the report and defended in the viva - not a number we made up.
+// ---------------------------------------------------------------------------
+
+const GLOBAL_SOURCES = [
+  {
+    photo: 'powerPlant4',
+    alt: 'An electricity transmission pylon in a field',
+    title: 'Energy & electricity',
+    share: '~25%',
+    color: '#f59e0b',
+    body: 'Producing electricity and heat is the single largest source of global emissions, because so much of it still burns coal and gas.',
+    tie: 'Your Electricity category',
+    source: 'IPCC / EPA',
+  },
+  {
+    photo: 'traffic4',
+    alt: 'Cars on a road',
+    title: 'Transport',
+    share: '~24%',
+    color: '#00ff87',
+    body: 'Cars, trucks, ships and planes together, and the fastest-growing source of emissions in most countries.',
+    tie: 'Your Transport category',
+    source: 'IEA',
+  },
+  {
+    photo: 'factory3',
+    alt: 'A large industrial factory',
+    title: 'Industry',
+    share: '~21%',
+    color: '#7c3aed',
+    body: 'Making steel, cement, chemicals and goods. Much of a product’s carbon is spent before it ever reaches you.',
+    tie: 'Your Consumption category',
+    source: 'EPA',
+  },
+  {
+    photo: 'forest3',
+    alt: 'Green forest on a mountainside',
+    title: 'Land use & waste',
+    share: '~18%',
+    color: '#0ea5e9',
+    body: 'Deforestation, farming and rotting landfill. This slice both emits carbon and destroys the forests that would absorb it.',
+    tie: 'Your Diet & Waste categories',
+    source: 'Our World in Data',
+  },
+];
 
 // ---------------------------------------------------------------------------
 // INSIGHTS
@@ -228,54 +283,106 @@ export default function Dashboard() {
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
-      {/* ============ 1. HEADER ============ */}
-      <div
+      {/* ============ 1. HEADER (image banner) ============ */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="eco-card"
         style={{
+          position: 'relative',
+          overflow: 'hidden',
+          padding: 0,
+          marginBottom: '1.5rem',
+          minHeight: 176,
           display: 'flex',
           alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          marginBottom: '2rem',
         }}
       >
-        <div>
-          <h1 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', marginBottom: '0.3rem' }}>
-            Welcome back, <span className="eco-gradient-text">{firstName}</span>
-          </h1>
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.92rem' }}>
-            {hasData
-              ? 'Here is where your footprint stands today.'
-              : 'Log your first activity to bring this dashboard to life.'}
-          </p>
-        </div>
+        {/* Earth from space, sitting behind the greeting */}
+        <Photo
+          id={PHOTOS.earth}
+          alt="The Earth seen from space"
+          width={1500}
+          color="#0ea5e9"
+          className="eco-photo-cover"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(110deg, rgba(4,20,12,0.92) 0%, rgba(4,20,12,0.72) 45%, rgba(4,20,12,0.35) 100%)',
+          }}
+        />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-          {lastUpdated && (
-            <span
-              className="eco-text-muted"
-              style={{ fontSize: '0.76rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-            >
-              {/* The icon spins only while a refresh is actually in flight */}
-              <RefreshCw
-                size={12}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            width: '100%',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            padding: 'clamp(1.3rem, 3vw, 1.9rem)',
+          }}
+        >
+          <div>
+            <h1 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', marginBottom: '0.3rem', color: '#fff' }}>
+              Welcome back,{' '}
+              <span
                 style={{
-                  animation:
-                    refreshing && !prefersReducedMotion
-                      ? 'eco-spin 1s linear infinite'
-                      : 'none',
+                  background: 'linear-gradient(90deg, var(--eco-primary), #7dd3fc)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
                 }}
-              />
-              Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
+              >
+                {firstName}
+              </span>
+            </h1>
+            <p style={{ margin: 0, fontSize: '0.92rem', color: 'rgba(255,255,255,0.82)' }}>
+              {hasData
+                ? 'Here is where your footprint stands today.'
+                : 'Log your first activity to bring this dashboard to life.'}
+            </p>
+          </div>
 
-          <Link to="/calculator" className="eco-btn eco-btn-primary">
-            <Plus size={17} />
-            Log emission
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+            {lastUpdated && (
+              <span
+                style={{
+                  fontSize: '0.76rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  color: 'rgba(255,255,255,0.75)',
+                }}
+              >
+                {/* The icon spins only while a refresh is actually in flight */}
+                <RefreshCw
+                  size={12}
+                  style={{
+                    animation:
+                      refreshing && !prefersReducedMotion
+                        ? 'eco-spin 1s linear infinite'
+                        : 'none',
+                  }}
+                />
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+
+            <Link to="/calculator" className="eco-btn eco-btn-primary">
+              <Plus size={17} />
+              Log emission
+            </Link>
+          </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* ============ EMPTY STATE ============ */}
       {!hasData && (
@@ -356,7 +463,7 @@ export default function Dashboard() {
       </div>
 
       {/* ============ 3. TREND LINE ============ */}
-      <div className="eco-card" style={{ marginBottom: '1.5rem' }}>
+      <Reveal className="eco-card" style={{ marginBottom: '1.5rem', display: 'block' }}>
         <div
           style={{
             display: 'flex',
@@ -381,7 +488,7 @@ export default function Dashboard() {
           data={monthlyChart?.data || []}
           height={290}
         />
-      </div>
+      </Reveal>
 
       {/* ============ 4 + 5. BREAKDOWN AND IMPACT ============ */}
       <div
@@ -469,7 +576,7 @@ export default function Dashboard() {
       </div>
 
       {/* ============ 6. THIS MONTH VS LAST ============ */}
-      <div className="eco-card" style={{ marginBottom: '1.5rem' }}>
+      <Reveal className="eco-card" style={{ marginBottom: '1.5rem', display: 'block' }}>
         <div
           style={{
             display: 'flex',
@@ -521,7 +628,7 @@ export default function Dashboard() {
           previousData={categoryChart?.previousData || []}
           height={330}
         />
-      </div>
+      </Reveal>
 
       {/* ============ 7. INSIGHTS ============ */}
       {insights.length > 0 && (
@@ -547,7 +654,8 @@ export default function Dashboard() {
                 <motion.div
                   key={insight.title}
                   initial={prefersReducedMotion ? false : { opacity: 0, x: -14 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: false, amount: 0.4 }}
                   transition={{ duration: 0.45, delay: index * 0.08 }}
                   style={{
                     display: 'flex',
@@ -594,8 +702,108 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ============ 8. SDG 13 CONTEXT ============ */}
-      <div className="eco-card" style={{ position: 'relative', overflow: 'hidden' }}>
+      {/* ============ 8. THE GLOBAL PICTURE ============ */}
+      {/* Zooms out from the user's own number to where the world's emissions
+          come from, with an illustration and a cited figure for each. Every
+          card links to the EcoTrack category the user can actually act on. */}
+      <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{ marginBottom: '1.2rem' }}>
+          <h2 style={{ fontSize: '1.15rem', marginBottom: '0.25rem' }}>
+            The bigger picture
+          </h2>
+          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.86rem' }}>
+            Where the world&rsquo;s carbon comes from — and the category of yours that maps to it
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '1.2rem',
+          }}
+        >
+          {GLOBAL_SOURCES.map((item, index) => (
+            <motion.div
+              key={item.title}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false, amount: 0.2 }}
+              transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+              className="eco-card eco-card-hover eco-photo-zoom"
+              style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            >
+              {/* photo band */}
+              <div style={{ height: 118, overflow: 'hidden' }}>
+                <Photo
+                  id={PHOTOS[item.photo]}
+                  alt={item.alt}
+                  width={520}
+                  color={item.color}
+                  className="eco-photo-cover"
+                  style={{ width: '100%', height: '100%', display: 'block' }}
+                />
+              </div>
+
+              {/* text */}
+              <div style={{ padding: '0.9rem 1.2rem 1.3rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem',
+                    marginBottom: '0.5rem',
+                  }}
+                >
+                  <h3 style={{ fontSize: '1rem', margin: 0 }}>{item.title}</h3>
+                  <span
+                    className="eco-tabular"
+                    style={{
+                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '1.15rem',
+                      color: item.color,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.share}
+                  </span>
+                </div>
+
+                <p
+                  className="eco-text-muted"
+                  style={{ fontSize: '0.82rem', lineHeight: 1.6, margin: '0 0 0.9rem' }}
+                >
+                  {item.body}
+                </p>
+
+                <div
+                  style={{
+                    marginTop: 'auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.5rem',
+                    paddingTop: '0.7rem',
+                    borderTop: '1px solid var(--eco-border)',
+                  }}
+                >
+                  <span style={{ fontSize: '0.76rem', fontWeight: 600, color: item.color }}>
+                    {item.tie}
+                  </span>
+                  <span className="eco-text-muted" style={{ fontSize: '0.68rem' }}>
+                    {item.source}
+                  </span>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* ============ 9. SDG 13 CONTEXT ============ */}
+      <Reveal className="eco-card" style={{ position: 'relative', overflow: 'hidden', display: 'block' }}>
         <div
           className="eco-glow-orb eco-glow-orb-green"
           style={{ width: 300, height: 300, top: '-60%', right: '-10%' }}
@@ -642,7 +850,7 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
-      </div>
+      </Reveal>
     </div>
   );
 }

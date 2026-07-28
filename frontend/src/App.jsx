@@ -5,18 +5,24 @@
 
 import React, { useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import NProgress from 'nprogress';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import Assistant from './components/Assistant';
+import PublicHelper from './components/PublicHelper';
 import { useTheme } from './context/ThemeContext';
 
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import About from './pages/About';
+import Learn from './pages/Learn';
+import Gallery from './pages/Gallery';
+import Feedback from './pages/Feedback';
 import Dashboard from './pages/Dashboard';
 import CalculatorPage from './pages/Calculator';
 import Goals from './pages/Goals';
@@ -172,21 +178,32 @@ export default function App() {
       <Navbar />
 
       <ErrorBoundary>
-        {/* mode="wait" lets the old page finish leaving before the new one
-            arrives, so the two never overlap mid-animation.
-            The key on Routes is what tells AnimatePresence a change happened. */}
-        <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
+        {/* Each page fades in on arrival (see MotionPage). We deliberately do
+            NOT wrap this in <AnimatePresence mode="wait">. That would hold the
+            new page back until the old page finished animating out, which both
+            adds a visible delay to every navigation AND can dead-lock: logging
+            out fires two navigations at once (the ProtectedRoute redirect the
+            moment the user becomes null, plus the explicit navigate('/')),
+            interrupting an exit animation so the "exit complete" callback never
+            fires and the view freezes until a full reload. Remounting on the
+            location key gives a clean enter animation with none of that risk. */}
+        <Routes location={location} key={location.pathname}>
             {/* ---------- Public ---------- */}
             <Route path="/" element={<MotionPage><Home /></MotionPage>} />
             <Route path="/login" element={<MotionPage><Login /></MotionPage>} />
             <Route path="/register" element={<MotionPage><Register /></MotionPage>} />
+            <Route path="/about" element={<MotionPage><About /></MotionPage>} />
+            <Route path="/learn" element={<MotionPage><Learn /></MotionPage>} />
+            <Route path="/gallery" element={<MotionPage><Gallery /></MotionPage>} />
+            <Route path="/feedback" element={<MotionPage><Feedback /></MotionPage>} />
 
             {/* ---------- Signed in ---------- */}
+            {/* userOnly: the admin account is admin-only, so these personal
+                tracking pages redirect an admin to their console instead. */}
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute userOnly>
                   <MotionPage><Dashboard /></MotionPage>
                 </ProtectedRoute>
               }
@@ -194,7 +211,7 @@ export default function App() {
             <Route
               path="/calculator"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute userOnly>
                   <MotionPage><CalculatorPage /></MotionPage>
                 </ProtectedRoute>
               }
@@ -202,7 +219,7 @@ export default function App() {
             <Route
               path="/goals"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute userOnly>
                   <MotionPage><Goals /></MotionPage>
                 </ProtectedRoute>
               }
@@ -210,7 +227,7 @@ export default function App() {
             <Route
               path="/reports"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute userOnly>
                   <MotionPage><Reports /></MotionPage>
                 </ProtectedRoute>
               }
@@ -237,14 +254,19 @@ export default function App() {
             {/* ---------- Anything else ---------- */}
             {/* replace means the bad URL does not stay in the back button history */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </AnimatePresence>
+        </Routes>
       </ErrorBoundary>
 
-      {/* Rendered outside the ErrorBoundary and outside Routes so it floats
-          above every page and survives navigation. It returns null by itself
-          for signed-out visitors and when the server has no API key. */}
+      {/* The marketing footer. It renders itself to null for signed-in users,
+          so it only appears on the public site, never inside the app. */}
+      <Footer />
+
+      {/* Two floating helpers, but only ever one on screen at a time:
+          - Assistant: the AI helper, for signed-in users (returns null otherwise)
+          - PublicHelper: the rule-based guide, for signed-out visitors
+          Each renders null unless it is the right one for the current visitor. */}
       <Assistant />
+      <PublicHelper />
     </>
   );
 }

@@ -49,14 +49,29 @@
   --eco-glass-bg: rgba(18, 18, 26, 0.55);
   --eco-glass-border: rgba(255, 255, 255, 0.1);
 
-  --eco-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  --eco-glow: 0 0 24px rgba(0, 255, 135, 0.25);
+  /* A single blurry shadow reads as flat and cheap. Real objects cast two:
+     a tight contact shadow right under them and a soft ambient one spread wide.
+     Stacking the two is the difference between "a box with a shadow" and
+     something that looks like it is genuinely sitting above the page. */
+  --eco-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 8px 24px rgba(0, 0, 0, 0.36),
+    0 24px 48px -12px rgba(0, 0, 0, 0.4);
+  --eco-glow: 0 0 24px rgba(0, 255, 135, 0.22);
 
-  --eco-radius: 16px;
-  --eco-radius-sm: 10px;
+  /* A hairline of light along the top edge - the classic sign of a surface lit
+     from above. It is what makes a dark card look carved rather than printed. */
+  --eco-top-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
-  /* One transition speed everywhere keeps the whole app feeling consistent */
+  /* One radius scale, used everywhere, so nothing looks accidentally rounder
+     than its neighbour */
+  --eco-radius: 18px;
+  --eco-radius-sm: 11px;
+
+  /* Two curves: the standard one for most things, and a slower "entrance" curve
+     with a long glide that feels more considered on the elements that matter */
   --eco-transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --eco-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 [data-theme='light'] {
@@ -82,8 +97,14 @@
   --eco-glass-bg: rgba(255, 255, 255, 0.7);
   --eco-glass-border: rgba(10, 10, 15, 0.07);
 
-  --eco-shadow: 0 8px 28px rgba(16, 18, 26, 0.1);
-  --eco-glow: 0 0 20px rgba(0, 184, 98, 0.2);
+  /* Same layered approach, but far softer - on a light background a heavy
+     shadow looks dirty rather than deep */
+  --eco-shadow:
+    0 1px 2px rgba(16, 18, 26, 0.04),
+    0 8px 24px rgba(16, 18, 26, 0.06),
+    0 24px 48px -12px rgba(16, 18, 26, 0.08);
+  --eco-glow: 0 0 20px rgba(0, 184, 98, 0.18);
+  --eco-top-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 /* ===========================================================================
@@ -102,11 +123,25 @@ html {
 body {
   margin: 0;
   background-color: var(--eco-bg);
+  /* Two very faint radial pools of brand colour, fixed in place so they read as
+     ambient light in the room rather than a pattern on the page. Painted once
+     and never animated, so this depth costs nothing while scrolling. A dead-flat
+     near-black is the single biggest tell of a cheap dark theme; this fixes it. */
+  background-image:
+    radial-gradient(70% 55% at 15% 0%, rgba(var(--eco-primary-rgb), 0.05), transparent 60%),
+    radial-gradient(60% 55% at 100% 8%, rgba(124, 58, 237, 0.06), transparent 55%);
+  background-attachment: fixed;
   color: var(--eco-text);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.65;
+  /* Antialiasing on both engines, plus contextual/ligature features, so text
+     renders the way the typeface designer intended rather than the browser
+     default. Small thing, but it is a big part of why premium sites feel crisp. */
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   /* Both properties transition so switching theme fades rather than snaps */
   transition: background-color var(--eco-transition), color var(--eco-transition);
   /* Stops the decorative glow orbs creating a sideways scrollbar.
@@ -119,8 +154,24 @@ h1, h2, h3, h4, h5, h6,
 .eco-heading {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
   color: var(--eco-text);
+  /* Distributes words evenly across lines instead of leaving one stranded
+     word on the last line - the typographic detail that makes headlines look
+     professionally set. Ignored gracefully by browsers that lack it. */
+  text-wrap: balance;
+}
+
+/* Numbers in stat cards, tables and the calculator should be tabular - every
+   digit the same width - so figures line up in columns and do not jitter as
+   an animated counter ticks. This is the detail that makes a dashboard look
+   engineered rather than thrown together. */
+.eco-tabular,
+.eco-table td,
+.eco-table th {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
 /* Gradient text used on every major heading */
@@ -205,10 +256,32 @@ a:hover {
   background: var(--eco-glass-bg);
   border: 1px solid var(--eco-glass-border);
   border-radius: var(--eco-radius);
-  box-shadow: var(--eco-shadow);
-  padding: 1.5rem;
+  /* Layered shadow AND the top-edge highlight together: the card looks lit from
+     above and floating, not stamped onto the page */
+  box-shadow: var(--eco-shadow), var(--eco-top-highlight);
+  padding: 1.6rem;
   transition: transform var(--eco-transition), box-shadow var(--eco-transition),
     border-color var(--eco-transition), background-color var(--eco-transition);
+}
+
+/* The category cards on the landing page sit on a near-black section, where the
+   default translucent card fill leaves them barely distinguishable. Two classes
+   (.eco-card.category-chip) outrank the single-class .eco-card rule, so these
+   get a more solid, slightly-lifted surface and a clearer border - visible
+   against the dark without looking like flat grey boxes. */
+.eco-card.category-chip {
+  background: var(--eco-card-hover);
+  border-color: rgba(255, 255, 255, 0.12);
+  /* Critical: a <button> does NOT inherit color from the page the way a <div>
+     does - it defaults to the browser's dark "buttontext" system colour, which
+     left the card titles almost black on a dark card. Forcing the theme text
+     colour makes the titles bright and readable again. */
+  color: var(--eco-text);
+}
+
+[data-theme='light'] .eco-card.category-chip {
+  background: #ffffff;
+  border-color: rgba(10, 10, 15, 0.1);
 }
 
 /* Real frosted glass. Add alongside .eco-card only where it is worth the cost:
@@ -222,11 +295,23 @@ a:hover {
    around it moves - no rotation, no cursor tracking. A card that tilts toward
    the pointer looks impressive in isolation but makes a grid of cards feel
    unstable, because several of them are always mid-tilt at different angles. */
+.eco-card-hover {
+  /* will-change hints the browser to promote the card to its own layer before
+     the hover, so the lift is butter-smooth rather than janky on first hover */
+  will-change: transform;
+}
+
 .eco-card-hover:hover {
-  transform: translateY(-4px);
+  transform: translateY(-5px);
   background: var(--eco-card-hover);
-  border-color: rgba(var(--eco-primary-rgb), 0.3);
-  box-shadow: var(--eco-shadow), var(--eco-glow);
+  border-color: rgba(var(--eco-primary-rgb), 0.28);
+  /* The shadow deepens on lift - a raised object casts a larger, softer shadow,
+     so growing it as the card rises sells the height */
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 16px 40px -8px rgba(0, 0, 0, 0.45),
+    var(--eco-glow),
+    var(--eco-top-highlight);
 }
 
 /* The arrow inside a button nudges forward on hover. It is 3px, it happens
@@ -263,13 +348,16 @@ a:hover {
 .eco-btn {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 600;
+  /* A touch of letter-spacing on a semibold sans is what makes button text look
+     "designed" rather than default */
+  letter-spacing: 0.01em;
   border: none;
   border-radius: var(--eco-radius-sm);
-  padding: 0.7rem 1.6rem;
+  padding: 0.72rem 1.6rem;
   cursor: pointer;
   position: relative;
   overflow: hidden; /* keeps the ripple inside the rounded corners */
-  transition: transform 0.15s ease, box-shadow var(--eco-transition),
+  transition: transform 0.18s var(--eco-ease-out), box-shadow var(--eco-transition),
     opacity var(--eco-transition);
   display: inline-flex;
   align-items: center;
@@ -277,14 +365,37 @@ a:hover {
   gap: 0.5rem;
 }
 
+/* A consistent, on-brand focus ring for keyboard users. :focus-visible only
+   shows it for keyboard focus, never on mouse click, so it aids accessibility
+   without a ring flashing on every tap. Worth marks in an accessibility review. */
+.eco-btn:focus-visible,
+.eco-nav-link:focus-visible,
+.eco-form .form-control:focus-visible,
+.eco-form .form-select:focus-visible {
+  outline: 2px solid var(--eco-primary);
+  outline-offset: 2px;
+}
+
 .eco-btn-primary {
-  background: linear-gradient(135deg, var(--eco-primary), var(--eco-primary-dark));
+  /* Three stops rather than two puts a subtle brighter band across the middle -
+     a soft sheen, like light catching a physical surface */
+  background: linear-gradient(
+    135deg,
+    var(--eco-primary),
+    #00e878 45%,
+    var(--eco-primary-dark)
+  );
   color: #04140c; /* very dark green text - readable on the bright button */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .eco-btn-primary:hover:not(:disabled) {
-  transform: scale(1.04);
-  box-shadow: 0 0 26px rgba(var(--eco-primary-rgb), 0.45);
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 20px rgba(var(--eco-primary-rgb), 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .eco-btn-outline {
@@ -356,18 +467,11 @@ a:hover {
    .eco-btn needs overflow:hidden to keep the ripple inside its rounded
    corners, and that would clip any ::before drawn outside the button. A
    box-shadow is painted outside the box, so it survives the clipping. */
+/* A static brand glow, no longer a continuous pulse. The infinite animation
+   read as the button "breathing", which added to the restless feeling on the
+   landing page. It still glows on hover via .eco-btn-primary:hover. */
 .eco-btn-pulse {
-  animation: eco-btn-glow 2.8s ease-in-out infinite;
-}
-
-@keyframes eco-btn-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 16px rgba(var(--eco-primary-rgb), 0.35);
-  }
-  50% {
-    box-shadow: 0 0 32px rgba(124, 58, 237, 0.55);
-  }
+  box-shadow: 0 0 22px rgba(var(--eco-primary-rgb), 0.28);
 }
 
 /* ===========================================================================
@@ -625,11 +729,15 @@ a:hover {
   gap: 0.4rem;
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  /* A whisper of letter-spacing on a small pill makes the label look set rather
+     than typed - the kind of detail luxury interfaces get right */
+  letter-spacing: 0.02em;
   border: 1px solid var(--eco-glass-border);
   background: var(--eco-glass-bg);
   backdrop-filter: blur(8px);
+  box-shadow: var(--eco-top-highlight);
 }
 
 .eco-badge-low    { color: var(--eco-primary); border-color: rgba(var(--eco-primary-rgb), 0.4); }
@@ -828,6 +936,25 @@ a:hover {
   opacity: 0.4;
 }
 
+/* The month and year jump menus at the top of the calendar. These are native
+   <select> elements, so like every native select on a dark theme their popup
+   is drawn white by the OS - styling the control and its options keeps the
+   text readable. */
+.react-datepicker__month-select,
+.react-datepicker__year-select {
+  background-color: var(--eco-card) !important;
+  color: var(--eco-text) !important;
+  border: 1px solid var(--eco-border) !important;
+  border-radius: 6px !important;
+  padding: 2px 4px !important;
+}
+
+.react-datepicker__month-select option,
+.react-datepicker__year-select option {
+  background-color: var(--eco-card) !important;
+  color: var(--eco-text) !important;
+}
+
 /* react-datepicker renders its input inside a wrapper div that is inline-block
    by default, which makes it narrower than the fields beside it */
 .eco-datepicker-wrap,
@@ -949,6 +1076,53 @@ a:hover {
   opacity: 1;
   transform: translateY(0);
   transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+/* ---- Photo cards (Gallery, Learn, Dashboard) ---- */
+/* A slow zoom on hover gives the real photographs a bit of life without any
+   continuous motion. The image sits in an overflow:hidden card, so it scales
+   within its frame rather than pushing the layout. */
+.eco-photo-card .eco-photo-cover,
+.eco-photo-zoom .eco-photo-cover {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.eco-photo-card:hover .eco-photo-cover,
+.eco-photo-zoom:hover .eco-photo-cover {
+  transform: scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eco-photo-card:hover .eco-photo-cover,
+  .eco-photo-zoom:hover .eco-photo-cover {
+    transform: none;
+  }
+}
+
+/* ---- Site footer (Footer.jsx) ---- */
+.eco-footer-link {
+  color: var(--eco-text-muted);
+  font-size: 0.88rem;
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.eco-footer-link:hover {
+  color: var(--eco-primary);
+}
+
+/* Footer columns collapse gracefully on smaller screens */
+@media (max-width: 760px) {
+  .eco-footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 440px) {
+  .eco-footer-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 /* ===========================================================================

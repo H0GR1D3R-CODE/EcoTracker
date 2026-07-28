@@ -38,12 +38,35 @@ from routes import api_error, api_success, is_admin, require_auth, verify_token
 # A Blueprint is a group of related routes. app.py registers it on the real app.
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
-# A simple "something@something.something" check. Firebase validates the address
-# properly as well - this just catches obvious typos before we call it.
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+# EcoTrack accounts must use a Gmail address. This is enforced on the server so
+# the rule holds even if someone bypasses the React form and calls the API
+# directly. The frontend (Login.jsx / Register.jsx) uses the same pattern.
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@gmail\.com$", re.IGNORECASE)
 
-# Firebase Auth refuses any password shorter than 6 characters
-MIN_PASSWORD_LENGTH = 6
+# Strong-password policy. These rules mirror PASSWORD_RULES in the frontend
+# Register.jsx exactly, so the checklist the user sees is the policy the server
+# enforces - the client cannot be bypassed to create a weak password.
+PASSWORD_RULES = [
+    ("at least 8 characters", lambda p: len(p) >= 8),
+    ("an uppercase letter", lambda p: any(c.isupper() for c in p)),
+    ("a lowercase letter", lambda p: any(c.islower() for c in p)),
+    ("a number", lambda p: any(c.isdigit() for c in p)),
+    ("a special character", lambda p: any(not c.isalnum() for c in p)),
+]
+
+
+def _password_problems(password):
+    """Return the list of rule descriptions a password fails (empty = valid)."""
+    return [label for label, test in PASSWORD_RULES if not test(password)]
+
+
+def _join_with_and(items):
+    """Join ["a", "b", "c"] into "a, b and c" for a readable error message."""
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    return ", ".join(items[:-1]) + " and " + items[-1]
 
 
 # ---------------------------------------------------------------------------
@@ -111,11 +134,17 @@ def register():
         return api_error(name_error, 400, code="invalid_name")
 
     if not EMAIL_PATTERN.match(email):
-        return api_error("Please enter a valid email address.", 400, code="invalid_email")
-
-    if len(password) < MIN_PASSWORD_LENGTH:
         return api_error(
-            f"Password must be at least {MIN_PASSWORD_LENGTH} characters long.",
+            "Please use a Gmail address (ending in @gmail.com).",
+            400,
+            code="invalid_email",
+        )
+
+    problems = _password_problems(password)
+    if problems:
+        # e.g. "Password must contain a number and a special character."
+        return api_error(
+            "Password must contain " + _join_with_and(problems) + ".",
             400,
             code="weak_password",
         )
@@ -230,7 +259,7 @@ def login():
         user_doc = user_ref.get()
 
     profile = _serialize_user(uid, user_doc.to_dict())
-    profile["isAdmin"] = is_admin(uid)  # lets React decide whether to show admin links
+    profile["isAdmin"] = is_admin(uid, email)  # lets React decide whether to show admin links
 
     return api_success(profile, message="Login successful.")
 
@@ -255,7 +284,7 @@ def get_profile():
         )
 
     profile = _serialize_user(g.uid, user_doc.to_dict())
-    profile["isAdmin"] = is_admin(g.uid)
+    profile["isAdmin"] = is_admin(g.uid, g.email)
     return api_success(profile)
 
 
@@ -314,6 +343,6 @@ def update_profile():
 
     refreshed = user_ref.get()
     profile = _serialize_user(g.uid, refreshed.to_dict())
-    profile["isAdmin"] = is_admin(g.uid)
+    profile["isAdmin"] = is_admin(g.uid, g.email)
 
     return api_success(profile, message="Profile updated successfully.")

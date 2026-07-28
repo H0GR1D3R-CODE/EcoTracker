@@ -33,7 +33,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import SelectField from '../components/SelectField';
 
-const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// Gmail addresses only - EcoTrack accounts must use a Gmail address.
+const EMAIL_PATTERN = /^[^@\s]+@gmail\.com$/i;
 
 const TOTAL_STEPS = 3;
 
@@ -68,30 +69,34 @@ const REGIONS = [
   'Other',
 ];
 
-/**
- * Score a password out of 4 for the strength bar.
- * This is a guide for the user, not a security check - the real minimum
- * (6 characters) is enforced by Firebase and by the Flask backend.
- */
+// The password rules. Each has a label and a test. These drive BOTH the live
+// checklist shown next to the field AND whether the password is accepted - so
+// the rules the user sees are exactly the rules that are enforced. The Flask
+// backend enforces the same set, so the policy cannot be bypassed.
+const PASSWORD_RULES = [
+  { label: 'At least 8 characters', test: (p) => p.length >= 8 },
+  { label: 'An uppercase letter (A–Z)', test: (p) => /[A-Z]/.test(p) },
+  { label: 'A lowercase letter (a–z)', test: (p) => /[a-z]/.test(p) },
+  { label: 'A number (0–9)', test: (p) => /\d/.test(p) },
+  { label: 'A special character (!@#$…)', test: (p) => /[^A-Za-z0-9]/.test(p) },
+];
+
+/** How many rules a password satisfies, for the strength bar. */
 function scorePassword(password) {
   if (!password) return { score: 0, label: '', color: 'var(--eco-border)' };
 
-  let score = 0;
-  if (password.length >= 6) score += 1;
-  if (password.length >= 10) score += 1;
-  // Mixed case and digits together count as one point
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password)) score += 1;
-  if (/[^A-Za-z0-9]/.test(password)) score += 1;
+  const met = PASSWORD_RULES.filter((rule) => rule.test(password)).length;
 
   const levels = [
-    { label: 'Too short', color: 'var(--eco-danger)' },
+    { label: 'Too weak', color: 'var(--eco-danger)' },
+    { label: 'Too weak', color: 'var(--eco-danger)' },
     { label: 'Weak', color: 'var(--eco-danger)' },
     { label: 'Fair', color: 'var(--eco-orange)' },
     { label: 'Good', color: '#eab308' },
     { label: 'Strong', color: 'var(--eco-primary)' },
   ];
 
-  return { score, ...levels[score] };
+  return { score: met, total: PASSWORD_RULES.length, ...levels[met] };
 }
 
 export default function Register() {
@@ -104,6 +109,9 @@ export default function Register() {
   const [direction, setDirection] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // Whether the requirements box is showing (opens when the password field is
+  // focused, so it appears "when you click the password field")
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -135,14 +143,15 @@ export default function Register() {
     email: !form.email.trim()
       ? 'Email is required.'
       : !EMAIL_PATTERN.test(form.email.trim())
-        ? 'Please enter a valid email address.'
+        ? 'Please use a Gmail address (ending in @gmail.com).'
         : null,
 
+    // Valid only when every rule passes - the same rules shown in the box
     password: !form.password
       ? 'Password is required.'
-      : form.password.length < 6
-        ? 'Password must be at least 6 characters.'
-        : null,
+      : PASSWORD_RULES.every((rule) => rule.test(form.password))
+        ? null
+        : 'Password does not meet all the requirements below.',
 
     confirmPassword: !form.confirmPassword
       ? 'Please confirm your password.'
@@ -453,7 +462,11 @@ export default function Register() {
                         placeholder="Choose a password"
                         value={form.password}
                         onChange={handleChange}
-                        onBlur={handleBlur}
+                        onFocus={() => setPasswordFocused(true)}
+                        onBlur={(event) => {
+                          handleBlur(event);
+                          setPasswordFocused(false);
+                        }}
                         autoComplete="new-password"
                         autoFocus
                         style={{ paddingRight: '3rem' }}
@@ -483,14 +496,14 @@ export default function Register() {
                       </button>
                     </div>
 
-                    {/* Strength bar - fills and changes colour as the password improves */}
+                    {/* Strength bar - fills and changes colour as more rules pass */}
                     {form.password && (
                       <>
                         <div className="eco-strength-bar">
                           <div
                             className="eco-strength-fill"
                             style={{
-                              width: `${(strength.score / 4) * 100}%`,
+                              width: `${(strength.score / strength.total) * 100}%`,
                               backgroundColor: strength.color,
                             }}
                           />
@@ -503,6 +516,74 @@ export default function Register() {
                         </div>
                       </>
                     )}
+
+                    {/* Requirements box - appears when the field is focused (or
+                        while it holds text), with a live tick as each rule is met */}
+                    <AnimatePresence>
+                      {(passwordFocused || form.password) && (
+                        <motion.div
+                          initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={prefersReducedMotion ? {} : { opacity: 0, height: 0 }}
+                          transition={{ duration: 0.22 }}
+                          style={{ overflow: 'hidden' }}
+                        >
+                          <div
+                            style={{
+                              marginTop: '0.7rem',
+                              padding: '0.8rem 0.9rem',
+                              borderRadius: 'var(--eco-radius-sm)',
+                              background: 'rgba(var(--eco-primary-rgb), 0.05)',
+                              border: '1px solid var(--eco-border)',
+                            }}
+                          >
+                            <div
+                              className="eco-text-muted"
+                              style={{ fontSize: '0.74rem', fontWeight: 600, marginBottom: '0.55rem' }}
+                            >
+                              Your password needs:
+                            </div>
+
+                            <div style={{ display: 'grid', gap: '0.4rem' }}>
+                              {PASSWORD_RULES.map((rule) => {
+                                const met = rule.test(form.password);
+                                return (
+                                  <div
+                                    key={rule.label}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '0.5rem',
+                                      fontSize: '0.8rem',
+                                      color: met ? 'var(--eco-primary)' : 'var(--eco-text-muted)',
+                                      transition: 'color 0.2s ease',
+                                    }}
+                                  >
+                                    {met ? (
+                                      <Check size={14} />
+                                    ) : (
+                                      // A hollow circle for a rule not yet met
+                                      <span
+                                        style={{
+                                          width: 12,
+                                          height: 12,
+                                          borderRadius: '50%',
+                                          border: '1.5px solid var(--eco-text-muted)',
+                                          flexShrink: 0,
+                                          display: 'inline-block',
+                                          opacity: 0.6,
+                                        }}
+                                      />
+                                    )}
+                                    {rule.label}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {touched.password && errors.password && (
                       <div className="eco-field-error">

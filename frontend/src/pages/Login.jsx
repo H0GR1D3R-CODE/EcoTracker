@@ -15,10 +15,12 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
 // Same simple check the backend uses: something@something.something
-const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// Gmail addresses only. The whole app requires a Gmail account, so a non-Gmail
+// address is rejected here rather than after a failed sign-in.
+const EMAIL_PATTERN = /^[^@\s]+@gmail\.com$/i;
 
 export default function Login() {
-  const { login, user, loading } = useAuth();
+  const { login, user, loading, isAdmin } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -35,19 +37,20 @@ export default function Login() {
   // always on the dashboard.
   const redirectTo = location.state?.from?.pathname || '/dashboard';
 
-  // Someone already signed in has no reason to see this page
+  // Someone already signed in has no reason to see this page. Admins go to
+  // their console, everyone else to wherever they were headed.
   useEffect(() => {
     if (!loading && user) {
-      navigate(redirectTo, { replace: true });
+      navigate(isAdmin ? '/admin' : redirectTo, { replace: true });
     }
-  }, [user, loading, navigate, redirectTo]);
+  }, [user, loading, isAdmin, navigate, redirectTo]);
 
   // --- validation, recalculated on every render so it is always current ---
   const errors = {
     email: !form.email
       ? 'Email is required.'
-      : !EMAIL_PATTERN.test(form.email)
-        ? 'Please enter a valid email address.'
+      : !EMAIL_PATTERN.test(form.email.trim())
+        ? 'Please use a Gmail address (ending in @gmail.com).'
         : null,
     password: !form.password
       ? 'Password is required.'
@@ -80,7 +83,8 @@ export default function Login() {
     try {
       const profile = await login({ email: form.email.trim(), password: form.password });
       toast.success(`Welcome back, ${profile?.name?.split(' ')[0] || 'there'}!`);
-      navigate(redirectTo, { replace: true });
+      // The admin account is admin-only, so send it straight to the console
+      navigate(profile?.isAdmin ? '/admin' : redirectTo, { replace: true });
     } catch (error) {
       // AuthContext has already turned Firebase's raw code into a readable message
       toast.error(error.message);
