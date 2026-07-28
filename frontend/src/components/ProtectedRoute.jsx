@@ -3,6 +3,12 @@
 //
 //   <ProtectedRoute><Dashboard /></ProtectedRoute>
 //   <ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>
+//   <ProtectedRoute userOnly><Dashboard /></ProtectedRoute>   (admins redirected)
+//
+// adminOnly  - only admins may enter; normal users are sent to /dashboard.
+// userOnly   - only normal users may enter; the admin account is admin-only, so
+//              admins are sent to their console (/admin). This is what keeps the
+//              two experiences separate rather than mixed into one account.
 //
 // SECURITY NOTE (important for the viva)
 // This component is CONVENIENCE, not security. Anyone can edit JavaScript in
@@ -19,7 +25,7 @@ import { CloudOff, RotateCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
 
-export default function ProtectedRoute({ children, adminOnly = false }) {
+export default function ProtectedRoute({ children, adminOnly = false, userOnly = false }) {
   const { user, profile, loading, isAdmin, profileError, refreshProfile, logout } = useAuth();
   const location = useLocation();
   const [retrying, setRetrying] = useState(false);
@@ -136,6 +142,13 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
   // STEP 5: admin pages need the admins document as well
   if (adminOnly && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // STEP 6: personal-tracking pages are for normal users only. The admin
+  // account is a separate, admin-only identity, so send an admin who lands on
+  // one of these pages back to their console instead.
+  if (userOnly && isAdmin) {
+    return <Navigate to="/admin" replace />;
   }
 
   // All checks passed

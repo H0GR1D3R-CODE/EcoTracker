@@ -12,30 +12,38 @@
 // Every one of those effects checks prefersReducedMotion first, because
 // animation that cannot be switched off is an accessibility failure.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useMotionValue, useSpring } from 'framer-motion';
-import Particles, { initParticlesEngine } from '@tsparticles/react';
-import { loadSlim } from '@tsparticles/slim';
+import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion';
 import {
   ArrowRight,
+  ArrowUpRight,
   BarChart3,
   Car,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Cloud,
   Droplets,
   Flame,
   Globe2,
+  Heart,
+  Info,
   Leaf,
   LineChart,
+  MessageSquare,
+  PlusCircle,
   Quote,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Star,
   Target,
   Trash2,
+  TreePine,
   UtensilsCrossed,
+  Wind,
+  X,
   Zap,
 } from 'lucide-react';
 
@@ -43,6 +51,112 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useCounter } from '../hooks/useCounter';
 import { useScrollReveal, useStaggerReveal } from '../hooks/useScrollReveal';
+import Photo from '../components/Photo';
+import { PHOTOS } from '../utils/photos';
+
+// A few real photographs shown in the "world your choices touch" strip near the
+// top of the page - the visual proof that the numbers map to real systems.
+const GLIMPSES = [
+  { photo: 'factory2', label: 'Industry', color: '#7c3aed' },
+  { photo: 'traffic2', label: 'Transport', color: '#00ff87' },
+  { photo: 'powerPlant2', label: 'Energy', color: '#f59e0b' },
+  { photo: 'forest2', label: 'Nature', color: '#00c96b' },
+  { photo: 'cleanEnergy', label: 'Clean energy', color: '#eab308' },
+];
+
+// The published sources every EcoTrack figure traces back to - shown as a
+// credibility strip. Real references impress far more than invented numbers.
+const SOURCES = ['DEFRA 2023', 'IPCC', 'CEA India 2023', 'Our World in Data', 'IEA', 'EPA'];
+
+// The whole product in three steps, for the "how it works" band.
+const HOW_STEPS = [
+  {
+    icon: PlusCircle,
+    title: 'Log an activity',
+    body: 'Enter something you actually did — a car trip, an electricity bill, a meal. It takes seconds, and one entry is enough to start.',
+  },
+  {
+    icon: BarChart3,
+    title: 'See your footprint',
+    body: 'Every entry becomes kilograms of CO₂ on your dashboard, split by category and tracked month on month.',
+  },
+  {
+    icon: Target,
+    title: 'Act on what matters',
+    body: 'Set a reduction goal on your heaviest category and watch a live progress ring. Specific targets beat vague intentions.',
+  },
+];
+
+// What the dashboard shows, listed beside a mock preview of it.
+const DASHBOARD_POINTS = [
+  'Your monthly footprint at a glance, with the trend over six months',
+  'A breakdown of exactly which habit is costing the most carbon',
+  'Plain-English insights that tell you where to act first',
+  'Every number put in real terms — "the same as driving 30 km"',
+];
+
+// The mock chart bars in the preview (relative heights, 0–1).
+const PREVIEW_BARS = [0.45, 0.7, 0.55, 0.85, 0.62, 0.95];
+
+// Landing-page FAQ. Short, honest answers to the obvious questions.
+const HOME_FAQS = [
+  {
+    q: 'Is EcoTrack free?',
+    a: 'Completely. Create an account and track as much as you like — there is nothing to pay and no card required.',
+  },
+  {
+    q: 'Where do the numbers come from?',
+    a: 'Every activity is multiplied by a published emission factor from DEFRA, the IPCC, the Central Electricity Authority of India, or Our World in Data. Nothing is invented.',
+  },
+  {
+    q: 'How long does it take to start?',
+    a: 'About thirty seconds. Log one activity — a car journey or an electricity bill — and the whole dashboard comes to life.',
+  },
+  {
+    q: 'Who can see my data?',
+    a: 'Only you. Sign-in runs through Firebase Authentication, and the server checks your identity on every request before any data is read.',
+  },
+];
+
+// Established environmental organisations the "take action" section links out
+// to. These are real charities with verified official donation pages (checked
+// against each org's own site). EcoTrack does not handle any money itself — each
+// button opens the organisation's own donation page, where the contribution
+// reaches them in full.
+const CONTRIBUTIONS = [
+  {
+    name: 'One Tree Planted',
+    icon: TreePine,
+    color: '#00c96b',
+    focus: 'Reforestation',
+    body: 'Plants trees in forests worldwide to restore habitats and pull carbon back out of the air — one dollar plants one tree.',
+    href: 'https://onetreeplanted.org/products/plant-trees',
+  },
+  {
+    name: 'Cool Earth',
+    icon: Leaf,
+    color: '#38bdf8',
+    focus: 'Rainforest protection',
+    body: 'Backs the people who live in rainforests to keep them standing — protecting the forests that absorb the most carbon.',
+    href: 'https://www.coolearth.org/act-now/ways-to-donate/',
+  },
+  {
+    name: 'Clean Air Task Force',
+    icon: Wind,
+    color: '#f59e0b',
+    focus: 'Cutting emissions',
+    body: 'Pushes for the clean-energy technology and policy that drives greenhouse-gas emissions down at scale.',
+    href: 'https://www.catf.us/donate/',
+  },
+  {
+    name: 'Gold Standard',
+    icon: ShieldCheck,
+    color: '#7c3aed',
+    focus: 'Verified offsets',
+    body: 'Certifies carbon-offset projects, so a contribution provably removes or avoids greenhouse gases — no greenwashing.',
+    href: 'https://www.goldstandard.org/donate-to-gold-standard',
+  },
+];
 
 // ---------------------------------------------------------------------------
 // PAGE DATA
@@ -65,14 +179,121 @@ const HERO_STATS = [
   { value: 7, suffix: '', label: 'Emission categories', decimals: 0 },
 ];
 
+// Clicking a category opens a detail panel explaining it. The factors below are
+// the published values EcoTrack uses (DEFRA 2023, CEA India 2023, IPCC, Our
+// World in Data) - the same numbers the Calculator applies. They are listed
+// here as a static factsheet so this works on the landing page with no login
+// and no backend call.
 const CATEGORIES = [
-  { icon: Car, name: 'Transport', detail: 'Cars, buses, trains and flights', color: '#00ff87' },
-  { icon: Zap, name: 'Electricity', detail: 'Grid power and rooftop solar', color: '#f59e0b' },
-  { icon: Flame, name: 'Fuel', detail: 'LPG cylinders and generators', color: '#ef4444' },
-  { icon: UtensilsCrossed, name: 'Diet', detail: 'Meals by dietary choice', color: '#7c3aed' },
-  { icon: Trash2, name: 'Waste', detail: 'Landfill against recycling', color: '#8888aa' },
-  { icon: Droplets, name: 'Water', detail: 'The energy behind your tap', color: '#0ea5e9' },
-  { icon: ShoppingBag, name: 'Consumption', detail: 'Clothing and electronics', color: '#ec4899' },
+  {
+    icon: Car,
+    name: 'Transport',
+    detail: 'Cars, buses, trains and flights',
+    color: '#00ff87',
+    unit: 'per km',
+    source: 'DEFRA 2023',
+    intro:
+      'Every kilometre you travel has a cost that depends entirely on how you travel it. A train seat and a car seat over the same distance are worlds apart.',
+    factors: [
+      ['Domestic flight', 0.255],
+      ['Petrol car', 0.141],
+      ['Diesel car', 0.132],
+      ['Bus', 0.082],
+      ['Motorbike', 0.071],
+      ['Train', 0.041],
+      ['Bicycle', 0.0],
+    ],
+    tip: 'Swapping one 20 km car trip a week for the train cuts about 80% of that journey’s carbon.',
+  },
+  {
+    icon: Zap,
+    name: 'Electricity',
+    detail: 'Grid power and rooftop solar',
+    color: '#f59e0b',
+    unit: 'per kWh (unit)',
+    source: 'CEA India 2023',
+    intro:
+      'India’s grid is among the most carbon-intensive in the world because so much of it still burns coal. The same appliance costs far more carbon here than in a country running on hydro or nuclear.',
+    factors: [
+      ['Grid electricity', 0.71],
+      ['Solar', 0.05],
+    ],
+    tip: 'Rooftop solar is roughly 14× cleaner per unit than the grid it replaces.',
+  },
+  {
+    icon: Flame,
+    name: 'Fuel',
+    detail: 'LPG cylinders and generators',
+    color: '#ef4444',
+    unit: 'per kg / litre',
+    source: 'IPCC 2006',
+    intro:
+      'Burning fuel directly — for cooking or a backup generator — releases carbon with no grid in between, so the factors are high.',
+    factors: [
+      ['LPG', 2.983],
+      ['Diesel generator', 2.68],
+      ['Petrol generator', 2.31],
+    ],
+    tip: 'A few litres less generator diesel each week shows up immediately in your monthly total.',
+  },
+  {
+    icon: UtensilsCrossed,
+    name: 'Diet',
+    detail: 'Meals by dietary choice',
+    color: '#7c3aed',
+    unit: 'per meal',
+    source: 'Our World in Data',
+    intro:
+      'What is on the plate matters more than most people expect. Meat, especially, carries the emissions of everything that fed and raised the animal.',
+    factors: [
+      ['Non-vegetarian', 3.3],
+      ['Vegetarian', 1.7],
+      ['Vegan', 1.1],
+    ],
+    tip: 'One vegetarian meal a day instead of meat saves close to 48 kg of CO₂ a month.',
+  },
+  {
+    icon: Trash2,
+    name: 'Waste',
+    detail: 'Landfill against recycling',
+    color: '#8888aa',
+    unit: 'per kg',
+    source: 'IPCC waste sector',
+    intro:
+      'Waste in landfill rots and releases methane. Recycling the same kilogram avoids most of that — it is one of the cheapest reductions available to anyone.',
+    factors: [
+      ['Landfill', 0.58],
+      ['Recycled', 0.1],
+    ],
+    tip: 'Separating recyclables cuts nearly 85% of the carbon of that waste.',
+  },
+  {
+    icon: Droplets,
+    name: 'Water',
+    detail: 'The energy behind your tap',
+    color: '#0ea5e9',
+    unit: 'per litre',
+    source: 'Water–energy nexus',
+    intro:
+      'Water itself emits nothing. Its footprint is the electricity used to pump, treat and deliver it — small per litre, but it adds up across a household.',
+    factors: [['Municipal supply', 0.0003]],
+    tip: 'Because the per-litre factor is tiny, real savings here come from volume — fixing leaks and shorter showers.',
+  },
+  {
+    icon: ShoppingBag,
+    name: 'Consumption',
+    detail: 'Clothing and electronics',
+    color: '#ec4899',
+    unit: 'per item',
+    source: 'Lifecycle averages',
+    intro:
+      'The carbon in a product is spent making and shipping it, long before you buy it. That embedded cost is why a single gadget can outweigh a month of commuting.',
+    factors: [
+      ['Electronics item', 85.0],
+      ['Clothing item', 8.0],
+    ],
+    tip: 'Repairing or buying one electronic item used avoids around 85 kg of embedded carbon.',
+  },
 ];
 
 const FEATURES = [
@@ -222,58 +443,10 @@ export default function Home() {
   const { user } = useAuth();
   const { prefersReducedMotion } = useTheme();
 
-  // --- tsparticles has to load its engine once before it can render ---
-  const [particlesReady, setParticlesReady] = useState(false);
-
-  useEffect(() => {
-    // loadSlim is the cut-down bundle - the full one is far larger than this
-    // page needs, and page weight matters on a phone
-    initParticlesEngine(async (engine) => {
-      await loadSlim(engine);
-    }).then(() => setParticlesReady(true));
-  }, []);
-
-  // useMemo stops the options object being rebuilt on every render, which
-  // would make tsparticles tear down and restart the whole animation
-  const particleOptions = useMemo(
-    () => ({
-      fullScreen: { enable: false }, // stay inside the hero, not over the whole page
-      background: { color: { value: 'transparent' } },
-      // 45 rather than 60: the particles drift slowly, so a third fewer frames
-      // is invisible to the eye but noticeably cheaper on a laptop GPU
-      fpsLimit: 45,
-      // detectRetina renders at 2x pixel density on high-DPI screens, which
-      // quadruples the pixels being drawn every frame. Off is much smoother.
-      detectRetina: false,
-      particles: {
-        number: { value: 34, density: { enable: true, width: 1400, height: 900 } },
-        color: { value: ['#00ff87', '#7c3aed', '#00c96b'] },
-        shape: { type: 'circle' },
-        opacity: { value: { min: 0.15, max: 0.5 } },
-        size: { value: { min: 1, max: 3.5 } },
-        move: {
-          enable: true,
-          speed: 0.7,          // slow drift, like dust in sunlight
-          direction: 'top',    // particles rise, which reads as "clean air"
-          random: true,
-          straight: false,
-          outModes: { default: 'out' },
-        },
-        // Links are off on purpose. Drawing them means measuring the distance
-        // between every PAIR of particles on every single frame - at 34
-        // particles that is 561 measurements per frame before a single line is
-        // even drawn. It was the largest slice of the stutter, and drifting
-        // motes suit a page about clean air better than a constellation web.
-        links: { enable: false },
-      },
-      // Hover interaction is off for the same reason: "grab" mode recalculated
-      // the entire field on every mouse-move event.
-      interactivity: {
-        events: { onHover: { enable: false }, onClick: { enable: false } },
-      },
-    }),
-    []
-  );
+  // The drifting-particle background was removed on purpose. Continuous ambient
+  // motion behind the headline reads as the page never settling, which is the
+  // opposite of the calm, premium feel we want. The hero now holds still: the
+  // dot grid, the static glow orbs and the one-time word reveal carry it.
 
   // --- cursor spotlight ---
   // A soft light that follows the pointer around the hero.
@@ -286,6 +459,13 @@ export default function Home() {
   const spotlightX = useMotionValue(0);
   const spotlightY = useMotionValue(0);
   const [spotlightVisible, setSpotlightVisible] = useState(false);
+
+  // Which category's detail panel is open (null = none). Set by clicking a
+  // category card in the "Seven categories" section.
+  const [openCategory, setOpenCategory] = useState(null);
+
+  // Which landing-page FAQ answer is expanded (-1 = all closed).
+  const [openFaq, setOpenFaq] = useState(0);
 
   // The spring is what stops the light being welded to the cursor - it trails
   // slightly behind, which is what makes it feel like a light rather than a dot
@@ -349,15 +529,6 @@ export default function Home() {
         onPointerMove={handleHeroPointerMove}
         onPointerLeave={handleHeroPointerLeave}
       >
-        {/* Particle canvas, pinned behind everything else in the hero */}
-        {particlesReady && !prefersReducedMotion && (
-          <Particles
-            id="eco-hero-particles"
-            options={particleOptions}
-            style={{ position: 'absolute', inset: 0, zIndex: 0 }}
-          />
-        )}
-
         {/* Static ambient glows. These do not move: a slowly drifting background
             behind sharp text is what made the page feel unsteady. */}
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
@@ -425,21 +596,18 @@ export default function Home() {
                 <span style={{ fontWeight: 600 }}>UN SDG 13 · Climate Action</span>
               </div>
 
-              {/* The animated border sits behind the badge and is 2px larger */}
-              {!prefersReducedMotion && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: -2,
-                    borderRadius: 999,
-                    background:
-                      'linear-gradient(135deg, #00ff87, #7c3aed, #00ff87)',
-                    backgroundSize: '300% 300%',
-                    animation: 'eco-gradient-shift 4s ease infinite',
-                    zIndex: 0,
-                  }}
-                />
-              )}
+              {/* A static gradient border behind the badge - 2px larger so it
+                  shows as a thin ring. It used to shimmer continuously; that was
+                  part of the restless feeling, so it now simply sits there. */}
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: -2,
+                  borderRadius: 999,
+                  background: 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
+                  zIndex: 0,
+                }}
+              />
             </motion.div>
 
             {/* Each word rises into place one after another, then stops dead.
@@ -538,6 +706,133 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ================= TRUSTED SOURCES STRIP ================= */}
+      <section className="eco-section" style={{ paddingTop: '2.6rem', paddingBottom: '0.5rem' }}>
+        <div className="container">
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.4 }}
+            transition={{ duration: 0.5 }}
+            style={{ textAlign: 'center' }}
+          >
+            <p
+              className="eco-text-muted"
+              style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: '1.1rem' }}
+            >
+              Every number traces back to a published source
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center' }}>
+              {SOURCES.map((source, index) => (
+                <motion.span
+                  key={source}
+                  className="eco-badge"
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                  style={{ fontSize: '0.82rem', padding: '0.4rem 0.9rem' }}
+                >
+                  {source}
+                </motion.span>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ================= THE WORLD YOUR CHOICES TOUCH (photo strip) ================= */}
+      <section className="eco-section">
+        <div className="container">
+          <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 2.4rem' }}>
+            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+              <Globe2 size={14} style={{ color: 'var(--eco-primary)' }} />
+              Real systems, real impact
+            </div>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+              The world your choices <span className="eco-gradient-text">touch</span>
+            </h2>
+            <p className="eco-text-muted" style={{ margin: 0 }}>
+              Behind every kilogram of CO₂ is a real place — a power station, a
+              motorway, a forest. EcoTrack connects your day to all of it.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+              gap: '1rem',
+            }}
+          >
+            {GLIMPSES.map((item, index) => (
+              <motion.div
+                key={item.photo}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.5, delay: index * 0.07, ease: [0.22, 1, 0.36, 1] }}
+                className="eco-card eco-photo-card"
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  padding: 0,
+                  minHeight: 220,
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                }}
+              >
+                <Photo
+                  id={PHOTOS[item.photo]}
+                  alt={item.label}
+                  width={600}
+                  color={item.color}
+                  className="eco-photo-cover"
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent 65%)',
+                  }}
+                />
+                <span
+                  style={{
+                    position: 'relative',
+                    zIndex: 1,
+                    padding: '1rem 1.1rem',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontFamily: 'Space Grotesk, sans-serif',
+                    fontSize: '1.02rem',
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'block',
+                      width: 26,
+                      height: 3,
+                      borderRadius: 2,
+                      background: item.color,
+                      marginBottom: '0.5rem',
+                    }}
+                  />
+                  {item.label}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: '1.8rem' }}>
+            <Link to="/gallery" className="eco-btn eco-btn-outline" style={{ padding: '0.7rem 1.5rem' }}>
+              Explore the gallery
+              <ArrowRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* ================= CATEGORIES ================= */}
       <section className="eco-section" id="how-it-works">
         <div className="container">
@@ -566,10 +861,21 @@ export default function Home() {
             {CATEGORIES.map((category) => {
               const Icon = category.icon;
               return (
-                <div
+                // A button, not a div, so it is keyboard-focusable and screen
+                // readers announce it as clickable. Opens the detail panel.
+                <button
+                  type="button"
                   key={category.name}
+                  onClick={() => setOpenCategory(category)}
                   className="eco-card eco-card-hover category-chip eco-reveal"
-                  style={{ display: 'flex', alignItems: 'flex-start', gap: '0.9rem' }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.9rem',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    width: '100%',
+                  }}
                 >
                   <div
                     style={{
@@ -587,15 +893,25 @@ export default function Home() {
                   >
                     <Icon size={21} />
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontFamily: 'Space Grotesk, sans-serif' }}>
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontFamily: 'Space Grotesk, sans-serif',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.4rem',
+                      }}
+                    >
                       {category.name}
+                      <ChevronRight size={15} style={{ color: category.color, opacity: 0.7 }} />
                     </div>
                     <div className="eco-text-muted" style={{ fontSize: '0.85rem' }}>
                       {category.detail}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -653,6 +969,233 @@ export default function Home() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= HOW IT WORKS (3 STEPS) ================= */}
+      <section className="eco-section">
+        <div className="container">
+          <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 3rem' }}>
+            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+              <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
+              Three simple steps
+            </div>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+              From one activity to <span className="eco-gradient-text">real change</span>
+            </h2>
+            <p className="eco-text-muted" style={{ margin: 0 }}>
+              No spreadsheets, no guesswork. Log, see, act — that is the whole loop.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '1.3rem',
+            }}
+          >
+            {HOW_STEPS.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <motion.div
+                  key={step.title}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false, amount: 0.3 }}
+                  transition={{ duration: 0.5, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] }}
+                  className="eco-card eco-card-hover"
+                  style={{ position: 'relative' }}
+                >
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '1.1rem',
+                      right: '1.3rem',
+                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '2.2rem',
+                      color: 'var(--eco-border)',
+                      lineHeight: 1,
+                    }}
+                  >
+                    {index + 1}
+                  </span>
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 13,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'linear-gradient(135deg, rgba(0,255,135,0.16), rgba(124,58,237,0.16))',
+                      color: 'var(--eco-primary)',
+                      marginBottom: '1.1rem',
+                    }}
+                  >
+                    <Icon size={24} />
+                  </div>
+                  <h3 style={{ fontSize: '1.15rem', marginBottom: '0.5rem' }}>{step.title}</h3>
+                  <p className="eco-text-muted" style={{ fontSize: '0.92rem', margin: 0, lineHeight: 1.6 }}>
+                    {step.body}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= DASHBOARD PREVIEW ================= */}
+      <section className="eco-section" style={{ background: 'var(--eco-bg-alt)' }}>
+        <div className="container">
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '2.5rem',
+              alignItems: 'center',
+            }}
+          >
+            {/* text */}
+            <motion.div
+              initial={prefersReducedMotion ? false : { opacity: 0, x: -24 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, amount: 0.3 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+                <BarChart3 size={14} style={{ color: 'var(--eco-primary)' }} />
+                Your dashboard
+              </div>
+              <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '1rem' }}>
+                Your whole footprint, <span className="eco-gradient-text">in one place</span>
+              </h2>
+              <p className="eco-text-muted" style={{ marginBottom: '1.5rem', lineHeight: 1.7 }}>
+                The moment you log an activity, everything updates — charts, trends
+                and insights that tell you exactly where to act first.
+              </p>
+
+              <div style={{ display: 'grid', gap: '0.8rem' }}>
+                {DASHBOARD_POINTS.map((point) => (
+                  <div key={point} style={{ display: 'flex', gap: '0.65rem', alignItems: 'flex-start' }}>
+                    <span
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        marginTop: 1,
+                        background: 'rgba(var(--eco-primary-rgb), 0.16)',
+                        color: 'var(--eco-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                      }}
+                    >
+                      ✓
+                    </span>
+                    <span style={{ fontSize: '0.92rem', lineHeight: 1.5 }}>{point}</span>
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                to={primaryCta.to}
+                className="eco-btn eco-btn-primary"
+                style={{ marginTop: '1.8rem', padding: '0.85rem 1.8rem' }}
+              >
+                {primaryCta.label}
+                <ArrowRight size={17} />
+              </Link>
+            </motion.div>
+
+            {/* mock preview window */}
+            <motion.div
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 30, scale: 0.97 }}
+              whileInView={{ opacity: 1, y: 0, scale: 1 }}
+              viewport={{ once: false, amount: 0.3 }}
+              transition={{ duration: 0.6, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+              className="eco-card"
+              style={{ padding: 0, overflow: 'hidden', boxShadow: 'var(--eco-shadow)' }}
+            >
+              {/* window title bar */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '0.7rem 0.9rem',
+                  borderBottom: '1px solid var(--eco-border)',
+                }}
+              >
+                {['#ff5f57', '#febc2e', '#28c840'].map((dot) => (
+                  <span key={dot} style={{ width: 11, height: 11, borderRadius: '50%', background: dot }} />
+                ))}
+                <span className="eco-text-muted" style={{ marginLeft: 'auto', fontSize: '0.7rem' }}>
+                  ecotrack · dashboard
+                </span>
+              </div>
+
+              <div style={{ padding: '1.1rem' }}>
+                {/* stat tiles */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', marginBottom: '1.1rem' }}>
+                  {[
+                    { label: 'This month', value: '142 kg', color: '#00ff87' },
+                    { label: 'This year', value: '1.6 t', color: '#7c3aed' },
+                    { label: 'Goals', value: '2 active', color: '#f59e0b' },
+                  ].map((tile) => (
+                    <div
+                      key={tile.label}
+                      style={{
+                        padding: '0.65rem 0.7rem',
+                        borderRadius: 'var(--eco-radius-sm)',
+                        background: 'rgba(var(--eco-primary-rgb), 0.05)',
+                        border: '1px solid var(--eco-border)',
+                      }}
+                    >
+                      <div className="eco-text-muted" style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {tile.label}
+                      </div>
+                      <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: tile.color }}>
+                        {tile.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* mini bar chart - bars grow on scroll */}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', height: 110, padding: '0 0.1rem' }}>
+                  {PREVIEW_BARS.map((height, i) => (
+                    <motion.div
+                      key={i}
+                      initial={prefersReducedMotion ? false : { scaleY: 0 }}
+                      whileInView={{ scaleY: 1 }}
+                      viewport={{ once: false, amount: 0.6 }}
+                      transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                      style={{
+                        flex: 1,
+                        height: `${height * 100}%`,
+                        transformOrigin: 'bottom',
+                        borderRadius: '6px 6px 0 0',
+                        background: 'linear-gradient(180deg, var(--eco-primary), rgba(124,58,237,0.65))',
+                      }}
+                    />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
+                  {['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'].map((month) => (
+                    <span key={month} className="eco-text-muted" style={{ fontSize: '0.6rem', flex: 1, textAlign: 'center' }}>
+                      {month}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -715,6 +1258,114 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ================= CONTRIBUTE / DONATE ================= */}
+      {/* EcoTrack takes no money itself. Each card links out to a real,
+          established charity's own donation page (links verified against each
+          org's site), so a contribution reaches the organisation in full. */}
+      <section className="eco-section">
+        <div className="container">
+          <div style={{ textAlign: 'center', maxWidth: 660, margin: '0 auto 2.6rem' }}>
+            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+              <Heart size={14} style={{ color: 'var(--eco-primary)' }} />
+              Take action
+            </div>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+              Tracking is step one. <span className="eco-gradient-text">Giving back</span> is the next.
+            </h2>
+            <p className="eco-text-muted" style={{ margin: '0 auto', maxWidth: 600 }}>
+              Measuring your footprint shows what to change. These established
+              organisations turn support into real emission cuts — reforestation,
+              clean energy and protected land.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '1.3rem',
+            }}
+          >
+            {CONTRIBUTIONS.map((org, index) => {
+              const Icon = org.icon;
+              return (
+                <motion.div
+                  key={org.name}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false, amount: 0.25 }}
+                  transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  className="eco-card eco-card-hover"
+                  style={{ display: 'flex', flexDirection: 'column' }}
+                >
+                  <div
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 13,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      // 1A ≈ 10% opacity of the org's accent colour
+                      background: `${org.color}1A`,
+                      color: org.color,
+                      marginBottom: '1rem',
+                    }}
+                  >
+                    <Icon size={24} />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      color: org.color,
+                      marginBottom: '0.35rem',
+                    }}
+                  >
+                    {org.focus}
+                  </span>
+                  <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>{org.name}</h3>
+                  <p className="eco-text-muted" style={{ fontSize: '0.88rem', lineHeight: 1.6, margin: '0 0 1.2rem' }}>
+                    {org.body}
+                  </p>
+                  <a
+                    href={org.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="eco-btn eco-btn-outline"
+                    style={{ marginTop: 'auto', width: '100%' }}
+                  >
+                    Donate
+                    <ArrowUpRight size={16} />
+                  </a>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* honest note — EcoTrack itself takes no money */}
+          <p
+            className="eco-text-muted"
+            style={{
+              textAlign: 'center',
+              fontSize: '0.82rem',
+              marginTop: '1.6rem',
+              maxWidth: 660,
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              lineHeight: 1.6,
+            }}
+          >
+            <Info size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
+            EcoTrack is a student project and does not collect donations itself. Each
+            button opens the organisation&rsquo;s own donation page, where your
+            contribution reaches them in full.
+          </p>
         </div>
       </section>
 
@@ -838,6 +1489,152 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ================= FAQ ================= */}
+      <section className="eco-section">
+        <div className="container">
+          <div style={{ maxWidth: 760, margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '2.2rem' }}>
+              <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+                <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
+                Questions
+              </div>
+              <h2 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', margin: 0 }}>
+                Everything you might <span className="eco-gradient-text">wonder</span>
+              </h2>
+            </div>
+
+            <div style={{ display: 'grid', gap: '0.8rem' }}>
+              {HOME_FAQS.map((item, index) => {
+                const isOpen = openFaq === index;
+                return (
+                  <motion.div
+                    key={item.q}
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: false, amount: 0.4 }}
+                    transition={{ duration: 0.4, delay: index * 0.05 }}
+                    className="eco-card"
+                    style={{ padding: 0, overflow: 'hidden' }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setOpenFaq(isOpen ? -1 : index)}
+                      aria-expanded={isOpen}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '1rem',
+                        padding: '1.1rem 1.3rem',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--eco-text)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        font: 'inherit',
+                      }}
+                    >
+                      <span style={{ fontSize: '1rem', fontWeight: 600 }}>{item.q}</span>
+                      <ChevronDown
+                        size={18}
+                        style={{
+                          flexShrink: 0,
+                          color: 'var(--eco-primary)',
+                          transform: isOpen ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 0.25s ease',
+                        }}
+                      />
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                          style={{ overflow: 'hidden' }}
+                        >
+                          <p
+                            className="eco-text-muted"
+                            style={{ fontSize: '0.92rem', lineHeight: 1.7, margin: 0, padding: '0 1.3rem 1.2rem' }}
+                          >
+                            {item.a}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= FEEDBACK INVITATION ================= */}
+      <section className="eco-section" style={{ background: 'var(--eco-bg-alt)' }}>
+        <div className="container">
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 26 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.3 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="eco-card"
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              textAlign: 'center',
+              padding: 'clamp(2rem, 5vw, 3.2rem)',
+              maxWidth: 720,
+              margin: '0 auto',
+            }}
+          >
+            <div
+              className="eco-glow-orb eco-glow-orb-purple"
+              style={{ width: 280, height: 280, top: '-55%', left: '50%', transform: 'translateX(-50%)' }}
+            />
+
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  width: 56,
+                  height: 56,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
+                  color: '#04140c',
+                  marginBottom: '1.1rem',
+                }}
+              >
+                <MessageSquare size={26} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.25rem', marginBottom: '1rem' }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star key={star} size={18} fill="var(--eco-orange)" style={{ color: 'var(--eco-orange)' }} />
+                ))}
+              </div>
+
+              <h2 style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.3rem)', marginBottom: '0.9rem' }}>
+                We build EcoTrack <span className="eco-gradient-text">with you</span>
+              </h2>
+              <p className="eco-text-muted" style={{ maxWidth: 520, margin: '0 auto 1.8rem', fontSize: '1rem' }}>
+                Found a bug, want a feature, or just have a thought? Every message is
+                read by a real person and shapes what gets built next.
+              </p>
+
+              <Link to="/feedback" className="eco-btn eco-btn-primary" style={{ padding: '0.9rem 2rem' }}>
+                Share your feedback
+                <ArrowRight size={17} />
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* ================= FINAL CALL TO ACTION ================= */}
       <section className="eco-section eco-line-grid">
         <div className="container">
@@ -869,43 +1666,181 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ================= FOOTER ================= */}
-      <footer
-        style={{
-          borderTop: '1px solid var(--eco-border)',
-          padding: '2.5rem 0',
-          background: 'var(--eco-bg-alt)',
-        }}
-      >
-        <div
-          className="container"
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '1.2rem',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-            <Leaf size={22} style={{ color: 'var(--eco-primary)' }} />
-            <span
-              className="eco-gradient-text"
-              style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '1.15rem' }}
+      {/* The shared site Footer (components/Footer.jsx) now renders below every
+          public page from App.jsx, so this page no longer carries its own. */}
+
+      {/* ================= CATEGORY DETAIL PANEL ================= */}
+      {/* Opens when a category card is clicked. Explains that category and lists
+          the real emission factors EcoTrack uses for it, so a visitor can learn
+          what the app actually measures before signing up. */}
+      <AnimatePresence>
+        {openCategory && (
+          <motion.div
+            onClick={() => setOpenCategory(null)}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1060,
+              background: 'rgba(0,0,0,0.66)',
+              backdropFilter: 'blur(6px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1.2rem',
+            }}
+          >
+            <motion.div
+              onClick={(event) => event.stopPropagation()}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 24, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={prefersReducedMotion ? {} : { opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+              className="eco-card"
+              style={{ maxWidth: 480, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}
             >
-              EcoTrack
-            </span>
-          </div>
+              {/* header */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.9rem' }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 13,
+                    flexShrink: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: `${openCategory.color}1A`,
+                    color: openCategory.color,
+                  }}
+                >
+                  <openCategory.icon size={24} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: '1.3rem', marginBottom: '0.15rem' }}>{openCategory.name}</h3>
+                  <div className="eco-text-muted" style={{ fontSize: '0.8rem' }}>
+                    Measured {openCategory.unit} · source: {openCategory.source}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenCategory(null)}
+                  aria-label="Close"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--eco-text-muted)',
+                    cursor: 'pointer',
+                    padding: 4,
+                    display: 'flex',
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-            Emission factors: DEFRA 2023 · IPCC 2006 · CEA India 2023 · Our World in Data
-          </p>
+              <p style={{ fontSize: '0.92rem', lineHeight: 1.7, margin: '1.2rem 0' }}>
+                {openCategory.intro}
+              </p>
 
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-            Built for SDG 13 · Climate Action
-          </p>
-        </div>
-      </footer>
+              {/* factor table */}
+              <div
+                style={{
+                  borderRadius: 'var(--eco-radius-sm)',
+                  border: '1px solid var(--eco-border)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '0.6rem 0.9rem',
+                    background: 'rgba(var(--eco-primary-rgb), 0.05)',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--eco-text-muted)',
+                  }}
+                >
+                  <span>Activity type</span>
+                  <span>kg CO₂ {openCategory.unit}</span>
+                </div>
+
+                {openCategory.factors.map(([label, value], index) => {
+                  // Bar width relative to the heaviest factor in this category,
+                  // so the visitor sees at a glance which option costs most
+                  const max = Math.max(...openCategory.factors.map((f) => f[1])) || 1;
+                  const pct = (value / max) * 100;
+                  return (
+                    <div
+                      key={label}
+                      style={{
+                        padding: '0.7rem 0.9rem',
+                        borderTop: '1px solid var(--eco-border)',
+                        background: index % 2 ? 'rgba(var(--eco-primary-rgb), 0.02)' : 'transparent',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '0.88rem',
+                          marginBottom: '0.4rem',
+                        }}
+                      >
+                        <span>{label}</span>
+                        <span className="eco-tabular" style={{ fontWeight: 600, color: openCategory.color }}>
+                          {value}
+                        </span>
+                      </div>
+                      <div style={{ height: 5, borderRadius: 5, background: 'var(--eco-border)', overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            width: `${Math.max(pct, 2)}%`,
+                            height: '100%',
+                            borderRadius: 5,
+                            background: openCategory.color,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* tip */}
+              <div
+                style={{
+                  marginTop: '1.2rem',
+                  padding: '0.85rem 1rem',
+                  borderRadius: 'var(--eco-radius-sm)',
+                  background: 'rgba(var(--eco-primary-rgb), 0.06)',
+                  border: '1px solid rgba(var(--eco-primary-rgb), 0.18)',
+                  fontSize: '0.86rem',
+                  lineHeight: 1.6,
+                }}
+              >
+                <strong style={{ color: 'var(--eco-primary)' }}>Quick win: </strong>
+                {openCategory.tip}
+              </div>
+
+              <Link
+                to={primaryCta.to}
+                onClick={() => setOpenCategory(null)}
+                className="eco-btn eco-btn-primary"
+                style={{ width: '100%', marginTop: '1.3rem' }}
+              >
+                {user ? 'Log this in the calculator' : 'Start tracking free'}
+                <ArrowRight size={17} />
+              </Link>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

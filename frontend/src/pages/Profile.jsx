@@ -13,12 +13,26 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AlertCircle, Check, Mail, MapPin, Save, Shield, User } from 'lucide-react';
+import {
+  Activity,
+  AlertCircle,
+  CalendarDays,
+  Check,
+  Database,
+  Leaf,
+  Mail,
+  MapPin,
+  Save,
+  Shield,
+  Target,
+  User,
+} from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { dashboardApi, getErrorMessage } from '../utils/api';
 import SelectField from '../components/SelectField';
-import { formatDate, getInitials } from '../utils/formatters';
+import { formatCategory, formatDate, formatEmission, formatNumber, getInitials } from '../utils/formatters';
 
 const REGIONS = [
   'India',
@@ -51,6 +65,11 @@ export default function Profile() {
   const [touched, setTouched] = useState({});
   const [saving, setSaving] = useState(false);
 
+  // The at-a-glance figures shown above the edit form. Pulled from the same
+  // dashboard summary the Dashboard page uses, so the two never disagree.
+  const [stats, setStats] = useState(null);
+  const [statsError, setStatsError] = useState(false);
+
   // Fill the form once the profile arrives from the backend.
   // Without this effect the inputs would stay empty, because the first render
   // happens before the profile request has finished.
@@ -59,6 +78,26 @@ export default function Profile() {
       setForm({ name: profile.name || '', region: profile.region || 'India' });
     }
   }, [profile]);
+
+  // Load the stats summary once. A failure here is not fatal - the profile edit
+  // form still works - so it degrades to hiding the stats rather than erroring.
+  useEffect(() => {
+    let cancelled = false;
+    dashboardApi
+      .getSummary()
+      .then((data) => {
+        if (!cancelled) setStats(data);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setStatsError(true);
+          console.error('[EcoTrack] Profile stats:', getErrorMessage(error));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const errors = {
     name: !form.name.trim()
@@ -185,6 +224,116 @@ export default function Profile() {
           </div>
         </div>
       </motion.div>
+
+      {/* ---------- Stats summary ---------- */}
+      {stats && !statsError && (
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.06 }}
+          className="eco-card"
+          style={{ marginBottom: '1.3rem' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.2rem' }}>
+            <Activity size={18} style={{ color: 'var(--eco-primary)' }} />
+            <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Your activity at a glance</h3>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '0.9rem',
+            }}
+          >
+            {[
+              {
+                icon: CalendarDays,
+                color: '#00ff87',
+                label: 'This month',
+                value: formatEmission(stats.thisMonth || 0),
+              },
+              {
+                icon: Leaf,
+                color: '#7c3aed',
+                label: 'This year',
+                value: formatEmission(stats.thisYear || 0),
+              },
+              {
+                icon: Database,
+                color: '#0ea5e9',
+                label: 'Entries logged',
+                value: formatNumber(stats.totalRecords || 0, 0),
+              },
+              {
+                icon: Target,
+                color: '#f59e0b',
+                label: 'Active goals',
+                value: formatNumber(stats.activeGoals || 0, 0),
+              },
+            ].map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.label}
+                  style={{
+                    padding: '0.9rem 1rem',
+                    borderRadius: 'var(--eco-radius-sm)',
+                    background: 'rgba(var(--eco-primary-rgb), 0.04)',
+                    border: '1px solid var(--eco-border)',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 9,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: `${item.color}1A`,
+                      color: item.color,
+                      marginBottom: '0.7rem',
+                    }}
+                  >
+                    <Icon size={16} />
+                  </div>
+                  <div
+                    className="eco-tabular"
+                    style={{
+                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '1.15rem',
+                      lineHeight: 1.15,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.value}
+                  </div>
+                  <div className="eco-text-muted" style={{ fontSize: '0.76rem', marginTop: '0.2rem' }}>
+                    {item.label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* One-line highlight - the category doing the most damage this month */}
+          {stats.bestCategory?.category && (
+            <p
+              className="eco-text-muted"
+              style={{ fontSize: '0.84rem', marginTop: '1.1rem', marginBottom: 0 }}
+            >
+              <Leaf size={13} style={{ verticalAlign: -2, marginRight: 4, color: 'var(--eco-primary)' }} />
+              Your standout category this month is{' '}
+              <strong style={{ color: 'var(--eco-text)' }}>
+                {formatCategory(stats.bestCategory.category)}
+              </strong>
+              .
+            </p>
+          )}
+        </motion.div>
+      )}
 
       {/* ---------- Edit form ---------- */}
       <motion.div

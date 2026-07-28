@@ -33,6 +33,7 @@ from routes.goals import goals_bp
 from routes.reports import reports_bp
 from routes.admin import admin_bp
 from routes.assistant import assistant_bp
+from routes.feedback import feedback_bp
 
 
 def create_app():
@@ -67,6 +68,7 @@ def create_app():
     app.register_blueprint(reports_bp)     # /api/reports/*
     app.register_blueprint(admin_bp)       # /api/admin/*
     app.register_blueprint(assistant_bp)   # /api/assistant/*
+    app.register_blueprint(feedback_bp)    # /api/feedback  (public)
 
     # -----------------------------------------------------------------------
     # Server status routes

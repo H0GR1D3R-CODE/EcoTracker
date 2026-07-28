@@ -13,7 +13,6 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  BarChart3,
   Calculator,
   FileText,
   LayoutDashboard,
@@ -34,12 +33,28 @@ import { getInitials } from '../utils/formatters';
 // How far the user scrolls before the navbar turns opaque
 const SCROLL_THRESHOLD = 80;
 
-// The main app links, used by both the top navbar and the mobile bottom bar
+// The main app links, for signed-in NORMAL users. Used by both the top navbar
+// and the mobile bottom bar.
 const APP_LINKS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/calculator', label: 'Calculator', icon: Calculator },
   { to: '/goals', label: 'Goals', icon: Target },
   { to: '/reports', label: 'Reports', icon: FileText },
+];
+
+// The admin account is a separate, admin-only identity - it does not track a
+// personal footprint, so it gets its own single link instead of APP_LINKS.
+const ADMIN_LINKS = [{ to: '/admin', label: 'Admin', icon: Shield }];
+
+// The public content pages, shown next to the logo for signed-out visitors
+// (the marketing site). Signed-in users get the app links instead, so the bar
+// never shows both sets at once.
+const PUBLIC_LINKS = [
+  { to: '/', label: 'Home' },
+  { to: '/about', label: 'About' },
+  { to: '/learn', label: 'Learn' },
+  { to: '/gallery', label: 'Gallery' },
+  { to: '/feedback', label: 'Feedback' },
 ];
 
 export default function Navbar() {
@@ -81,14 +96,23 @@ export default function Navbar() {
     try {
       await logout();
       toast.success('Signed out successfully.');
-      navigate('/');
+      // replace:true so the protected page they left is not sitting in history
+      // for the back button, and so this is the single settled destination
+      // rather than racing the ProtectedRoute redirect that fires on sign-out.
+      navigate('/', { replace: true });
     } catch (error) {
       toast.error(error.message);
     }
   };
 
-  // Signed-in users get the app links; visitors only see the landing page
-  const visibleLinks = user ? APP_LINKS : [];
+  // Which primary links show in the bar:
+  //   admin account  -> just the Admin console (no personal tracking)
+  //   normal user    -> the app links
+  //   signed out      -> none (they get the public links + auth buttons)
+  const primaryLinks = isAdmin ? ADMIN_LINKS : user ? APP_LINKS : [];
+
+  // Where the logo points: admins home is the console, users' is the dashboard
+  const homeTo = isAdmin ? '/admin' : user ? '/dashboard' : '/';
 
   return (
     <>
@@ -105,7 +129,7 @@ export default function Navbar() {
         >
           {/* ---------- Logo ---------- */}
           <Link
-            to={user ? '/dashboard' : '/'}
+            to={homeTo}
             style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}
           >
             <motion.span
@@ -128,35 +152,68 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* ---------- Desktop links (hidden under 992px by Bootstrap's d-none) ---------- */}
-          <div className="d-none d-lg-flex" style={{ alignItems: 'center', gap: '0.2rem' }}>
-            {visibleLinks.map((link) => {
-              const Icon = link.icon;
-              return (
+          {/* ---------- Public content links, next to the logo (signed-out only) ---------- */}
+          {!user && (
+            <div
+              className="d-none d-lg-flex"
+              style={{ alignItems: 'center', gap: '0.15rem', marginLeft: '1rem' }}
+            >
+              {PUBLIC_LINKS.map((link) => (
                 <NavLink
                   key={link.to}
                   to={link.to}
-                  // NavLink passes isActive so the current page can be highlighted
+                  // `end` so the Home link ("/") is only active on the exact
+                  // landing page, not on every route that starts with "/"
+                  end={link.to === '/'}
                   className={({ isActive }) =>
                     `eco-nav-link ${isActive ? 'eco-nav-link-active' : ''}`
                   }
+                  style={{ fontSize: '0.9rem' }}
                 >
-                  <Icon size={17} />
                   {link.label}
                 </NavLink>
-              );
-            })}
+              ))}
+            </div>
+          )}
 
-            {isAdmin && (
-              <NavLink
-                to="/admin"
-                className={({ isActive }) =>
-                  `eco-nav-link ${isActive ? 'eco-nav-link-active' : ''}`
-                }
-              >
-                <Shield size={17} />
-                Admin
-              </NavLink>
+          {/* ---------- Desktop links (hidden under 992px by Bootstrap's d-none) ---------- */}
+          <div className="d-none d-lg-flex" style={{ alignItems: 'center', gap: '0.2rem' }}>
+            {primaryLinks.map(
+              (link) => {
+                const Icon = link.icon;
+                const isActive = location.pathname === link.to;
+
+                return (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    className={`eco-nav-link ${isActive ? 'eco-nav-link-active' : ''}`}
+                    style={{ position: 'relative' }}
+                  >
+                    {/* The pill. Sharing one layoutId across every link makes
+                        Framer Motion slide it from the old link to the new one
+                        when the route changes, instead of it blinking. */}
+                    {isActive && !prefersReducedMotion && (
+                      <motion.span
+                        layoutId="navbar-active-pill"
+                        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          borderRadius: 'var(--eco-radius-sm)',
+                          background: 'rgba(var(--eco-primary-rgb), 0.1)',
+                          border: '1px solid rgba(var(--eco-primary-rgb), 0.2)',
+                          zIndex: 0,
+                        }}
+                      />
+                    )}
+                    <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <Icon size={17} />
+                      {link.label}
+                    </span>
+                  </NavLink>
+                );
+              }
             )}
           </div>
 
@@ -308,7 +365,7 @@ export default function Navbar() {
                   </div>
                 </div>
 
-                {APP_LINKS.map((link) => {
+                {primaryLinks.map((link) => {
                   const Icon = link.icon;
                   return (
                     <NavLink
@@ -336,19 +393,6 @@ export default function Navbar() {
                   Profile
                 </NavLink>
 
-                {isAdmin && (
-                  <NavLink
-                    to="/admin"
-                    className={({ isActive }) =>
-                      `eco-nav-link ${isActive ? 'eco-nav-link-active' : ''}`
-                    }
-                    style={{ display: 'flex', width: '100%', padding: '0.75rem 0.6rem' }}
-                  >
-                    <Shield size={18} />
-                    Admin
-                  </NavLink>
-                )}
-
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -361,11 +405,23 @@ export default function Navbar() {
               </>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                <Link to="/" className="eco-nav-link" style={{ padding: '0.75rem 0.6rem' }}>
-                  <BarChart3 size={18} />
-                  Home
-                </Link>
-                <Link to="/login" className="eco-btn eco-btn-ghost" style={{ width: '100%' }}>
+                {/* Public content pages, so the mobile menu matches the desktop bar.
+                    Home is the first entry in PUBLIC_LINKS, so it appears here too. */}
+                {PUBLIC_LINKS.map((link) => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    end={link.to === '/'}
+                    className={({ isActive }) =>
+                      `eco-nav-link ${isActive ? 'eco-nav-link-active' : ''}`
+                    }
+                    style={{ padding: '0.75rem 0.6rem' }}
+                  >
+                    {link.label}
+                  </NavLink>
+                ))}
+
+                <Link to="/login" className="eco-btn eco-btn-ghost" style={{ width: '100%', marginTop: '0.3rem' }}>
                   Log in
                 </Link>
                 <Link to="/register" className="eco-btn eco-btn-primary" style={{ width: '100%' }}>
@@ -381,7 +437,7 @@ export default function Navbar() {
           Only rendered for signed-in users. index.css hides it above 768px. */}
       {user && (
         <div className="eco-bottom-nav">
-          {APP_LINKS.map((link) => {
+          {primaryLinks.map((link) => {
             const Icon = link.icon;
             const isActive = location.pathname === link.to;
             return (

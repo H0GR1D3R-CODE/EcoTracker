@@ -258,7 +258,15 @@ export const adminApi = {
 
   getStats: () => api.get('/api/admin/stats').then(unwrap),
 
+  // Full profile + every record, goal and report for one user (the drill-down)
+  getUserDetail: (userId) => api.get(`/api/admin/users/${userId}`).then(unwrap),
+
   deleteUser: (userId) => api.delete(`/api/admin/users/${userId}`).then(unwrap),
+
+  getFeedback: () => api.get('/api/admin/feedback').then(unwrap),
+
+  deleteFeedback: (feedbackId) =>
+    api.delete(`/api/admin/feedback/${feedbackId}`).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
@@ -280,6 +288,15 @@ export const assistantApi = {
 
   summarise: (periodStart, periodEnd) =>
     api.post('/api/assistant/summary', { periodStart, periodEnd }).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// FEEDBACK (public - a visitor can send feedback without an account)
+// ---------------------------------------------------------------------------
+
+export const feedbackApi = {
+  // payload: { name?, email?, message, rating? }
+  submit: (payload) => api.post('/api/feedback', payload).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------

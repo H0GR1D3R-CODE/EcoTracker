@@ -16,18 +16,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
+  Activity,
   AlertTriangle,
   BarChart3,
+  Calendar,
   Database,
+  Eye,
   FileText,
   Leaf,
+  MapPin,
+  MessageSquare,
   RefreshCw,
   Search,
   Shield,
+  Star,
   Target,
   Trash2,
   TrendingUp,
-  UserPlus,
   Users,
   X,
 } from 'lucide-react';
@@ -55,23 +60,73 @@ export default function AdminDashboard() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Feedback submitted through the public form
+  const [feedback, setFeedback] = useState([]);
+  const [averageRating, setAverageRating] = useState(null);
+  const [deletingFeedbackId, setDeletingFeedbackId] = useState(null);
+
+  // The per-user drill-down: which user's full detail is open, the loaded data,
+  // and whether it is still loading / failed
+  const [detailUid, setDetailUid] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState(null);
+
   // ---------------------------------------------------------------------
   const load = async () => {
     setLoading(true);
     try {
-      // Both requests at once rather than one after the other
-      const [statsData, usersData] = await Promise.all([
+      // All three requests at once rather than one after another
+      const [statsData, usersData, feedbackData] = await Promise.all([
         adminApi.getStats(),
         adminApi.getUsers(),
+        adminApi.getFeedback(),
       ]);
       setStats(statsData);
       setUsers(usersData.users || []);
+      setFeedback(feedbackData.feedback || []);
+      setAverageRating(feedbackData.averageRating ?? null);
       setError(null);
     } catch (requestError) {
       setError(getErrorMessage(requestError, 'Could not load the admin dashboard.'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteFeedback = async (id) => {
+    setDeletingFeedbackId(id);
+    try {
+      await adminApi.deleteFeedback(id);
+      setFeedback((current) => current.filter((item) => item.id !== id));
+      toast.success('Feedback deleted.');
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not delete that feedback.'));
+    } finally {
+      setDeletingFeedbackId(null);
+    }
+  };
+
+  // Open the drill-down for one user and fetch their full detail + activity
+  const openDetail = async (uid) => {
+    setDetailUid(uid);
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      const data = await adminApi.getUserDetail(uid);
+      setDetail(data);
+    } catch (requestError) {
+      setDetailError(getErrorMessage(requestError, 'Could not load that user.'));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeDetail = () => {
+    setDetailUid(null);
+    setDetail(null);
+    setDetailError(null);
   };
 
   useEffect(() => {
@@ -106,6 +161,64 @@ export default function AdminDashboard() {
       colors: entries.map((item) => CATEGORY_META[item.key]?.color || '#8888aa'),
     };
   }, [stats]);
+
+  // Merge the user's records, goals and reports into one reverse-chronological
+  // feed - "everything they have done", newest first. Built only when a
+  // drill-down is open, and recomputed only when that user's data changes.
+  const activityTimeline = useMemo(() => {
+    if (!detail) return [];
+
+    const events = [];
+
+    (detail.records || []).forEach((record) => {
+      events.push({
+        id: `rec-${record.id}`,
+        ts: record.createdAt || record.recordedDate || '',
+        when: record.recordedDate || record.createdAt,
+        icon: Leaf,
+        color: CATEGORY_META[record.category]?.color || 'var(--eco-primary)',
+        title: `Logged ${formatCategory(record.category)}`,
+        detail: [
+          record.quantity ? `${formatNumber(record.quantity, 0)} ${record.unit}`.trim() : null,
+          formatEmission(record.emissionKgco2),
+        ]
+          .filter(Boolean)
+          .join('  ·  '),
+      });
+    });
+
+    (detail.goals || []).forEach((goal) => {
+      events.push({
+        id: `goal-${goal.id}`,
+        ts: goal.createdAt || '',
+        when: goal.createdAt,
+        icon: Target,
+        color: 'var(--eco-purple)',
+        title: `Set a ${formatCategory(goal.category)} goal`,
+        detail: `Cut ${goal.targetReductionPercent}%  ·  ${goal.status}`,
+      });
+    });
+
+    (detail.reports || []).forEach((report) => {
+      events.push({
+        id: `rep-${report.id}`,
+        ts: report.createdAt || report.periodStart || '',
+        when: report.createdAt || report.periodStart,
+        icon: FileText,
+        color: '#0ea5e9',
+        title: `Generated a ${report.reportType || ''} report`.replace('  ', ' '),
+        detail: `${report.periodStart} → ${report.periodEnd}`,
+      });
+    });
+
+    // Newest first. Parsing to a timestamp handles the mix of full ISO strings
+    // (createdAt) and plain YYYY-MM-DD dates (recordedDate) consistently.
+    return events.sort((a, b) => {
+      const timeA = new Date(a.ts).getTime() || 0;
+      const timeB = new Date(b.ts).getTime() || 0;
+      return timeB - timeA;
+    });
+  }, [detail]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -463,7 +576,12 @@ export default function AdminDashboard() {
                   const protectedRow = row.isAdmin || isSelf;
 
                   return (
-                    <tr key={row.uid}>
+                    <tr
+                      key={row.uid}
+                      onClick={() => openDetail(row.uid)}
+                      style={{ cursor: 'pointer' }}
+                      title={`View ${row.name}'s full activity`}
+                    >
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
                           <div
@@ -529,35 +647,63 @@ export default function AdminDashboard() {
                       <td>{formatNumber(row.recordCount, 0)}</td>
                       <td style={{ fontWeight: 600 }}>{formatEmission(row.totalEmission)}</td>
                       <td className="eco-text-muted">{formatDate(row.createdAt)}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        {protectedRow ? (
-                          // Nothing to click - explains why rather than showing
-                          // a disabled button with no reason
-                          <span
-                            className="eco-text-muted"
-                            style={{ fontSize: '0.74rem' }}
-                            title={isSelf ? 'You cannot delete yourself' : 'Admins are protected'}
-                          >
-                            protected
-                          </span>
-                        ) : (
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.15rem' }}>
+                          {/* View full activity. stopPropagation is redundant with
+                              the row handler here but keeps intent explicit. */}
                           <button
                             type="button"
-                            onClick={() => setConfirmDelete(row)}
-                            aria-label={`Delete ${row.name}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openDetail(row.uid);
+                            }}
+                            aria-label={`View ${row.name}`}
+                            title="View full activity"
                             style={{
                               background: 'transparent',
                               border: 'none',
-                              color: 'var(--eco-danger)',
+                              color: 'var(--eco-text-muted)',
                               cursor: 'pointer',
                               padding: 6,
                               display: 'inline-flex',
                               borderRadius: 6,
                             }}
                           >
-                            <Trash2 size={15} />
+                            <Eye size={15} />
                           </button>
-                        )}
+
+                          {protectedRow ? (
+                            // Nothing to delete - explains why rather than showing
+                            // a disabled button with no reason
+                            <span
+                              className="eco-text-muted"
+                              style={{ fontSize: '0.74rem', paddingRight: 6 }}
+                              title={isSelf ? 'You cannot delete yourself' : 'Admins are protected'}
+                            >
+                              protected
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation(); // don't open the drill-down too
+                                setConfirmDelete(row);
+                              }}
+                              aria-label={`Delete ${row.name}`}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--eco-danger)',
+                                cursor: 'pointer',
+                                padding: 6,
+                                display: 'inline-flex',
+                                borderRadius: 6,
+                              }}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -567,6 +713,460 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* ============ FEEDBACK ============ */}
+      <div className="eco-card" style={{ marginTop: '1.5rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
+            marginBottom: '1.2rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <MessageSquare size={18} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
+              User feedback
+              <span className="eco-text-muted" style={{ fontWeight: 400, marginLeft: '0.4rem' }}>
+                ({feedback.length})
+              </span>
+            </h2>
+          </div>
+
+          {/* Average rating summary, if anyone has rated */}
+          {averageRating != null && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                fontSize: '0.85rem',
+              }}
+            >
+              <Star size={15} fill="var(--eco-orange)" style={{ color: 'var(--eco-orange)' }} />
+              <strong className="eco-tabular">{averageRating}</strong>
+              <span className="eco-text-muted">average</span>
+            </div>
+          )}
+        </div>
+
+        {feedback.length === 0 ? (
+          <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+            No feedback yet. When visitors use the feedback form, it appears here.
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gap: '0.8rem' }}>
+            {feedback.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  gap: '0.9rem',
+                  padding: '1rem 1.1rem',
+                  borderRadius: 'var(--eco-radius-sm)',
+                  border: '1px solid var(--eco-border)',
+                  background: 'rgba(var(--eco-primary-rgb), 0.03)',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* who + when + rating */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      flexWrap: 'wrap',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{item.name}</span>
+
+                    {item.email && (
+                      <a
+                        href={`mailto:${item.email}`}
+                        className="eco-text-muted"
+                        style={{ fontSize: '0.78rem' }}
+                      >
+                        {item.email}
+                      </a>
+                    )}
+
+                    {item.rating && (
+                      <span style={{ display: 'inline-flex', gap: 1 }}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            size={12}
+                            fill={star <= item.rating ? 'var(--eco-orange)' : 'none'}
+                            style={{
+                              color:
+                                star <= item.rating ? 'var(--eco-orange)' : 'var(--eco-text-muted)',
+                            }}
+                          />
+                        ))}
+                      </span>
+                    )}
+
+                    {item.createdAt && (
+                      <span className="eco-text-muted" style={{ fontSize: '0.74rem', marginLeft: 'auto' }}>
+                        {formatDate(item.createdAt)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* the message itself */}
+                  <p style={{ fontSize: '0.88rem', lineHeight: 1.6, margin: 0, wordBreak: 'break-word' }}>
+                    {item.message}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteFeedback(item.id)}
+                  disabled={deletingFeedbackId === item.id}
+                  aria-label="Delete feedback"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--eco-danger)',
+                    cursor: 'pointer',
+                    padding: 6,
+                    display: 'flex',
+                    alignSelf: 'flex-start',
+                    flexShrink: 0,
+                  }}
+                >
+                  {deletingFeedbackId === item.id ? (
+                    <span
+                      style={{
+                        width: 15,
+                        height: 15,
+                        border: '2px solid rgba(239,68,68,0.3)',
+                        borderTopColor: 'var(--eco-danger)',
+                        borderRadius: '50%',
+                        animation: 'eco-spin 0.8s linear infinite',
+                      }}
+                    />
+                  ) : (
+                    <Trash2 size={15} />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ============ USER DETAIL DRILL-DOWN ============ */}
+      {/* Read-only. Shows one user's profile plus every record, goal and report
+          they have - "everything they have done" - in one place. */}
+      {detailUid && (
+        <div
+          onClick={closeDetail}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1045,
+            background: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            padding: '3vh 1rem',
+            overflowY: 'auto',
+          }}
+        >
+          <motion.div
+            onClick={(event) => event.stopPropagation()}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="eco-card"
+            style={{ maxWidth: 760, width: '100%', position: 'relative' }}
+          >
+            {/* Close */}
+            <button
+              type="button"
+              onClick={closeDetail}
+              aria-label="Close"
+              style={{
+                position: 'absolute',
+                top: 14,
+                right: 14,
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--eco-text-muted)',
+                cursor: 'pointer',
+                padding: 6,
+                display: 'flex',
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            {detailLoading && (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 26,
+                    height: 26,
+                    border: '3px solid var(--eco-border)',
+                    borderTopColor: 'var(--eco-primary)',
+                    borderRadius: '50%',
+                    animation: 'eco-spin 0.8s linear infinite',
+                  }}
+                />
+                <p className="eco-text-muted" style={{ marginTop: '1rem', fontSize: '0.9rem' }}>
+                  Loading user activity…
+                </p>
+              </div>
+            )}
+
+            {detailError && !detailLoading && (
+              <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
+                <AlertTriangle size={34} style={{ color: 'var(--eco-orange)' }} />
+                <p style={{ marginTop: '0.9rem', marginBottom: '1.2rem' }}>{detailError}</p>
+                <button
+                  type="button"
+                  className="eco-btn eco-btn-ghost"
+                  onClick={() => openDetail(detailUid)}
+                >
+                  <RefreshCw size={15} />
+                  Try again
+                </button>
+              </div>
+            )}
+
+            {detail && !detailLoading && (
+              <>
+                {/* ---- header ---- */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', paddingRight: '2rem' }}>
+                  <div
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: '50%',
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontFamily: 'Space Grotesk, sans-serif',
+                      background: detail.profile.isAdmin
+                        ? 'linear-gradient(135deg, var(--eco-purple), var(--eco-primary))'
+                        : 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
+                      color: '#04140c',
+                    }}
+                  >
+                    {getInitials(detail.profile.name)}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <h2 style={{ fontSize: '1.25rem', margin: 0 }}>{detail.profile.name}</h2>
+                      {detail.profile.isAdmin && (
+                        <span
+                          className="eco-badge"
+                          style={{ color: 'var(--eco-purple)', padding: '0.1rem 0.45rem', fontSize: '0.66rem' }}
+                        >
+                          <Shield size={9} />
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                    <div className="eco-text-muted" style={{ fontSize: '0.85rem', wordBreak: 'break-all' }}>
+                      {detail.profile.email}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ---- meta row ---- */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '1.1rem',
+                    marginTop: '1rem',
+                    paddingTop: '1rem',
+                    borderTop: '1px solid var(--eco-border)',
+                    fontSize: '0.82rem',
+                  }}
+                >
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }} className="eco-text-muted">
+                    <MapPin size={14} />
+                    {detail.profile.region || '—'}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }} className="eco-text-muted">
+                    <Calendar size={14} />
+                    Joined {formatDate(detail.profile.createdAt)}
+                  </span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }} className="eco-text-muted">
+                    <Activity size={14} />
+                    {detail.summary.lastActivity
+                      ? `Last active ${formatDate(detail.summary.lastActivity)}`
+                      : 'No activity yet'}
+                  </span>
+                </div>
+
+                {/* ---- summary tiles ---- */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: '0.75rem',
+                    marginTop: '1.3rem',
+                  }}
+                >
+                  {[
+                    { label: 'Total emissions', value: formatEmission(detail.summary.totalEmission), icon: BarChart3 },
+                    { label: 'Entries logged', value: formatNumber(detail.summary.recordCount, 0), icon: Leaf },
+                    {
+                      label: 'Goals',
+                      value: formatNumber(detail.summary.goalCount, 0),
+                      hint: `${detail.summary.activeGoals} active · ${detail.summary.achievedGoals} achieved`,
+                      icon: Target,
+                    },
+                    { label: 'Reports', value: formatNumber(detail.summary.reportCount, 0), icon: FileText },
+                  ].map((tile) => {
+                    const TileIcon = tile.icon;
+                    return (
+                      <div
+                        key={tile.label}
+                        style={{
+                          padding: '0.85rem 0.9rem',
+                          borderRadius: 'var(--eco-radius-sm)',
+                          background: 'rgba(var(--eco-primary-rgb), 0.04)',
+                          border: '1px solid var(--eco-border)',
+                        }}
+                      >
+                        <div
+                          className="eco-text-muted"
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.74rem', marginBottom: '0.35rem' }}
+                        >
+                          <TileIcon size={13} />
+                          {tile.label}
+                        </div>
+                        <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '1.1rem' }}>
+                          {tile.value}
+                        </div>
+                        {tile.hint && (
+                          <div className="eco-text-muted" style={{ fontSize: '0.7rem', marginTop: '0.2rem' }}>
+                            {tile.hint}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ---- category breakdown ---- */}
+                {Object.keys(detail.summary.categoryTotals || {}).length > 0 && (
+                  <div style={{ marginTop: '1.5rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.7rem' }}>Emissions by category</h3>
+                    <div style={{ display: 'grid', gap: '0.55rem' }}>
+                      {Object.entries(detail.summary.categoryTotals)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([key, value], _index, arr) => {
+                          const max = arr[0][1] || 1;
+                          return (
+                            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                              <span style={{ fontSize: '0.8rem', width: 92, flexShrink: 0 }}>
+                                {formatCategory(key)}
+                              </span>
+                              <div
+                                style={{
+                                  flex: 1,
+                                  height: 8,
+                                  borderRadius: 999,
+                                  background: 'var(--eco-border)',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: `${(value / max) * 100}%`,
+                                    height: '100%',
+                                    borderRadius: 999,
+                                    background: CATEGORY_META[key]?.color || 'var(--eco-primary)',
+                                  }}
+                                />
+                              </div>
+                              <span
+                                className="eco-text-muted eco-tabular"
+                                style={{ fontSize: '0.76rem', width: 84, textAlign: 'right', flexShrink: 0 }}
+                              >
+                                {formatEmission(value)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ---- activity timeline ---- */}
+                <div style={{ marginTop: '1.6rem' }}>
+                  <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Activity size={15} style={{ color: 'var(--eco-primary)' }} />
+                    Activity timeline
+                    <span className="eco-text-muted" style={{ fontWeight: 400 }}>
+                      ({activityTimeline.length})
+                    </span>
+                  </h3>
+
+                  {activityTimeline.length === 0 ? (
+                    <p className="eco-text-muted" style={{ fontSize: '0.87rem', margin: 0 }}>
+                      This user has not logged any activity yet.
+                    </p>
+                  ) : (
+                    <div style={{ display: 'grid', gap: '0.15rem', maxHeight: 340, overflowY: 'auto', paddingRight: 4 }}>
+                      {activityTimeline.map((event) => {
+                        const EventIcon = event.icon;
+                        return (
+                          <div
+                            key={event.id}
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.55rem 0.2rem' }}
+                          >
+                            <span
+                              style={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: 9,
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'rgba(var(--eco-primary-rgb), 0.08)',
+                                color: event.color,
+                              }}
+                            >
+                              <EventIcon size={15} />
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{event.title}</div>
+                              <div className="eco-text-muted" style={{ fontSize: '0.76rem' }}>
+                                {event.detail}
+                              </div>
+                            </div>
+                            <span
+                              className="eco-text-muted"
+                              style={{ fontSize: '0.73rem', whiteSpace: 'nowrap', flexShrink: 0 }}
+                            >
+                              {formatDate(event.when)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </motion.div>
+        </div>
+      )}
 
       {/* ============ DELETE CONFIRMATION ============ */}
       {/* A destructive, irreversible action always gets an explicit confirm
