@@ -52,6 +52,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useCounter } from '../hooks/useCounter';
 import { useScrollReveal, useStaggerReveal } from '../hooks/useScrollReveal';
 import Photo from '../components/Photo';
+import LiveCarbonCounter from '../components/LiveCarbonCounter';
 import { PHOTOS } from '../utils/photos';
 
 // A few real photographs shown in the "world your choices touch" strip near the
@@ -705,6 +706,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ================= LIVE GLOBAL CARBON COUNTER ================= */}
+      <LiveCarbonCounter />
 
       {/* ================= TRUSTED SOURCES STRIP ================= */}
       <section className="eco-section" style={{ paddingTop: '2.6rem', paddingBottom: '0.5rem' }}>
