@@ -195,7 +195,7 @@ export default function Feedback() {
           borderRadius: 'var(--eco-radius)',
         }}
       >
-        <AuroraBackground opacity={0.4} />
+        <AuroraBackground opacity={0.3} />
         <div style={{ position: 'relative', zIndex: 1 }}>
           <span className="eco-badge" style={{ marginBottom: '1rem' }}>
             <MessageSquare size={14} style={{ color: 'var(--eco-primary)' }} />
