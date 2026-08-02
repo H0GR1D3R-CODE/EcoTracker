@@ -20,49 +20,49 @@ export const CATEGORY_META = {
   transport: {
     label: 'Transport',
     icon: 'Car',
-    color: '#00ff87',
+    color: '#4fbe80', // leaf green
     description: 'Cars, buses, trains and flights',
     quantityLabel: 'Distance travelled',
   },
   electricity: {
     label: 'Electricity',
     icon: 'Zap',
-    color: '#f59e0b',
+    color: '#e0a23f', // warm amber
     description: 'Grid power and solar generation',
     quantityLabel: 'Energy used',
   },
   fuel: {
     label: 'Fuel',
     icon: 'Flame',
-    color: '#ef4444',
+    color: '#d9694e', // terracotta
     description: 'LPG cylinders and generators',
     quantityLabel: 'Fuel consumed',
   },
   diet: {
     label: 'Diet',
     icon: 'UtensilsCrossed',
-    color: '#7c3aed',
+    color: '#a4739e', // muted berry
     description: 'Meals by dietary type',
     quantityLabel: 'Number of meals',
   },
   waste: {
     label: 'Waste',
     icon: 'Trash2',
-    color: '#8888aa',
+    color: '#8f9a86', // sage grey-green
     description: 'Landfill and recycled waste',
     quantityLabel: 'Weight of waste',
   },
   water: {
     label: 'Water',
     icon: 'Droplets',
-    color: '#0ea5e9',
+    color: '#4a9dc4', // natural water blue
     description: 'Municipal water supply',
     quantityLabel: 'Water used',
   },
   consumption: {
     label: 'Consumption',
     icon: 'ShoppingBag',
-    color: '#ec4899',
+    color: '#cf7d95', // dusty rose
     description: 'Clothing and electronics bought',
     quantityLabel: 'Items purchased',
   },
