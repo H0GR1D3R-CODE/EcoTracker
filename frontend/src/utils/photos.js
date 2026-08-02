@@ -55,6 +55,11 @@ export const PHOTOS = {
 
   // the planet
   earth: '1451187580459-43490279c0fa', // the Earth from space (Dashboard)
+
+  // signed-in page banners (distinct from every image above)
+  calcNature: '1621872111378-4f8340e9cb90', // green forest        (Calculator banner)
+  goalsVista: '1515344905723-babc01aac23d', // wind farm on grass   (Goals banner)
+  reportsPath: '1559770968-53924e9b32de', // road through a forest  (Reports banner)
 };
 
 /**

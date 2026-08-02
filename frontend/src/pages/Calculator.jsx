@@ -38,6 +38,8 @@ import GoalRing from '../components/GoalRing';
 import ImpactEquivalents from '../components/ImpactEquivalents';
 import SelectField from '../components/SelectField';
 import SkeletonCard from '../components/SkeletonCard';
+import PageBanner from '../components/PageBanner';
+import Reveal from '../components/Reveal';
 import {
   CATEGORY_META,
   CATEGORY_ORDER,
@@ -273,12 +275,15 @@ export default function Calculator() {
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
-      <h1 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', marginBottom: '0.3rem' }}>
-        Carbon <span className="eco-gradient-text">Calculator</span>
-      </h1>
-      <p className="eco-text-muted" style={{ marginBottom: '1.8rem' }}>
-        Pick a category, enter what you did, and see the emissions before you save.
-      </p>
+      <PageBanner
+        photo="calcNature"
+        alt="Sunlight falling through a green forest"
+        color="#00c96b"
+        eyebrow="Measure your impact"
+        title="Carbon"
+        titleAccent="Calculator"
+        subtitle="Pick a category, enter what you did, and see the emissions before you save."
+      />
 
       {/* ============ CATEGORY TABS ============ */}
       <div
@@ -627,7 +632,7 @@ export default function Calculator() {
       </AnimatePresence>
 
       {/* ============ THIS MONTH'S ENTRIES ============ */}
-      <div className="eco-card">
+      <Reveal once className="eco-card" style={{ display: 'block' }}>
         <div
           style={{
             display: 'flex',
@@ -725,7 +730,7 @@ export default function Calculator() {
             </table>
           </div>
         )}
-      </div>
+      </Reveal>
     </div>
   );
 }
