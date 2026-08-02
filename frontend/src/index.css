@@ -201,7 +201,14 @@ a {
 
 a:hover {
   opacity: 0.8;
-  color: var(--eco-primary);
+}
+
+/* Buttons are often <Link> anchors, so the rules above would tint and dim their
+   text on hover - which turned the primary button's label invisible. Buttons
+   own their colour and stay at full opacity; the hover lift/glow is the cue. */
+.eco-btn,
+.eco-btn:hover {
+  opacity: 1;
 }
 
 /* Text selection matches the brand instead of the browser default blue */
@@ -377,25 +384,25 @@ a:hover {
 }
 
 .eco-btn-primary {
-  /* Three stops rather than two puts a subtle brighter band across the middle -
-     a soft sheen, like light catching a physical surface */
-  background: linear-gradient(
-    135deg,
-    var(--eco-primary),
-    #00e878 45%,
-    var(--eco-primary-dark)
-  );
-  color: #04140c; /* very dark green text - readable on the bright button */
+  /* A vibrant "eco aurora" - emerald flowing into teal and ocean blue. Far more
+     eye-catching than a flat green, and dark enough that white text stays
+     clearly legible across every stop. */
+  background: linear-gradient(120deg, #08a869 0%, #0a97a0 50%, #0e79cf 100%);
+  color: #ffffff;
+  /* A whisper of shadow guarantees the label reads over the brightest band */
+  text-shadow: 0 1px 2px rgba(3, 20, 30, 0.3);
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    0 1px 2px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .eco-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
+  /* brightens slightly and lifts on hover, with a teal glow */
+  filter: saturate(1.08) brightness(1.06);
   box-shadow:
-    0 6px 20px rgba(var(--eco-primary-rgb), 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 8px 26px rgba(13, 140, 170, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .eco-btn-outline {
@@ -471,7 +478,7 @@ a:hover {
    read as the button "breathing", which added to the restless feeling on the
    landing page. It still glows on hover via .eco-btn-primary:hover. */
 .eco-btn-pulse {
-  box-shadow: 0 0 22px rgba(var(--eco-primary-rgb), 0.28);
+  box-shadow: 0 0 24px rgba(13, 140, 170, 0.34);
 }
 
 /* ===========================================================================
