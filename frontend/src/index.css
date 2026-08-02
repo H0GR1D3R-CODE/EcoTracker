@@ -150,6 +150,16 @@ body {
   overflow-x: clip;
 }
 
+/* background-attachment: fixed is janky and often unrendered on iOS Safari, so
+   on phones the ambient gradient scrolls with the page instead. The gradient
+   lives near the top, so the visual difference is negligible - the win is a
+   smooth, judder-free scroll on mobile. */
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll;
+  }
+}
+
 h1, h2, h3, h4, h5, h6,
 .eco-heading {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
@@ -744,6 +754,7 @@ a:hover {
   border: 1px solid var(--eco-glass-border);
   background: var(--eco-glass-bg);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px); /* iOS Safari needs the prefix */
   box-shadow: var(--eco-top-highlight);
 }
 
