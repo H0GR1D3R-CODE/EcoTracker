@@ -188,10 +188,10 @@ export default function Feedback() {
           <MessageSquare size={14} style={{ color: 'var(--eco-primary)' }} />
           Feedback
         </span>
-        <h1 style={{ fontSize: 'clamp(1.8rem, 4.5vw, 2.5rem)', marginBottom: '0.7rem' }}>
+        <h1 style={{ fontSize: 'clamp(2.3rem, 6.5vw, 3.8rem)', lineHeight: 1.04, marginBottom: '0.9rem' }}>
           Tell us what you <span className="eco-gradient-text">think</span>
         </h1>
-        <p className="eco-text-muted" style={{ margin: 0 }}>
+        <p className="eco-text-muted" style={{ margin: '0 auto', fontSize: '1.1rem', maxWidth: 520 }}>
           Found a bug, want a feature, or just have a thought? We read everything.
         </p>
       </div>

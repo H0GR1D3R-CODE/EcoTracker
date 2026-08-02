@@ -110,16 +110,16 @@ export default function About() {
         initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        style={{ textAlign: 'center', maxWidth: 680, margin: '0 auto 3rem' }}
+        style={{ maxWidth: 760, margin: '0 auto 3.4rem' }}
       >
-        <span className="eco-badge" style={{ marginBottom: '1.2rem' }}>
+        <span className="eco-badge" style={{ marginBottom: '1.4rem' }}>
           <Cloud size={14} style={{ color: 'var(--eco-primary)' }} />
           UN SDG 13 · Climate Action
         </span>
-        <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', marginBottom: '1rem' }}>
+        <h1 style={{ fontSize: 'clamp(2.5rem, 7vw, 4.2rem)', lineHeight: 1.02, marginBottom: '1.1rem' }}>
           About <span className="eco-gradient-text">EcoTrack</span>
         </h1>
-        <p className="eco-text-muted" style={{ fontSize: '1.05rem', lineHeight: 1.7, margin: 0 }}>
+        <p className="eco-text-muted" style={{ fontSize: '1.15rem', lineHeight: 1.7, margin: 0, maxWidth: 640 }}>
           You cannot reduce what you never measure. EcoTrack exists to turn the
           vague worry of a personal carbon footprint into a real number you can
           see, understand, and bring down — one everyday choice at a time.
@@ -170,8 +170,10 @@ export default function About() {
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.4rem', marginBottom: '0.8rem' }}>Why it exists</h2>
-          <p className="eco-text-muted" style={{ lineHeight: 1.75, margin: 0 }}>
+          <h2 style={{ fontSize: 'clamp(1.6rem, 3.6vw, 2.3rem)', lineHeight: 1.15, marginBottom: '1rem' }}>
+            Why it exists
+          </h2>
+          <p className="eco-text-muted" style={{ fontSize: '1.02rem', lineHeight: 1.8, margin: 0 }}>
             Climate change can feel too big for one person to affect. But the
             average footprint is the sum of ordinary decisions — how you travel,
             what you eat, the power you use. EcoTrack makes those decisions

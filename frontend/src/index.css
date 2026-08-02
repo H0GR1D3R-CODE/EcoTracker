@@ -33,10 +33,10 @@
   --eco-primary-dark: #35a367;
   --eco-primary-rgb: 79, 190, 128; /* rgb parts, so we can build rgba() shadows */
 
-  --eco-bg: #10140e;             /* warm forest-charcoal, not a dead black */
-  --eco-bg-alt: #141a12;
-  --eco-card: #181f15;
-  --eco-card-hover: #202a1c;
+  --eco-bg: #0b0f0a;             /* deep forest base - clean, not muddy */
+  --eco-bg-alt: #10150e;
+  --eco-card: #171e14;           /* cards sit clearly above the base */
+  --eco-card-hover: #1f291b;
 
   --eco-text: #edf1e6;           /* warm off-white, a touch of green */
   --eco-text-muted: #93a58c;     /* sage grey-green */
