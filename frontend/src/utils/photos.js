@@ -46,7 +46,7 @@ export const PHOTOS = {
   electronics2: '1606718220923-fcb2abd9a778', // assorted electronic devices (Learn)
 
   // waste, water
-  waste: '1572213426852-0e4ed8f41ff6', // dumped rubbish by a forest (Gallery)
+  waste: '1632247620837-970aa94d2b99', // garbage floating in the ocean (Gallery)
   water: '1495647688236-ed6ef40cb28b', // water running from a tap (Gallery)
 
   // growth / people

@@ -68,7 +68,7 @@ const PANELS = [
     title: 'What we throw away',
     caption:
       'Waste in landfill rots and releases methane. Recycling the same kilogram avoids most of that — one of the cheapest reductions anyone can make.',
-    alt: 'Discarded rubbish dumped at the edge of a forest',
+    alt: 'Discarded plastic waste floating in the ocean',
   },
   {
     photo: 'water',
