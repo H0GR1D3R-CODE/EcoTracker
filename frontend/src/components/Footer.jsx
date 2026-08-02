@@ -43,7 +43,7 @@ const SOURCE_LINKS = [
   { label: 'DEFRA emission factors', href: 'https://www.gov.uk/government/collections/government-conversion-factors-for-company-reporting' },
   { label: 'Our World in Data — CO₂', href: 'https://ourworldindata.org/co2-emissions' },
   { label: 'IEA — International Energy Agency', href: 'https://www.iea.org' },
-  { label: 'Global Carbon Project', href: 'https://globalcarbonproject.org' },
+  { label: 'Global Carbon Project', href: 'https://www.globalcarbonproject.org' },
 ];
 
 export default function Footer() {
