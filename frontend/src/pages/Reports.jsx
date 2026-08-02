@@ -36,6 +36,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ImpactEquivalents from '../components/ImpactEquivalents';
 import SelectField from '../components/SelectField';
+import PageBanner from '../components/PageBanner';
 import { CATEGORY_META } from '../utils/emissionHelpers';
 import {
   formatCategory,
@@ -363,12 +364,16 @@ export default function Reports() {
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
-      <h1 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', marginBottom: '0.3rem' }}>
-        <span className="eco-gradient-text">Reports</span>
-      </h1>
-      <p className="eco-text-muted" style={{ marginBottom: '1.8rem' }}>
-        A written summary of any period, rebuilt from your records each time you open it.
-      </p>
+      <PageBanner
+        photo="reportsPath"
+        alt="A winding road through a green forest"
+        color="#0ea5e9"
+        icon={FileText}
+        eyebrow="Your summary"
+        title="Carbon"
+        titleAccent="Reports"
+        subtitle="A written summary of any period, rebuilt from your records each time you open it."
+      />
 
       {/* ============ CONTROLS ============ */}
       <div className="eco-card eco-no-print" style={{ marginBottom: '1.5rem' }}>

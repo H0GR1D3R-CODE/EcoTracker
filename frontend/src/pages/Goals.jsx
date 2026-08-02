@@ -37,6 +37,7 @@ import { useTheme } from '../context/ThemeContext';
 import GoalRing from '../components/GoalRing';
 import SelectField from '../components/SelectField';
 import SkeletonCard from '../components/SkeletonCard';
+import PageBanner from '../components/PageBanner';
 import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
 import { formatCategory, formatDate, formatEmission, formatNumber } from '../utils/formatters';
 
@@ -326,35 +327,27 @@ export default function Goals() {
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
       {/* ============ HEADER ============ */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          marginBottom: '2rem',
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', marginBottom: '0.3rem' }}>
-            Your <span className="eco-gradient-text">Goals</span>
-          </h1>
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.92rem' }}>
-            One target per category, measured against this month&rsquo;s emissions.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          className="eco-btn eco-btn-primary"
-          onClick={() => setShowForm((open) => !open)}
-          disabled={availableCategories.length === 0 && !showForm}
-        >
-          {showForm ? <X size={17} /> : <Plus size={17} />}
-          {showForm ? 'Cancel' : 'New goal'}
-        </button>
-      </div>
+      <PageBanner
+        photo="goalsVista"
+        alt="A wind farm across a green field"
+        color="#7c3aed"
+        icon={Target}
+        eyebrow="Reduction targets"
+        title="Your"
+        titleAccent="Goals"
+        subtitle="One target per category, measured against this month's emissions."
+        action={
+          <button
+            type="button"
+            className="eco-btn eco-btn-primary"
+            onClick={() => setShowForm((open) => !open)}
+            disabled={availableCategories.length === 0 && !showForm}
+          >
+            {showForm ? <X size={17} /> : <Plus size={17} />}
+            {showForm ? 'Cancel' : 'New goal'}
+          </button>
+        }
+      />
 
       {error && (
         <div className="eco-card" style={{ marginBottom: '1.5rem', borderColor: 'var(--eco-danger)' }}>
