@@ -29,25 +29,25 @@
 /* Dark is the default theme. :root applies before JavaScript has run. */
 :root,
 [data-theme='dark'] {
-  --eco-primary: #00ff87;        /* neon green - the brand colour */
-  --eco-primary-dark: #00c96b;
-  --eco-primary-rgb: 0, 255, 135; /* rgb parts, so we can build rgba() shadows */
+  --eco-primary: #4fbe80;        /* natural leaf green - the brand colour */
+  --eco-primary-dark: #35a367;
+  --eco-primary-rgb: 79, 190, 128; /* rgb parts, so we can build rgba() shadows */
 
-  --eco-bg: #0a0a0f;             /* near black page background */
-  --eco-bg-alt: #0d0d14;
-  --eco-card: #12121a;
-  --eco-card-hover: #1a1a28;
+  --eco-bg: #10140e;             /* warm forest-charcoal, not a dead black */
+  --eco-bg-alt: #141a12;
+  --eco-card: #181f15;
+  --eco-card-hover: #202a1c;
 
-  --eco-text: #f0f0f0;
-  --eco-text-muted: #8888aa;
+  --eco-text: #edf1e6;           /* warm off-white, a touch of green */
+  --eco-text-muted: #93a58c;     /* sage grey-green */
 
-  --eco-purple: #7c3aed;         /* second colour on charts */
-  --eco-orange: #f59e0b;         /* warnings */
-  --eco-danger: #ef4444;         /* errors and destructive actions */
+  --eco-purple: #3fb0a8;         /* natural teal/water - the second colour */
+  --eco-orange: #e6a748;         /* warm amber - warnings */
+  --eco-danger: #e2645a;         /* soft natural red - destructive actions */
 
-  --eco-border: rgba(255, 255, 255, 0.08);
-  --eco-glass-bg: rgba(18, 18, 26, 0.55);
-  --eco-glass-border: rgba(255, 255, 255, 0.1);
+  --eco-border: rgba(233, 240, 222, 0.09);
+  --eco-glass-bg: rgba(24, 31, 21, 0.6);
+  --eco-glass-border: rgba(233, 240, 222, 0.1);
 
   /* A single blurry shadow reads as flat and cheap. Real objects cast two:
      a tight contact shadow right under them and a soft ambient one spread wide.
@@ -57,7 +57,7 @@
     0 1px 2px rgba(0, 0, 0, 0.3),
     0 8px 24px rgba(0, 0, 0, 0.36),
     0 24px 48px -12px rgba(0, 0, 0, 0.4);
-  --eco-glow: 0 0 24px rgba(0, 255, 135, 0.22);
+  --eco-glow: 0 0 24px rgba(79, 190, 128, 0.22);
 
   /* A hairline of light along the top edge - the classic sign of a surface lit
      from above. It is what makes a dark card look carved rather than printed. */
@@ -77,25 +77,25 @@
 [data-theme='light'] {
   /* The neon green is unreadable on white, so light mode uses the darker green.
      Same variable name, different value - no component code changes. */
-  --eco-primary: #00b862;
-  --eco-primary-dark: #00914d;
-  --eco-primary-rgb: 0, 184, 98;
+  --eco-primary: #2f9d5c;
+  --eco-primary-dark: #237a46;
+  --eco-primary-rgb: 47, 157, 92;
 
-  --eco-bg: #f4f6f9;
-  --eco-bg-alt: #eef1f6;
-  --eco-card: #ffffff;
-  --eco-card-hover: #ffffff;
+  --eco-bg: #f5f3ec;             /* warm linen/paper, not a cold grey-white */
+  --eco-bg-alt: #edeae0;
+  --eco-card: #fdfcf8;           /* warm white */
+  --eco-card-hover: #fdfcf8;
 
-  --eco-text: #10121a;
-  --eco-text-muted: #5b5b73;
+  --eco-text: #1e2a1d;           /* deep forest ink */
+  --eco-text-muted: #5f6b58;     /* olive-grey */
 
-  --eco-purple: #6d28d9;
-  --eco-orange: #d97706;
-  --eco-danger: #dc2626;
+  --eco-purple: #248f86;         /* natural teal */
+  --eco-orange: #c9851d;         /* amber */
+  --eco-danger: #cf5049;
 
-  --eco-border: rgba(10, 10, 15, 0.09);
-  --eco-glass-bg: rgba(255, 255, 255, 0.7);
-  --eco-glass-border: rgba(10, 10, 15, 0.07);
+  --eco-border: rgba(31, 42, 26, 0.1);
+  --eco-glass-bg: rgba(253, 252, 248, 0.72);
+  --eco-glass-border: rgba(31, 42, 26, 0.08);
 
   /* Same layered approach, but far softer - on a light background a heavy
      shadow looks dirty rather than deep */
@@ -103,7 +103,7 @@
     0 1px 2px rgba(16, 18, 26, 0.04),
     0 8px 24px rgba(16, 18, 26, 0.06),
     0 24px 48px -12px rgba(16, 18, 26, 0.08);
-  --eco-glow: 0 0 20px rgba(0, 184, 98, 0.18);
+  --eco-glow: 0 0 20px rgba(47, 157, 92, 0.18);
   --eco-top-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
@@ -129,7 +129,7 @@ body {
      near-black is the single biggest tell of a cheap dark theme; this fixes it. */
   background-image:
     radial-gradient(70% 55% at 15% 0%, rgba(var(--eco-primary-rgb), 0.05), transparent 60%),
-    radial-gradient(60% 55% at 100% 8%, rgba(124, 58, 237, 0.06), transparent 55%);
+    radial-gradient(60% 55% at 100% 8%, rgba(63, 176, 168, 0.06), transparent 55%);
   background-attachment: fixed;
   color: var(--eco-text);
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -690,11 +690,11 @@ a:hover {
 }
 
 .eco-glow-orb-green {
-  background: radial-gradient(circle closest-side, rgba(0, 255, 135, 0.55), transparent 100%);
+  background: radial-gradient(circle closest-side, rgba(79, 190, 128, 0.55), transparent 100%);
 }
 
 .eco-glow-orb-purple {
-  background: radial-gradient(circle closest-side, rgba(124, 58, 237, 0.5), transparent 100%);
+  background: radial-gradient(circle closest-side, rgba(63, 176, 168, 0.5), transparent 100%);
 }
 
 [data-theme='light'] .eco-glow-orb {
