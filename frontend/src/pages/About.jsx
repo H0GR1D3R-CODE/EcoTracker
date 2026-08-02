@@ -44,7 +44,7 @@ export default function About() {
     <div style={{ paddingBottom: '5rem' }}>
       {/* ---------- hero with animated aurora background ---------- */}
       <section style={{ position: 'relative', overflow: 'hidden', padding: 'clamp(3rem, 9vw, 6.5rem) 0 clamp(2.5rem, 6vw, 4rem)' }}>
-        <AuroraBackground opacity={0.5} />
+        <AuroraBackground opacity={0.32} />
         <div className="container" style={{ position: 'relative', zIndex: 1 }}>
           <motion.div
             initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
