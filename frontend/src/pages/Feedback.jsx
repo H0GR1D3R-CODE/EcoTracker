@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 
 import Photo from '../components/Photo';
+import AuroraBackground from '../components/AuroraBackground';
 import { PHOTOS } from '../utils/photos';
 import { feedbackApi, getErrorMessage } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -182,18 +183,31 @@ export default function Feedback() {
 
   // ---------- form ----------
   return (
-    <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '4rem', maxWidth: 960 }}>
-      <div style={{ textAlign: 'center', marginBottom: '2.2rem' }}>
-        <span className="eco-badge" style={{ marginBottom: '1rem' }}>
-          <MessageSquare size={14} style={{ color: 'var(--eco-primary)' }} />
-          Feedback
-        </span>
-        <h1 style={{ fontSize: 'clamp(2.3rem, 6.5vw, 3.8rem)', lineHeight: 1.04, marginBottom: '0.9rem' }}>
-          Tell us what you <span className="eco-gradient-text">think</span>
-        </h1>
-        <p className="eco-text-muted" style={{ margin: '0 auto', fontSize: '1.1rem', maxWidth: 520 }}>
-          Found a bug, want a feature, or just have a thought? We read everything.
-        </p>
+    <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem', maxWidth: 960 }}>
+      {/* hero with animated aurora background */}
+      <div
+        style={{
+          position: 'relative',
+          overflow: 'hidden',
+          textAlign: 'center',
+          marginBottom: '2rem',
+          padding: 'clamp(2rem, 6vw, 3.6rem) 1rem',
+          borderRadius: 'var(--eco-radius)',
+        }}
+      >
+        <AuroraBackground opacity={0.4} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <span className="eco-badge" style={{ marginBottom: '1rem' }}>
+            <MessageSquare size={14} style={{ color: 'var(--eco-primary)' }} />
+            Feedback
+          </span>
+          <h1 style={{ fontSize: 'clamp(2.3rem, 6.5vw, 3.8rem)', lineHeight: 1.04, marginBottom: '0.9rem' }}>
+            Tell us what you <span className="eco-gradient-text">think</span>
+          </h1>
+          <p className="eco-text-muted" style={{ margin: '0 auto', fontSize: '1.1rem', maxWidth: 520 }}>
+            Found a bug, want a feature, or just have a thought? We read everything.
+          </p>
+        </div>
       </div>
 
       <div
@@ -450,6 +464,65 @@ export default function Feedback() {
             )}
           </button>
         </motion.form>
+      </div>
+
+      {/* ---------- what happens next ---------- */}
+      <div style={{ marginTop: 'clamp(2.5rem, 6vw, 4rem)' }}>
+        <h2 style={{ textAlign: 'center', fontSize: 'clamp(1.5rem, 3.4vw, 2.1rem)', marginBottom: '1.8rem' }}>
+          What happens <span className="eco-gradient-text">next</span>
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.1rem' }}>
+          {[
+            { icon: Send, step: '01', title: 'You send it', body: 'A bug, an idea, or a compliment — it takes about a minute.' },
+            { icon: MessageSquare, step: '02', title: 'We read it', body: 'Every message lands in the dashboard and is read by a real person.' },
+            { icon: Wrench, step: '03', title: 'It ships', body: 'The most-wanted fixes and features shape what gets built next.' },
+          ].map((s, index) => {
+            const Icon = s.icon;
+            return (
+              <motion.div
+                key={s.step}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.4 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                whileHover={prefersReducedMotion ? {} : { y: -5 }}
+                className="eco-card eco-card-hover"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '0.8rem' }}>
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'linear-gradient(135deg, rgba(8,168,105,0.18), rgba(14,121,207,0.18))',
+                      color: 'var(--eco-primary)',
+                    }}
+                  >
+                    <Icon size={19} />
+                  </div>
+                  <span
+                    style={{
+                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontWeight: 700,
+                      fontSize: '1.6rem',
+                      color: 'var(--eco-primary)',
+                      opacity: 0.35,
+                    }}
+                  >
+                    {s.step}
+                  </span>
+                </div>
+                <h3 style={{ fontSize: '1.05rem', marginBottom: '0.4rem' }}>{s.title}</h3>
+                <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.55, margin: 0 }}>
+                  {s.body}
+                </p>
+              </motion.div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
