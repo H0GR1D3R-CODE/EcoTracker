@@ -120,15 +120,24 @@ def verify_token(token):
         return None, api_error("Could not verify authentication token.", 401, code="auth_failed")
 
 
-def is_admin(uid):
+def is_admin(uid, email=None):
     """
-    True when a document exists at admins/{uid} in Firestore.
+    Whether this user is an admin.
 
-    Admins live in their own collection rather than as a flag on the user
-    document. That keeps role data separate from profile data (clean RBAC) and
-    means a normal user can never grant themselves admin rights by editing
-    their own profile.
+    When ADMIN_EMAILS is configured (the normal case for this deployment) it is
+    the sole authority: exactly those addresses are admins, nothing else. The
+    email is read from the verified Firebase token, so it cannot be forged.
+
+    When ADMIN_EMAILS is empty, fall back to the admins/{uid} Firestore
+    collection - a document there grants admin. That keeps role data separate
+    from profile data, so a user cannot promote themselves by editing their own
+    profile.
     """
+    # 1. Email allowlist takes over completely when configured
+    if Config.ADMIN_EMAILS:
+        return bool(email and email.strip().lower() in Config.ADMIN_EMAILS)
+
+    # 2. No allowlist: fall back to the admins/{uid} collection
     db = get_db()
     admin_doc = db.collection(Config.COLLECTION_ADMINS).document(uid).get()
     return admin_doc.exists
@@ -187,7 +196,7 @@ def require_admin(view_function):
     @wraps(view_function)
     @require_auth  # verify the token before we bother touching Firestore
     def wrapper(*args, **kwargs):
-        if not is_admin(g.uid):
+        if not is_admin(g.uid, g.email):
             return api_error(
                 "Admin access required.",
                 403,
