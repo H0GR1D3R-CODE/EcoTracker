@@ -54,6 +54,7 @@ const PUBLIC_LINKS = [
   { to: '/about', label: 'About' },
   { to: '/learn', label: 'Learn' },
   { to: '/gallery', label: 'Gallery' },
+  { to: '/estimate', label: 'Estimate' },
   { to: '/feedback', label: 'Feedback' },
 ];
 

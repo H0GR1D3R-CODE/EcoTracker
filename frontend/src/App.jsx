@@ -22,6 +22,7 @@ import Register from './pages/Register';
 import About from './pages/About';
 import Learn from './pages/Learn';
 import Gallery from './pages/Gallery';
+import Estimate from './pages/Estimate';
 import Feedback from './pages/Feedback';
 import Dashboard from './pages/Dashboard';
 import CalculatorPage from './pages/Calculator';
@@ -195,6 +196,7 @@ export default function App() {
             <Route path="/about" element={<MotionPage><About /></MotionPage>} />
             <Route path="/learn" element={<MotionPage><Learn /></MotionPage>} />
             <Route path="/gallery" element={<MotionPage><Gallery /></MotionPage>} />
+            <Route path="/estimate" element={<MotionPage><Estimate /></MotionPage>} />
             <Route path="/feedback" element={<MotionPage><Feedback /></MotionPage>} />
 
             {/* ---------- Signed in ---------- */}
