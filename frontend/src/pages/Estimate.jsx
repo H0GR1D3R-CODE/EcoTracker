@@ -14,7 +14,17 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, Car, Check, Gauge, Leaf, ShoppingBag, Sparkles, UtensilsCrossed, Zap } from 'lucide-react';
 
 import AuroraBackground from '../components/AuroraBackground';
+import Photo from '../components/Photo';
+import { PHOTOS } from '../utils/photos';
 import { useTheme } from '../context/ThemeContext';
+
+// A real photo for each question's category header.
+const QUESTION_PHOTOS = {
+  transport: 'traffic',
+  diet: 'meal',
+  home: 'powerPlant',
+  shopping: 'electronics',
+};
 
 // A climate-safe personal footprint is ~2 tonnes/year ≈ 167 kg/month.
 const MONTHLY_BUDGET = 167;
@@ -136,28 +146,47 @@ export default function Estimate() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.45, delay: index * 0.05 }}
-                className="eco-card"
+                className="eco-card eco-photo-zoom"
+                style={{ padding: 0, overflow: 'hidden' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1rem' }}>
+                {/* photo header with the question over it */}
+                <div style={{ position: 'relative', height: 104, overflow: 'hidden' }}>
+                  <Photo
+                    id={PHOTOS[QUESTION_PHOTOS[q.key]]}
+                    alt={q.label}
+                    width={820}
+                    color={q.color}
+                    className="eco-photo-cover"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                  />
                   <div
                     style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 10,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: `${q.color}22`,
-                      color: q.color,
-                      flexShrink: 0,
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(100deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.2) 100%)',
                     }}
-                  >
-                    <Icon size={17} />
+                  />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', gap: '0.7rem', padding: '0 1.2rem' }}>
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 11,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: q.color,
+                        color: '#04140c',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon size={19} />
+                    </div>
+                    <h2 style={{ fontSize: '1.02rem', margin: 0, color: '#fff', lineHeight: 1.25 }}>{q.label}</h2>
                   </div>
-                  <h2 style={{ fontSize: '1rem', margin: 0 }}>{q.label}</h2>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem' }}>
+                <div style={{ padding: '1.1rem 1.2rem 1.3rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem' }}>
                   {q.options.map((opt) => {
                     const active = answers[q.key] === opt.id;
                     return (

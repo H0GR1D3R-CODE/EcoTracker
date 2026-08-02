@@ -23,6 +23,7 @@ const LINK_COLUMNS = [
       { label: 'About', to: '/about' },
       { label: 'Learn', to: '/learn' },
       { label: 'Gallery', to: '/gallery' },
+      { label: 'Estimate your footprint', to: '/estimate' },
     ],
   },
   {
@@ -41,6 +42,8 @@ const SOURCE_LINKS = [
   { label: 'IPCC assessment reports', href: 'https://www.ipcc.ch/reports/' },
   { label: 'DEFRA emission factors', href: 'https://www.gov.uk/government/collections/government-conversion-factors-for-company-reporting' },
   { label: 'Our World in Data — CO₂', href: 'https://ourworldindata.org/co2-emissions' },
+  { label: 'IEA — International Energy Agency', href: 'https://www.iea.org' },
+  { label: 'Global Carbon Project', href: 'https://globalcarbonproject.org' },
 ];
 
 export default function Footer() {
