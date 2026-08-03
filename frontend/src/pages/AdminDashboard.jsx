@@ -1010,6 +1010,53 @@ export default function AdminDashboard() {
                   </span>
                 </div>
 
+                {/* ---- account (Firebase Auth) ---- */}
+                {detail.account && (
+                  <div
+                    style={{
+                      marginTop: '1.3rem',
+                      padding: '0.95rem 1.1rem',
+                      borderRadius: 'var(--eco-radius-sm)',
+                      background: 'rgba(var(--eco-primary-rgb), 0.04)',
+                      border: '1px solid var(--eco-border)',
+                    }}
+                  >
+                    <div
+                      className="eco-text-muted"
+                      style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.8rem' }}
+                    >
+                      Account
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem 1.2rem', fontSize: '0.84rem' }}>
+                      {[
+                        {
+                          label: 'Email verified',
+                          value: detail.account.emailVerified ? 'Yes' : 'No',
+                          color: detail.account.emailVerified ? 'var(--eco-primary)' : 'var(--eco-orange)',
+                        },
+                        {
+                          label: 'Sign-in method',
+                          value: (detail.account.providers || [])
+                            .map((p) => ({ 'password': 'Email & password', 'google.com': 'Google', 'facebook.com': 'Facebook' }[p] || p))
+                            .join(', ') || '—',
+                        },
+                        { label: 'Account created', value: formatDate(detail.account.accountCreated) },
+                        { label: 'Last sign-in', value: formatDate(detail.account.lastSignIn) },
+                      ].map((row) => (
+                        <div key={row.label}>
+                          <div className="eco-text-muted" style={{ fontSize: '0.74rem', marginBottom: '0.15rem' }}>{row.label}</div>
+                          <div style={{ fontWeight: 600, color: row.color || 'var(--eco-text)' }}>{row.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {detail.account.disabled && (
+                      <div style={{ marginTop: '0.7rem', fontSize: '0.8rem', color: 'var(--eco-danger)', fontWeight: 600 }}>
+                        ⚠ This account is disabled.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* ---- summary tiles ---- */}
                 <div
                   style={{
@@ -1162,6 +1209,55 @@ export default function AdminDashboard() {
                     </div>
                   )}
                 </div>
+
+                {/* ---- feedback this user has submitted ---- */}
+                {detail.feedback && detail.feedback.length > 0 && (
+                  <div style={{ marginTop: '1.6rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <MessageSquare size={15} style={{ color: 'var(--eco-primary)' }} />
+                      Feedback from this user
+                      <span className="eco-text-muted" style={{ fontWeight: 400 }}>({detail.feedback.length})</span>
+                    </h3>
+                    <div style={{ display: 'grid', gap: '0.7rem' }}>
+                      {detail.feedback.map((fb) => (
+                        <div
+                          key={fb.id}
+                          style={{
+                            padding: '0.8rem 1rem',
+                            borderRadius: 'var(--eco-radius-sm)',
+                            border: '1px solid var(--eco-border)',
+                            background: 'rgba(var(--eco-primary-rgb), 0.03)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                            {fb.rating ? (
+                              <span style={{ display: 'inline-flex', gap: 1 }}>
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    size={12}
+                                    fill={star <= fb.rating ? 'var(--eco-orange)' : 'none'}
+                                    style={{ color: star <= fb.rating ? 'var(--eco-orange)' : 'var(--eco-text-muted)' }}
+                                  />
+                                ))}
+                              </span>
+                            ) : (
+                              <span />
+                            )}
+                            {fb.createdAt && (
+                              <span className="eco-text-muted" style={{ fontSize: '0.73rem' }}>
+                                {formatDate(fb.createdAt)}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: '0.85rem', lineHeight: 1.55, margin: 0, wordBreak: 'break-word' }}>
+                            {fb.message}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </motion.div>
