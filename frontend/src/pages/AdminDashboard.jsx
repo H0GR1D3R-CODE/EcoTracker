@@ -45,6 +45,8 @@ import { CategoryDoughnutChart } from '../components/EmissionChart';
 import { SkeletonStatCard, SkeletonTable } from '../components/SkeletonCard';
 import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
 import { formatCategory, formatDate, formatEmission, formatNumber, getInitials } from '../utils/formatters';
+import Photo from '../components/Photo';
+import { PHOTOS } from '../utils/photos';
 
 export default function AdminDashboard() {
   const { profile, user } = useAuth();
@@ -288,34 +290,195 @@ export default function AdminDashboard() {
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
-      {/* ============ HEADER ============ */}
-      <div
+      {/* ============ HEADER (image banner) ============ */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
         style={{
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: '20px',
+          border: '1px solid var(--eco-border)',
+          marginBottom: '1.5rem',
+          minHeight: 220,
           display: 'flex',
           alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          marginBottom: '2rem',
         }}
       >
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.3rem' }}>
-            <Shield size={24} style={{ color: 'var(--eco-purple)' }} />
-            <h1 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', margin: 0 }}>
-              Admin <span className="eco-gradient-text">Dashboard</span>
-            </h1>
-          </div>
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.92rem' }}>
-            Signed in as {profile?.email}
-          </p>
-        </div>
+        {/* the photograph, filling the whole banner */}
+        <Photo
+          id={PHOTOS.adminBanner}
+          alt="Aerial view of a city lit up at night"
+          width={1600}
+          color="#7c3aed"
+          loading="eager"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+        />
+        {/* slow drift so the banner feels alive, not a flat picture */}
+        {!prefersReducedMotion && (
+          <motion.div
+            aria-hidden
+            initial={{ x: 0, y: 0 }}
+            animate={{ x: [0, 14, 0], y: [0, -10, 0] }}
+            transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              position: 'absolute',
+              inset: '-8%',
+              background:
+                'radial-gradient(60% 60% at 78% 20%, rgba(124,58,237,0.35), transparent 70%)',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+        {/* dark scrim so white text stays legible over the bright lights */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'linear-gradient(103deg, rgba(6,10,14,0.95) 0%, rgba(6,10,14,0.82) 42%, rgba(6,10,14,0.52) 100%)',
+          }}
+        />
 
-        <button type="button" className="eco-btn eco-btn-ghost" onClick={load}>
-          <RefreshCw size={16} />
-          Refresh
-        </button>
-      </div>
+        {/* everything readable sits on top of the scrim */}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            width: '100%',
+            padding: 'clamp(1.4rem, 3.2vw, 2.1rem)',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.28rem 0.7rem',
+                  borderRadius: 999,
+                  background: 'rgba(124,58,237,0.18)',
+                  border: '1px solid rgba(124,58,237,0.35)',
+                  marginBottom: '0.7rem',
+                }}
+              >
+                <Shield size={15} style={{ color: '#c4b5fd' }} />
+                <span
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    color: '#ddd6fe',
+                  }}
+                >
+                  Admin console
+                </span>
+              </div>
+              <h1
+                style={{
+                  fontSize: 'clamp(1.9rem, 4.5vw, 2.7rem)',
+                  margin: '0 0 0.35rem',
+                  color: '#fff',
+                  lineHeight: 1.05,
+                }}
+              >
+                Command{' '}
+                <span
+                  style={{
+                    background: 'linear-gradient(120deg, #a78bfa, #38bdf8)',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  centre
+                </span>
+              </h1>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'rgba(255,255,255,0.72)' }}>
+                Signed in as {profile?.email}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={load}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.55rem 1rem',
+                borderRadius: 12,
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.24)',
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                backdropFilter: 'blur(6px)',
+                WebkitBackdropFilter: 'blur(6px)',
+              }}
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </button>
+          </div>
+
+          {/* headline numbers, right on the banner, so the top of the page is never empty */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 'clamp(1.3rem, 5vw, 2.8rem)',
+              marginTop: '1.4rem',
+              paddingTop: '1.15rem',
+              borderTop: '1px solid rgba(255,255,255,0.14)',
+            }}
+          >
+            {[
+              { label: 'Users', value: formatNumber(stats?.totalUsers || 0, 0) },
+              { label: 'Records', value: formatNumber(stats?.totalRecords || 0, 0) },
+              { label: 'Total CO₂', value: formatEmission(stats?.totalEmission || 0) },
+              { label: 'Feedback', value: formatNumber(feedback.length, 0) },
+            ].map((item) => (
+              <div key={item.label}>
+                <div
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontWeight: 700,
+                    fontSize: 'clamp(1.2rem, 3vw, 1.5rem)',
+                    color: '#fff',
+                    lineHeight: 1.1,
+                  }}
+                >
+                  {item.value}
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.7rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    color: 'rgba(255,255,255,0.6)',
+                    marginTop: '0.15rem',
+                  }}
+                >
+                  {item.label}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
 
       {/* ============ STAT CARDS ============ */}
       <div
