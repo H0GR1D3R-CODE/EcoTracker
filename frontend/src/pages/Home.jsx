@@ -837,6 +837,49 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ================= ESTIMATE TEASER ================= */}
+      <section className="eco-section">
+        <div className="container">
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 26 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.3 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            className="eco-card"
+            style={{
+              position: 'relative',
+              overflow: 'hidden',
+              textAlign: 'center',
+              padding: 'clamp(2rem, 5vw, 3.4rem)',
+              maxWidth: 760,
+              margin: '0 auto',
+            }}
+          >
+            <div
+              className="eco-glow-orb eco-glow-orb-green"
+              style={{ width: 280, height: 280, top: '-55%', left: '50%', transform: 'translateX(-50%)' }}
+            />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+                <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
+                30 seconds · no sign-up
+              </div>
+              <h2 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+                Not sure where you <span className="eco-gradient-text">stand?</span>
+              </h2>
+              <p className="eco-text-muted" style={{ maxWidth: 520, margin: '0 auto 1.8rem', fontSize: '1rem' }}>
+                Answer four quick questions and watch your rough monthly footprint appear —
+                no account needed.
+              </p>
+              <Link to="/estimate" className="eco-btn eco-btn-primary" style={{ padding: '0.9rem 2rem' }}>
+                Estimate your footprint
+                <ArrowRight size={17} />
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* ================= CATEGORIES ================= */}
       <section className="eco-section" id="how-it-works">
         <div className="container">

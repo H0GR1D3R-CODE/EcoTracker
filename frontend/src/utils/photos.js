@@ -60,6 +60,12 @@ export const PHOTOS = {
   calcNature: '1621872111378-4f8340e9cb90', // green forest        (Calculator banner)
   goalsVista: '1515344905723-babc01aac23d', // wind farm on grass   (Goals banner)
   reportsPath: '1559770968-53924e9b32de', // road through a forest  (Reports banner)
+
+  // estimator question headers — distinct + darker-toned so they blend with the UI
+  nightTraffic: '1542705959-878ca346eb20', // car light-trails at night (Estimate: transport)
+  freshVeg: '1518843875459-f738682238a6', // moody assorted vegetables   (Estimate: diet)
+  bulb: '1495291916458-c12f594151e7', // a glowing bulb on black          (Estimate: electricity)
+  shopping: '1534452203293-494d7ddbf7e0', // a paper shopping bag         (Estimate: shopping)
 };
 
 /**

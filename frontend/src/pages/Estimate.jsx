@@ -20,10 +20,10 @@ import { useTheme } from '../context/ThemeContext';
 
 // A real photo for each question's category header.
 const QUESTION_PHOTOS = {
-  transport: 'traffic',
-  diet: 'meal',
-  home: 'powerPlant',
-  shopping: 'electronics',
+  transport: 'nightTraffic',
+  diet: 'freshVeg',
+  home: 'bulb',
+  shopping: 'shopping',
 };
 
 // A climate-safe personal footprint is ~2 tonnes/year ≈ 167 kg/month.
