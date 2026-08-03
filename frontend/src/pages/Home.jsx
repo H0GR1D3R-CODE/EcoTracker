@@ -1192,6 +1192,79 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ================= IMPACT SWAPS ================= */}
+      <section className="eco-section" style={{ background: 'var(--eco-bg-alt)' }}>
+        <div className="container">
+          <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 3rem' }}>
+            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+              <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
+              Small changes, real savings
+            </div>
+            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+              One swap saves more than <span className="eco-gradient-text">you think</span>
+            </h2>
+            <p className="eco-text-muted" style={{ margin: 0 }}>
+              Real figures from published factors — the kind EcoTrack tracks for you automatically.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.3rem' }}>
+            {[
+              { icon: Car, color: '#4fbe80', action: 'Take the bus twice a week', detail: 'instead of driving those trips', save: '~20 kg', unit: 'CO₂ saved / month' },
+              { icon: UtensilsCrossed, color: '#a4739e', action: 'One veg meal a day', detail: 'swapped in for meat', save: '~48 kg', unit: 'CO₂ saved / month' },
+              { icon: ShoppingBag, color: '#d9694e', action: 'Repair, don’t replace', detail: 'one gadget kept going', save: '~85 kg', unit: 'CO₂ per device' },
+            ].map((s, index) => {
+              const Icon = s.icon;
+              return (
+                <motion.div
+                  key={s.action}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false, amount: 0.3 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  whileHover={prefersReducedMotion ? {} : { y: -5 }}
+                  className="eco-card eco-card-hover"
+                >
+                  <div
+                    style={{
+                      width: 46,
+                      height: 46,
+                      borderRadius: 13,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: `${s.color}22`,
+                      color: s.color,
+                      marginBottom: '1.1rem',
+                    }}
+                  >
+                    <Icon size={23} />
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontWeight: 700,
+                      fontSize: 'clamp(1.8rem, 4vw, 2.4rem)',
+                      lineHeight: 1,
+                      color: s.color,
+                    }}
+                  >
+                    {s.save}
+                  </div>
+                  <div className="eco-text-muted" style={{ fontSize: '0.78rem', marginTop: '0.25rem', marginBottom: '1rem' }}>
+                    {s.unit}
+                  </div>
+                  <h3 style={{ fontSize: '1.08rem', marginBottom: '0.35rem' }}>{s.action}</h3>
+                  <p className="eco-text-muted" style={{ fontSize: '0.88rem', margin: 0 }}>
+                    {s.detail}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* ================= CONTRIBUTE / DONATE ================= */}
       {/* EcoTrack takes no money itself. Each card links out to a real,
           established charity's own donation page (links verified against each
