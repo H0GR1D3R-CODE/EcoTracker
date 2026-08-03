@@ -66,6 +66,9 @@ export const PHOTOS = {
   freshVeg: '1518843875459-f738682238a6', // moody assorted vegetables   (Estimate: diet)
   bulb: '1495291916458-c12f594151e7', // a glowing bulb on black          (Estimate: electricity)
   shopping: '1534452203293-494d7ddbf7e0', // a paper shopping bag         (Estimate: shopping)
+
+  // admin console banner — dark, on-theme (city lights = energy), distinct
+  adminBanner: '1609609018625-afef0a259159', // aerial city lights at night
 };
 
 /**
