@@ -25,7 +25,7 @@ hole. Do it by hand once:
 Mounted at /api/admin
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 from flask import Blueprint, g, request
 from firebase_admin import auth as firebase_auth
@@ -412,7 +412,50 @@ def user_detail(user_id):
     )
     recorded_dates = [item["recordedDate"] for item in records if item["recordedDate"]]
 
+    # --- account-level facts straight from Firebase Authentication ---
+    # This is the "who is this account" layer: when it was created, when they
+    # last signed in, whether the email is verified, and how they sign in.
+    def _ms_to_iso(ms):
+        return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).isoformat() if ms else None
+
+    account = None
+    try:
+        user_record = firebase_auth.get_user(user_id)
+        meta = user_record.user_metadata
+        account = {
+            "emailVerified": user_record.email_verified,
+            "disabled": user_record.disabled,
+            "accountCreated": _ms_to_iso(meta.creation_timestamp),
+            "lastSignIn": _ms_to_iso(meta.last_sign_in_timestamp),
+            "lastRefresh": _ms_to_iso(meta.last_refresh_timestamp),
+            "providers": [p.provider_id for p in (user_record.provider_data or [])],
+        }
+    except Exception:
+        # The Firestore profile can outlive its Auth account; that is not fatal.
+        account = None
+
+    # --- any feedback this user has submitted (matched on their email) ---
+    user_feedback = []
+    user_email = user_data.get("email", "")
+    if user_email:
+        for doc in (
+            db.collection(COLLECTION_FEEDBACK)
+            .where(filter=gcloud_firestore.FieldFilter("email", "==", user_email))
+            .stream()
+        ):
+            data = doc.to_dict()
+            fb_created = data.get("createdAt")
+            user_feedback.append({
+                "id": doc.id,
+                "message": data.get("message", ""),
+                "rating": data.get("rating"),
+                "createdAt": fb_created.isoformat() if fb_created else None,
+            })
+        user_feedback.sort(key=lambda item: item["createdAt"] or "", reverse=True)
+
     return api_success({
+        "account": account,
+        "feedback": user_feedback,
         "profile": {
             "uid": user_doc.id,
             "name": user_data.get("name", ""),
