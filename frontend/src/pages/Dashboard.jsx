@@ -24,6 +24,7 @@ import {
   CalendarDays,
   Cloud,
   Flame,
+  Heart,
   Info,
   Leaf,
   Lightbulb,
@@ -849,6 +850,55 @@ export default function Dashboard() {
               )}
             </p>
           </div>
+        </div>
+      </Reveal>
+
+      {/* ============ 10. GIVE TO THE CAUSE ============ */}
+      {/* Last on the page on purpose: it only makes its case once someone has
+          seen their own numbers. Donations are forwarded to climate
+          organisations - see the donate page - and EcoTrack keeps nothing. */}
+      <Reveal>
+        <div
+          className="eco-card"
+          style={{
+            marginTop: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1.2rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 13,
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(var(--eco-primary-rgb), 0.14)',
+              color: 'var(--eco-primary)',
+            }}
+          >
+            <Heart size={22} />
+          </div>
+
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            <h2 style={{ fontSize: '1.05rem', marginBottom: '0.3rem' }}>
+              Cutting your own footprint is one lever
+            </h2>
+            <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>
+              The other is funding the people already doing it. Anything you give
+              through EcoTrack goes straight on to climate organisations — we keep
+              nothing.
+            </p>
+          </div>
+
+          <Link to="/donate" className="eco-btn eco-btn-primary" style={{ flexShrink: 0 }}>
+            <Heart size={16} />
+            Give to the cause
+          </Link>
         </div>
       </Reveal>
     </div>

@@ -1369,8 +1369,8 @@ export default function Home() {
             }}
           >
             <Info size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
-            No money passes through EcoTrack for any of these. Each button opens the
-            organisation&rsquo;s own donation page, where your contribution reaches
+            No money passes through EcoTrack for any of these four. Each button opens
+            the organisation&rsquo;s own donation page, where your contribution reaches
             them in full.
           </p>
 
@@ -1410,11 +1410,12 @@ export default function Home() {
 
             <div style={{ flex: '1 1 260px', minWidth: 0 }}>
               <h3 style={{ fontSize: '1.05rem', marginBottom: '0.3rem' }}>
-                Keeping EcoTrack itself running costs a little too
+                Or give once, here, and we pass it on
               </h3>
               <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>
-                Servers, hosting, and keeping the emission factors current. No ads and
-                no paywall — just a student project that would like to stay online.
+                Rather not pick? Donate through EcoTrack and it is forwarded to the
+                organisations above, less Razorpay&rsquo;s processing fee. We keep
+                nothing.
               </p>
             </div>
 
