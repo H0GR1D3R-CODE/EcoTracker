@@ -15,15 +15,17 @@ After a real payment Razorpay signs "order_id|payment_id" with our SECRET key
 Only a matching signature proves the payment is genuine and untampered, so a
 donation is recorded ONLY after that check passes.
 
-TEST MODE
----------
-These use Razorpay TEST keys, so no real money moves. To pay, use Netbanking
-(pick any bank, then press Success on the simulated page) or UPI with the test
-id success@razorpay.
+TEST vs LIVE
+------------
+Whichever key pair is in the environment decides the mode - the code is
+identical either way. The frontend reads the rzp_test_/rzp_live_ prefix to
+decide whether to show its "nothing is really charged" notice.
 
-The 4111 1111 1111 1111 test card is REJECTED on this account with
-"International cards are not supported": it is registered as an international
-Visa, and Indian Razorpay accounts have international payments off by default.
+On test keys, pay with Netbanking (any bank, then Success on the simulated
+page) or UPI id success@razorpay. The 4111 1111 1111 1111 test card is REJECTED
+on this account with "International cards are not supported": it is registered
+as an international Visa, and Indian Razorpay accounts have international
+payments off by default.
 
 The KEY_SECRET is read from the environment (config.Config) and never leaves
 this server - it is not returned in any response and not sent to the browser.
@@ -40,7 +42,7 @@ from flask import Blueprint, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
-from routes import api_error, api_success
+from routes import api_error, api_success, verify_token
 
 payments_bp = Blueprint("payments", __name__, url_prefix="/api")
 
@@ -55,6 +57,30 @@ COLLECTION_DONATIONS = "donations"
 
 MAX_NAME = 60
 MAX_EMAIL = 120
+
+
+def _optional_uid():
+    """
+    The signed-in donor's uid, or None when nobody is signed in.
+
+    Donating deliberately does not require an account, so this must never block
+    the request: a missing, expired or malformed token simply means the donation
+    is recorded without an owner.
+
+    The token is still fully verified before its uid is trusted. Taking a uid
+    straight from the request body instead would let anyone credit a donation to
+    another person's account.
+    """
+    header = request.headers.get("Authorization", "")
+    parts = header.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+
+    decoded_token, error = verify_token(parts[1])
+    if error:
+        return None
+
+    return decoded_token.get("uid")
 
 
 def _to_int(value):
@@ -202,6 +228,10 @@ def verify_payment():
             "currency": (str(body.get("currency", "INR")).strip().upper() or "INR")[:3],
             "name": str(body.get("name", "")).strip()[:MAX_NAME] or "Anonymous",
             "email": str(body.get("email", "")).strip().lower()[:MAX_EMAIL],
+            # None for an anonymous donor. When present it comes from a verified
+            # token, never from the request body, so it cannot be spoofed - this
+            # is what lets the admin console show a user's own giving history.
+            "userId": _optional_uid(),
             "createdAt": gcloud_firestore.SERVER_TIMESTAMP,
         })
     except Exception:

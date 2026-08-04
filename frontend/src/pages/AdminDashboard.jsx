@@ -58,6 +58,12 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Which panel is showing. The console had grown to six stacked sections and
+  // roughly 1,700 lines of page; splitting it means the thing you came for is
+  // never four scrolls away. The drill-down and delete dialogs sit outside the
+  // tabs because they are overlays - they must open from any panel.
+  const [tab, setTab] = useState('overview');
+
   const [search, setSearch] = useState('');
   // The user currently queued for deletion, held while the confirm dialog is open
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -506,6 +512,102 @@ export default function AdminDashboard() {
         </div>
       </motion.div>
 
+      {/* ============ TABS ============ */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.3rem',
+          flexWrap: 'wrap',
+          marginTop: '1.6rem',
+          marginBottom: '1.5rem',
+          borderBottom: '1px solid var(--eco-border)',
+          paddingBottom: '0.55rem',
+        }}
+      >
+        {[
+          { id: 'overview', label: 'Overview', icon: BarChart3, count: null },
+          { id: 'users', label: 'Users', icon: Users, count: users.length },
+          { id: 'donations', label: 'Donations', icon: HeartHandshake, count: donations.length },
+          { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: feedback.length },
+        ].map((item) => {
+          const Icon = item.icon;
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setTab(item.id)}
+              style={{
+                position: 'relative',
+                padding: '0.55rem 1rem',
+                borderRadius: 'var(--eco-radius-sm)',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: active ? 'var(--eco-primary)' : 'var(--eco-text-muted)',
+                transition: 'color 0.18s ease',
+              }}
+            >
+              {/* One shared layoutId means the pill slides between tabs rather
+                  than blinking out and in - the same trick the navbar uses. */}
+              {active && !prefersReducedMotion && (
+                <motion.span
+                  layoutId="admin-tab-pill"
+                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: 'var(--eco-radius-sm)',
+                    background: 'rgba(var(--eco-primary-rgb), 0.1)',
+                    border: '1px solid rgba(var(--eco-primary-rgb), 0.25)',
+                    zIndex: 0,
+                  }}
+                />
+              )}
+              <span
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                }}
+              >
+                <Icon size={16} />
+                {item.label}
+                {item.count != null && (
+                  <span
+                    className="eco-tabular"
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '0.1rem 0.4rem',
+                      borderRadius: 999,
+                      background: active
+                        ? 'rgba(var(--eco-primary-rgb), 0.2)'
+                        : 'var(--eco-border)',
+                    }}
+                  >
+                    {item.count}
+                  </span>
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ============ OVERVIEW TAB ============ */}
+      {tab === 'overview' && (
+      <motion.div
+        key="tab-overview"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+
       {/* ============ STAT CARDS ============ */}
       <div
         style={{
@@ -686,6 +788,18 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      </motion.div>
+      )}
+
+      {/* ============ USERS TAB ============ */}
+      {tab === 'users' && (
+      <motion.div
+        key="tab-users"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
 
       {/* ============ USER TABLE ============ */}
       <div className="eco-card">
@@ -903,8 +1017,20 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      </motion.div>
+      )}
+
+      {/* ============ FEEDBACK TAB ============ */}
+      {tab === 'feedback' && (
+      <motion.div
+        key="tab-feedback"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+
       {/* ============ FEEDBACK ============ */}
-      <div className="eco-card" style={{ marginTop: '1.5rem' }}>
+      <div className="eco-card" style={{ marginTop: 0 }}>
         <div
           style={{
             display: 'flex',
@@ -1049,6 +1175,18 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      </motion.div>
+      )}
+
+      {/* ============ DONATIONS TAB ============ */}
+      {tab === 'donations' && (
+      <motion.div
+        key="tab-donations"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+
       {/* ============ DONATIONS ============ */}
       {/* Only signature-verified payments are ever written to the donations
           collection, so every row here is money that actually arrived. The
@@ -1133,6 +1271,34 @@ export default function AdminDashboard() {
                   >
                     <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{item.name}</span>
 
+                    {/* Present only when the donor was signed in, so it is a
+                        real account link rather than a guess from the name. */}
+                    {item.userId && (
+                      <button
+                        type="button"
+                        onClick={() => openDetail(item.userId)}
+                        title="Open this donor's account"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          padding: '0.12rem 0.5rem',
+                          borderRadius: 999,
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          cursor: 'pointer',
+                          border: '1px solid rgba(var(--eco-primary-rgb), 0.35)',
+                          background: 'rgba(var(--eco-primary-rgb), 0.12)',
+                          color: 'var(--eco-primary)',
+                        }}
+                      >
+                        <Eye size={11} />
+                        Member
+                      </button>
+                    )}
+
                     {item.email && (
                       <a
                         href={`mailto:${item.email}`}
@@ -1196,6 +1362,9 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      </motion.div>
+      )}
 
       {/* ============ USER DETAIL DRILL-DOWN ============ */}
       {/* Read-only. Shows one user's profile plus every record, goal and report
@@ -1413,6 +1582,15 @@ export default function AdminDashboard() {
                       icon: Target,
                     },
                     { label: 'Reports', value: formatNumber(detail.summary.reportCount, 0), icon: FileText },
+                    {
+                      label: 'Donated',
+                      value: `₹${((detail.summary.donatedPaise || 0) / 100).toLocaleString('en-IN')}`,
+                      hint:
+                        detail.summary.donationCount
+                          ? `${detail.summary.donationCount} donation${detail.summary.donationCount === 1 ? '' : 's'}`
+                          : 'none yet',
+                      icon: HeartHandshake,
+                    },
                   ].map((tile) => {
                     const TileIcon = tile.icon;
                     return (
@@ -1546,6 +1724,89 @@ export default function AdminDashboard() {
                     </div>
                   )}
                 </div>
+
+                {/* ---- donations this user has made ---- */}
+                {detail.donations && detail.donations.length > 0 && (
+                  <div style={{ marginTop: '1.6rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <HeartHandshake size={15} style={{ color: 'var(--eco-primary)' }} />
+                      Donations from this user
+                      <span className="eco-text-muted" style={{ fontWeight: 400 }}>
+                        ({detail.donations.length})
+                      </span>
+                    </h3>
+                    <div style={{ display: 'grid', gap: '0.6rem' }}>
+                      {detail.donations.map((donation, index) => (
+                        <motion.div
+                          key={donation.id}
+                          initial={prefersReducedMotion ? false : { opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05, duration: 0.3 }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.8rem',
+                            padding: '0.75rem 1rem',
+                            borderRadius: 'var(--eco-radius-sm)',
+                            border: '1px solid var(--eco-border)',
+                            background: 'rgba(var(--eco-primary-rgb), 0.04)',
+                          }}
+                        >
+                          <span
+                            className="eco-tabular"
+                            style={{
+                              fontFamily: "'Space Grotesk', sans-serif",
+                              fontWeight: 700,
+                              color: 'var(--eco-primary)',
+                              minWidth: 66,
+                            }}
+                          >
+                            {donation.amount == null
+                              ? '—'
+                              : `₹${(donation.amount / 100).toLocaleString('en-IN')}`}
+                          </span>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <code className="eco-text-muted" style={{ fontSize: '0.72rem', wordBreak: 'break-all' }}>
+                              {donation.razorpayPaymentId}
+                            </code>
+                          </div>
+
+                          {/* Whether we know it was them, or only inferred it
+                              from a matching email typed into the form */}
+                          <span
+                            title={
+                              donation.linkedByAccount
+                                ? 'Made while signed in to this account'
+                                : 'Matched on email address, not a signed-in session'
+                            }
+                            style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.04em',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: 999,
+                              flexShrink: 0,
+                              color: donation.linkedByAccount ? 'var(--eco-primary)' : 'var(--eco-text-muted)',
+                              background: donation.linkedByAccount
+                                ? 'rgba(var(--eco-primary-rgb), 0.14)'
+                                : 'var(--eco-border)',
+                            }}
+                          >
+                            {donation.linkedByAccount ? 'signed in' : 'by email'}
+                          </span>
+
+                          {donation.createdAt && (
+                            <span className="eco-text-muted" style={{ fontSize: '0.72rem', flexShrink: 0 }}>
+                              {formatDate(donation.createdAt)}
+                            </span>
+                          )}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* ---- feedback this user has submitted ---- */}
                 {detail.feedback && detail.feedback.length > 0 && (

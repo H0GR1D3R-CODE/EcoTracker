@@ -453,9 +453,44 @@ def user_detail(user_id):
             })
         user_feedback.sort(key=lambda item: item["createdAt"] or "", reverse=True)
 
+    # --- donations this user has made ---
+    # Matched on userId first, which is only ever written from a verified token.
+    # Email is a fallback: donations made before the link existed, or made while
+    # signed out but with this address typed into the form, still belong to them
+    # in any sense the admin cares about. Streaming the whole collection and
+    # filtering in Python matches how every other query in this file works and
+    # avoids needing a composite index for the two-field OR.
+    user_donations = []
+    donated_paise = 0
+    for doc in db.collection(COLLECTION_DONATIONS).stream():
+        data = doc.to_dict()
+        matches_uid = data.get("userId") == user_doc.id
+        matches_email = bool(user_email) and data.get("email", "") == user_email
+        if not (matches_uid or matches_email):
+            continue
+
+        amount = data.get("amount")
+        amount = int(amount) if isinstance(amount, (int, float)) else None
+        if amount:
+            donated_paise += amount
+
+        don_created = data.get("createdAt")
+        user_donations.append({
+            "id": doc.id,
+            "amount": amount,
+            "currency": data.get("currency", "INR"),
+            "razorpayPaymentId": data.get("razorpayPaymentId", ""),
+            # True when we know it was them, rather than inferred from the email
+            "linkedByAccount": matches_uid,
+            "createdAt": don_created.isoformat() if don_created else None,
+        })
+
+    user_donations.sort(key=lambda item: item["createdAt"] or "", reverse=True)
+
     return api_success({
         "account": account,
         "feedback": user_feedback,
+        "donations": user_donations,
         "profile": {
             "uid": user_doc.id,
             "name": user_data.get("name", ""),
@@ -481,6 +516,8 @@ def user_detail(user_id):
             "averagePerEntry": (
                 round(total_emission / len(records), 2) if records else 0.0
             ),
+            "donationCount": len(user_donations),
+            "donatedPaise": donated_paise,
         },
     })
 
@@ -593,6 +630,9 @@ def list_donations():
             "currency": data.get("currency", "INR"),
             "razorpayOrderId": data.get("razorpayOrderId", ""),
             "razorpayPaymentId": data.get("razorpayPaymentId", ""),
+            # Set only when the donor was signed in, and only from a verified
+            # token. Lets the console link a donation to the account that made it.
+            "userId": data.get("userId") or None,
             "createdAt": created_at.isoformat() if created_at else None,
         })
 
