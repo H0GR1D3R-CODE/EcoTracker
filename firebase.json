@@ -15,6 +15,14 @@
     ],
     "headers": [
       {
+        "_comment": "Everything defaults to revalidate-before-use. Without this, Firebase serves index.html with max-age=3600, so for an hour after every deploy returning visitors keep running the OLD bundle - the new one is on the CDN but nothing asks for it. SPA routes like /donate have no file extension, so only a '**' rule reaches them.",
+        "source": "**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
+        ]
+      },
+      {
+        "_comment": "Listed after the catch-all so it wins for these. Vite fingerprints these filenames, so a changed file is a NEW url and can be cached forever - the stale-deploy problem above cannot apply to them.",
         "source": "**/*.@(js|css|woff2)",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
