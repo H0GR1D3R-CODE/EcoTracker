@@ -13,20 +13,16 @@ store large or malicious payloads.
 Mounted at /api/feedback
 """
 
-import re
-
 from flask import Blueprint, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
-from routes import api_error, api_success
+from routes import EMAIL_ERROR, api_error, api_success, is_valid_email
 
 feedback_bp = Blueprint("feedback", __name__, url_prefix="/api/feedback")
 
 # Feedback documents live in their own collection, separate from user data
 COLLECTION_FEEDBACK = "feedback"
-
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 MAX_NAME = 60
 MAX_MESSAGE = 2000
@@ -61,8 +57,8 @@ def submit_feedback():
 
     # --- optional email (validated only if given) ---
     email = str(body.get("email", "")).strip().lower()
-    if email and not EMAIL_PATTERN.match(email):
-        return api_error("That email address does not look valid.", 400, code="invalid_email")
+    if email and not is_valid_email(email):
+        return api_error(EMAIL_ERROR, 400, code="invalid_email")
 
     # --- optional rating 1-5 ---
     rating = body.get("rating")

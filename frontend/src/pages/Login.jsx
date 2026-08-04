@@ -13,11 +13,7 @@ import { AlertCircle, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail } from 'lucide-r
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-
-// Same simple check the backend uses: something@something.something
-// Gmail addresses only. The whole app requires a Gmail account, so a non-Gmail
-// address is rejected here rather than after a failed sign-in.
-const EMAIL_PATTERN = /^[^@\s]+@gmail\.com$/i;
+import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
 
 export default function Login() {
   const { login, user, loading, isAdmin } = useAuth();
@@ -50,7 +46,7 @@ export default function Login() {
     email: !form.email
       ? 'Email is required.'
       : !EMAIL_PATTERN.test(form.email.trim())
-        ? 'Please use a Gmail address (ending in @gmail.com).'
+        ? EMAIL_ERROR
         : null,
     password: !form.password
       ? 'Password is required.'

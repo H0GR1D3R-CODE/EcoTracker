@@ -32,9 +32,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import SelectField from '../components/SelectField';
-
-// Gmail addresses only - EcoTrack accounts must use a Gmail address.
-const EMAIL_PATTERN = /^[^@\s]+@gmail\.com$/i;
+import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
 
 const TOTAL_STEPS = 3;
 
@@ -143,7 +141,7 @@ export default function Register() {
     email: !form.email.trim()
       ? 'Email is required.'
       : !EMAIL_PATTERN.test(form.email.trim())
-        ? 'Please use a Gmail address (ending in @gmail.com).'
+        ? EMAIL_ERROR
         : null,
 
     // Valid only when every rule passes - the same rules shown in the box

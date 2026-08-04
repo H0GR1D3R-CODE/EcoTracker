@@ -17,6 +17,7 @@ with exactly three documented exceptions:
     GET  /api/factors         - published scientific constants, not user data
 """
 
+import re
 from datetime import date, datetime, timedelta
 from functools import wraps
 
@@ -29,6 +30,26 @@ from config import Config, get_db
 # Short month names used in chart labels, e.g. "Jul 2026"
 MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+# The one email rule for the whole backend, mirroring frontend/src/utils/
+# validation.js exactly. Defined here so registration and feedback cannot drift
+# apart and judge the same address differently.
+#
+# Any provider is accepted - Gmail, Yahoo, Outlook, Proton, and university
+# domains such as @bcah.christuniversity.in - at any subdomain depth. What it
+# still rejects is the shapes that are simply typing mistakes: "asdasd",
+# "user@site", "user@.com", "user@site." and "user@site..com".
+EMAIL_PATTERN = re.compile(
+    r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$"
+)
+
+# The one wording used wherever an email fails validation.
+EMAIL_ERROR = "That email address does not look valid."
+
+
+def is_valid_email(value):
+    """Whether a string looks like a usable email address. Trims first."""
+    return bool(EMAIL_PATTERN.match(str(value or "").strip()))
 
 
 # ===========================================================================
