@@ -23,6 +23,7 @@ import {
   Database,
   Eye,
   FileText,
+  HeartHandshake,
   Leaf,
   MapPin,
   MessageSquare,
@@ -67,6 +68,12 @@ export default function AdminDashboard() {
   const [averageRating, setAverageRating] = useState(null);
   const [deletingFeedbackId, setDeletingFeedbackId] = useState(null);
 
+  // Verified Razorpay donations. Amounts arrive in paise and are divided by 100
+  // only at the point of display, so the total never accumulates rounding error.
+  const [donations, setDonations] = useState([]);
+  const [totalPaise, setTotalPaise] = useState(0);
+  const [deletingDonationId, setDeletingDonationId] = useState(null);
+
   // The per-user drill-down: which user's full detail is open, the loaded data,
   // and whether it is still loading / failed
   const [detailUid, setDetailUid] = useState(null);
@@ -78,16 +85,19 @@ export default function AdminDashboard() {
   const load = async () => {
     setLoading(true);
     try {
-      // All three requests at once rather than one after another
-      const [statsData, usersData, feedbackData] = await Promise.all([
+      // All four requests at once rather than one after another
+      const [statsData, usersData, feedbackData, donationsData] = await Promise.all([
         adminApi.getStats(),
         adminApi.getUsers(),
         adminApi.getFeedback(),
+        adminApi.getDonations(),
       ]);
       setStats(statsData);
       setUsers(usersData.users || []);
       setFeedback(feedbackData.feedback || []);
       setAverageRating(feedbackData.averageRating ?? null);
+      setDonations(donationsData.donations || []);
+      setTotalPaise(donationsData.totalPaise || 0);
       setError(null);
     } catch (requestError) {
       setError(getErrorMessage(requestError, 'Could not load the admin dashboard.'));
@@ -106,6 +116,21 @@ export default function AdminDashboard() {
       toast.error(getErrorMessage(requestError, 'Could not delete that feedback.'));
     } finally {
       setDeletingFeedbackId(null);
+    }
+  };
+
+  const handleDeleteDonation = async (id, amount) => {
+    setDeletingDonationId(id);
+    try {
+      await adminApi.deleteDonation(id);
+      setDonations((current) => current.filter((item) => item.id !== id));
+      // Keep the headline total in step with the row that just went
+      setTotalPaise((current) => Math.max(0, current - (amount || 0)));
+      toast.success('Donation record deleted.');
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not delete that donation record.'));
+    } finally {
+      setDeletingDonationId(null);
     }
   };
 
@@ -450,6 +475,7 @@ export default function AdminDashboard() {
               { label: 'Records', value: formatNumber(stats?.totalRecords || 0, 0) },
               { label: 'Total CO₂', value: formatEmission(stats?.totalEmission || 0) },
               { label: 'Feedback', value: formatNumber(feedback.length, 0) },
+              { label: 'Raised', value: `₹${(totalPaise / 100).toLocaleString('en-IN')}` },
             ].map((item) => (
               <div key={item.label}>
                 <div
@@ -1003,6 +1029,154 @@ export default function AdminDashboard() {
                   }}
                 >
                   {deletingFeedbackId === item.id ? (
+                    <span
+                      style={{
+                        width: 15,
+                        height: 15,
+                        border: '2px solid rgba(239,68,68,0.3)',
+                        borderTopColor: 'var(--eco-danger)',
+                        borderRadius: '50%',
+                        animation: 'eco-spin 0.8s linear infinite',
+                      }}
+                    />
+                  ) : (
+                    <Trash2 size={15} />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ============ DONATIONS ============ */}
+      {/* Only signature-verified payments are ever written to the donations
+          collection, so every row here is money that actually arrived. The
+          Razorpay dashboard remains the authoritative record; this is EcoTrack's
+          own copy, which is why deleting a row refunds nothing. */}
+      <div className="eco-card" style={{ marginTop: '1.5rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
+            marginBottom: '1.2rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <HeartHandshake size={18} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
+              Donations
+              <span className="eco-text-muted" style={{ fontWeight: 400, marginLeft: '0.4rem' }}>
+                ({donations.length})
+              </span>
+            </h2>
+          </div>
+
+          {donations.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+              <span className="eco-text-muted">Total raised</span>
+              <strong className="eco-tabular" style={{ color: 'var(--eco-primary)' }}>
+                ₹{(totalPaise / 100).toLocaleString('en-IN')}
+              </strong>
+            </div>
+          )}
+        </div>
+
+        {donations.length === 0 ? (
+          <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+            No donations yet. Verified payments from the Support page appear here.
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gap: '0.8rem' }}>
+            {donations.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  gap: '0.9rem',
+                  alignItems: 'center',
+                  padding: '1rem 1.1rem',
+                  borderRadius: 'var(--eco-radius-sm)',
+                  border: '1px solid var(--eco-border)',
+                  background: 'rgba(var(--eco-primary-rgb), 0.03)',
+                }}
+              >
+                {/* the amount, given the most weight - it is what the row is about */}
+                <div
+                  style={{
+                    fontFamily: "'Space Grotesk', sans-serif",
+                    fontWeight: 700,
+                    fontSize: '1.05rem',
+                    color: 'var(--eco-primary)',
+                    minWidth: 78,
+                    flexShrink: 0,
+                  }}
+                  className="eco-tabular"
+                >
+                  {item.amount == null
+                    ? '—'
+                    : `₹${(item.amount / 100).toLocaleString('en-IN')}`}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      flexWrap: 'wrap',
+                      marginBottom: '0.25rem',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{item.name}</span>
+
+                    {item.email && (
+                      <a
+                        href={`mailto:${item.email}`}
+                        className="eco-text-muted"
+                        style={{ fontSize: '0.78rem' }}
+                      >
+                        {item.email}
+                      </a>
+                    )}
+
+                    {item.createdAt && (
+                      <span className="eco-text-muted" style={{ fontSize: '0.74rem', marginLeft: 'auto' }}>
+                        {formatDate(item.createdAt)}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* the Razorpay reference, for cross-checking against their dashboard */}
+                  <code
+                    className="eco-text-muted"
+                    style={{ fontSize: '0.72rem', wordBreak: 'break-all' }}
+                  >
+                    {item.razorpayPaymentId || item.razorpayOrderId}
+                  </code>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteDonation(item.id, item.amount)}
+                  disabled={deletingDonationId === item.id}
+                  aria-label="Delete donation record"
+                  title="Deletes EcoTrack's record only — this does not refund the payment"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--eco-danger)',
+                    cursor: 'pointer',
+                    padding: 6,
+                    display: 'flex',
+                    alignSelf: 'flex-start',
+                    flexShrink: 0,
+                  }}
+                >
+                  {deletingDonationId === item.id ? (
                     <span
                       style={{
                         width: 15,

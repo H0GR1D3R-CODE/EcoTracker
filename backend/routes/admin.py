@@ -550,3 +550,83 @@ def delete_feedback(feedback_id):
 
     ref.delete()
     return api_success({"id": feedback_id}, message="Feedback deleted.")
+
+
+# The collection the verified-donation writer in routes/payments.py appends to.
+# Named here rather than imported, for the same reason as COLLECTION_FEEDBACK.
+COLLECTION_DONATIONS = "donations"
+
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/donations
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/donations", methods=["GET"])
+@require_admin
+def list_donations():
+    """
+    Every donation whose Razorpay signature was verified, newest first.
+
+    Only verified payments ever reach the donations collection (see
+    routes/payments.py), so everything listed here is money that genuinely
+    arrived - this endpoint does no checking of its own.
+
+    Amounts are stored in paise. They are returned in paise as well, so the
+    frontend does the ÷100 once at the point of display and no rounding error
+    can creep into the total.
+    """
+    db = get_db()
+    items = []
+
+    for doc in db.collection(COLLECTION_DONATIONS).stream():
+        data = doc.to_dict()
+        created_at = data.get("createdAt")
+
+        # amount may be None: the paise figure is sent by the browser alongside
+        # the signature, and the donation is recorded whether or not it arrives.
+        amount = data.get("amount")
+        items.append({
+            "id": doc.id,
+            "name": data.get("name", "") or "Anonymous",
+            "email": data.get("email", ""),
+            "amount": int(amount) if isinstance(amount, (int, float)) else None,
+            "currency": data.get("currency", "INR"),
+            "razorpayOrderId": data.get("razorpayOrderId", ""),
+            "razorpayPaymentId": data.get("razorpayPaymentId", ""),
+            "createdAt": created_at.isoformat() if created_at else None,
+        })
+
+    # Newest first, sorted in Python so no Firestore index is needed - the same
+    # approach every other admin query here takes.
+    items.sort(key=lambda item: item["createdAt"] or "", reverse=True)
+
+    return api_success({
+        "donations": items,
+        "count": len(items),
+        # Skips the None amounts rather than treating them as zero
+        "totalPaise": sum(item["amount"] for item in items if item["amount"]),
+    })
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/admin/donations/<donation_id>
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/donations/<donation_id>", methods=["DELETE"])
+@require_admin
+def delete_donation(donation_id):
+    """
+    Remove one donation record (a test payment, or a duplicate).
+
+    This deletes EcoTrack's own record only. It does not refund anything and
+    does not touch Razorpay - the payment itself still exists in the Razorpay
+    dashboard, which stays the authoritative record.
+    """
+    db = get_db()
+    ref = db.collection(COLLECTION_DONATIONS).document(donation_id)
+
+    if not ref.get().exists:
+        return api_error("Donation not found.", 404, code="donation_not_found")
+
+    ref.delete()
+    return api_success({"id": donation_id}, message="Donation record deleted.")

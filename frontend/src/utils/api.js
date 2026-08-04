@@ -267,6 +267,13 @@ export const adminApi = {
 
   deleteFeedback: (feedbackId) =>
     api.delete(`/api/admin/feedback/${feedbackId}`).then(unwrap),
+
+  // Verified donations only - amounts come back in paise
+  getDonations: () => api.get('/api/admin/donations').then(unwrap),
+
+  // Deletes EcoTrack's record of a donation, not the payment itself
+  deleteDonation: (donationId) =>
+    api.delete(`/api/admin/donations/${donationId}`).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
@@ -297,6 +304,26 @@ export const assistantApi = {
 export const feedbackApi = {
   // payload: { name?, email?, message, rating? }
   submit: (payload) => api.post('/api/feedback', payload).then((r) => r.data),
+};
+
+// ---------------------------------------------------------------------------
+// PAYMENTS (public - a visitor can donate without an account)
+//
+// The Razorpay KEY_SECRET lives only on the Flask server. The browser never
+// holds it: it asks our backend to open an order, hands the result to Razorpay
+// Checkout, then sends the signed confirmation BACK to our backend to be
+// verified. A donation only counts once that server-side check passes.
+// ---------------------------------------------------------------------------
+
+export const paymentsApi = {
+  // payload: { amount: <paise int>, currency?: 'INR', receipt?: string }
+  // returns: { order_id, amount, currency, key }  (key = the public key_id)
+  createOrder: (payload) => api.post('/api/create-order', payload).then(unwrap),
+
+  // payload: the three razorpay_* fields from Checkout, plus optional
+  // amount/currency/name/email recorded alongside the verified donation.
+  // Returns the whole envelope so the caller can show the server's message.
+  verifyPayment: (payload) => api.post('/api/verify-payment', payload).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------

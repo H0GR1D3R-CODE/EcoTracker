@@ -24,6 +24,7 @@ import Learn from './pages/Learn';
 import Gallery from './pages/Gallery';
 import Estimate from './pages/Estimate';
 import Feedback from './pages/Feedback';
+import Donate from './pages/Donate';
 import Dashboard from './pages/Dashboard';
 import CalculatorPage from './pages/Calculator';
 import Goals from './pages/Goals';
@@ -198,6 +199,9 @@ export default function App() {
             <Route path="/gallery" element={<MotionPage><Gallery /></MotionPage>} />
             <Route path="/estimate" element={<MotionPage><Estimate /></MotionPage>} />
             <Route path="/feedback" element={<MotionPage><Feedback /></MotionPage>} />
+            {/* Donations are deliberately open to everyone - a visitor should
+                never have to make an account before they can support the project. */}
+            <Route path="/donate" element={<MotionPage><Donate /></MotionPage>} />
 
             {/* ---------- Signed in ---------- */}
             {/* userOnly: the admin account is admin-only, so these personal

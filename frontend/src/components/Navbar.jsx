@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import {
   Calculator,
   FileText,
+  Heart,
   LayoutDashboard,
   Leaf,
   LogOut,
@@ -56,6 +57,8 @@ const PUBLIC_LINKS = [
   { to: '/gallery', label: 'Gallery' },
   { to: '/estimate', label: 'Estimate' },
   { to: '/feedback', label: 'Feedback' },
+  // Donate is deliberately NOT here: it gets its own button next to Log in,
+  // where it reads as an action rather than another page to browse.
 ];
 
 export default function Navbar() {
@@ -224,6 +227,30 @@ export default function Navbar() {
 
             {user ? (
               <>
+                {/* Signed-in visitors lose the footer and the public links, so
+                    without this there is no route to the donate page at all.
+                    Icon-only keeps the signed-in bar uncluttered. The admin
+                    account is skipped - it is the project, not a supporter. */}
+                {!isAdmin && (
+                  <Link
+                    to="/donate"
+                    className="d-none d-lg-flex"
+                    title="Support EcoTrack"
+                    aria-label="Support EcoTrack"
+                    style={{
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      border: '1px solid var(--eco-border)',
+                      color: 'var(--eco-primary)',
+                    }}
+                  >
+                    <Heart size={16} />
+                  </Link>
+                )}
+
                 {/* Avatar + name, links to the profile page */}
                 <Link
                   to="/profile"
@@ -262,6 +289,23 @@ export default function Navbar() {
               </>
             ) : (
               <div className="d-none d-lg-flex" style={{ gap: '0.55rem' }}>
+                {/* Donate sits beside the auth buttons so it reads as an action.
+                    Outline rather than solid keeps "Get started" the one clear
+                    primary call on the bar.
+
+                    Only from xl (1200px) up: at the lg breakpoint the six public
+                    links plus both auth buttons already fill the container, and
+                    adding a third button there pushes the bar into a horizontal
+                    scroll. Below xl the footer button and the home-page strip
+                    carry the same link. */}
+                <Link
+                  to="/donate"
+                  className="eco-btn eco-btn-outline d-none d-xl-inline-flex"
+                  style={{ fontSize: '0.88rem' }}
+                >
+                  <Heart size={15} />
+                  Donate
+                </Link>
                 <Link to="/login" className="eco-btn eco-btn-ghost" style={{ fontSize: '0.88rem' }}>
                   Log in
                 </Link>
@@ -394,6 +438,19 @@ export default function Navbar() {
                   Profile
                 </NavLink>
 
+                {!isAdmin && (
+                  <NavLink
+                    to="/donate"
+                    className={({ isActive }) =>
+                      `eco-nav-link ${isActive ? 'eco-nav-link-active' : ''}`
+                    }
+                    style={{ display: 'flex', width: '100%', padding: '0.75rem 0.6rem' }}
+                  >
+                    <Heart size={18} />
+                    Support EcoTrack
+                  </NavLink>
+                )}
+
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -422,7 +479,11 @@ export default function Navbar() {
                   </NavLink>
                 ))}
 
-                <Link to="/login" className="eco-btn eco-btn-ghost" style={{ width: '100%', marginTop: '0.3rem' }}>
+                <Link to="/donate" className="eco-btn eco-btn-outline" style={{ width: '100%', marginTop: '0.3rem' }}>
+                  <Heart size={16} />
+                  Donate
+                </Link>
+                <Link to="/login" className="eco-btn eco-btn-ghost" style={{ width: '100%' }}>
                   Log in
                 </Link>
                 <Link to="/register" className="eco-btn eco-btn-primary" style={{ width: '100%' }}>

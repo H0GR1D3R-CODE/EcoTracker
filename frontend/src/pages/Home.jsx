@@ -1266,9 +1266,12 @@ export default function Home() {
       </section>
 
       {/* ================= CONTRIBUTE / DONATE ================= */}
-      {/* EcoTrack takes no money itself. Each card links out to a real,
-          established charity's own donation page (links verified against each
-          org's site), so a contribution reaches the organisation in full. */}
+      {/* Two separate asks, deliberately kept apart. The cards link out to real,
+          established charities' own donation pages (links verified against each
+          org's site) and no money passes through EcoTrack. The strip below is
+          EcoTrack's own running costs - a much smaller ask, and it comes second
+          on purpose, because those charities cut far more carbon than our
+          hosting bill ever will. */}
       <section className="eco-section">
         <div className="container">
           <div style={{ textAlign: 'center', maxWidth: 660, margin: '0 auto 2.6rem' }}>
@@ -1366,10 +1369,60 @@ export default function Home() {
             }}
           >
             <Info size={13} style={{ verticalAlign: -2, marginRight: 4 }} />
-            EcoTrack is a student project and does not collect donations itself. Each
-            button opens the organisation&rsquo;s own donation page, where your
-            contribution reaches them in full.
+            No money passes through EcoTrack for any of these. Each button opens the
+            organisation&rsquo;s own donation page, where your contribution reaches
+            them in full.
           </p>
+
+          {/* ---- EcoTrack's own, much smaller ask ---- */}
+          <motion.div
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5 }}
+            className="eco-card"
+            style={{
+              marginTop: '2.6rem',
+              marginLeft: 'auto',
+              marginRight: 'auto',
+              maxWidth: 780,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1.2rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 13,
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(var(--eco-primary-rgb), 0.14)',
+                color: 'var(--eco-primary)',
+              }}
+            >
+              <Leaf size={23} />
+            </div>
+
+            <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+              <h3 style={{ fontSize: '1.05rem', marginBottom: '0.3rem' }}>
+                Keeping EcoTrack itself running costs a little too
+              </h3>
+              <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>
+                Servers, hosting, and keeping the emission factors current. No ads and
+                no paywall — just a student project that would like to stay online.
+              </p>
+            </div>
+
+            <Link to="/donate" className="eco-btn eco-btn-primary" style={{ flexShrink: 0 }}>
+              <Heart size={16} />
+              Support EcoTrack
+            </Link>
+          </motion.div>
         </div>
       </section>
 

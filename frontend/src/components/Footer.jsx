@@ -10,7 +10,7 @@
 // from - and opens in a new tab. Internal links use the router.
 
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Leaf } from 'lucide-react';
+import { ArrowUpRight, Heart, Leaf } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -32,6 +32,7 @@ const LINK_COLUMNS = [
       { label: 'Create account', to: '/register' },
       { label: 'Log in', to: '/login' },
       { label: 'Give feedback', to: '/feedback' },
+      { label: 'Support EcoTrack', to: '/donate' },
     ],
   },
 ];
@@ -105,6 +106,17 @@ export default function Footer() {
               <Leaf size={13} style={{ color: 'var(--eco-primary)' }} />
               SDG 13 · Climate Action
             </span>
+
+            {/* Hosting this costs a little; this is the one ask on the page.
+                Outline, not solid - the footer should not shout. */}
+            <Link
+              to="/donate"
+              className="eco-btn eco-btn-outline"
+              style={{ marginTop: '1.2rem', fontSize: '0.86rem' }}
+            >
+              <Heart size={15} />
+              Support EcoTrack
+            </Link>
           </div>
 
           {/* ---- internal link columns ---- */}

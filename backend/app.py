@@ -11,10 +11,13 @@ blueprints, and defines the site-wide error handlers.
 
 PUBLIC vs PROTECTED ROUTES
 --------------------------
-Only three routes work without a Firebase ID token, and each has a reason:
+A handful of routes work without a Firebase ID token, each for a reason:
     GET  /api/health          server status check, returns no user data
     POST /api/auth/register   the account does not exist yet, so no token can exist
     GET  /api/factors         published DEFRA/IPCC constants, not personal data
+    POST /api/feedback        a visitor can send feedback before signing up
+    POST /api/create-order    a visitor can donate without an account (Razorpay)
+    POST /api/verify-payment  confirms a donation's signature (Razorpay)
 Everything else is wrapped in @require_auth or @require_admin.
 """
 
@@ -34,6 +37,7 @@ from routes.reports import reports_bp
 from routes.admin import admin_bp
 from routes.assistant import assistant_bp
 from routes.feedback import feedback_bp
+from routes.payments import payments_bp
 
 
 def create_app():
@@ -69,6 +73,7 @@ def create_app():
     app.register_blueprint(admin_bp)       # /api/admin/*
     app.register_blueprint(assistant_bp)   # /api/assistant/*
     app.register_blueprint(feedback_bp)    # /api/feedback  (public)
+    app.register_blueprint(payments_bp)    # /api/create-order, /api/verify-payment  (public)
 
     # -----------------------------------------------------------------------
     # Server status routes
