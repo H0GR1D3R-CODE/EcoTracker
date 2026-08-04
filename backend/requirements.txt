@@ -17,3 +17,9 @@ google-genai>=2.0.0
 # It is not needed on Windows for local development, but keeping it here
 # means Render installs it automatically during deployment.
 gunicorn==23.0.0
+
+# The Razorpay donation routes (routes/payments.py) call the Razorpay REST API
+# directly over HTTPS and verify the signature with the standard-library hmac
+# module - no razorpay SDK needed. requests already ships as a firebase-admin
+# dependency; pinning it here makes that explicit since we import it directly.
+requests>=2.31.0

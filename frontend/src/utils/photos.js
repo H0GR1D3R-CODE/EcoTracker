@@ -69,6 +69,9 @@ export const PHOTOS = {
 
   // admin console banner — dark, on-theme (city lights = energy), distinct
   adminBanner: '1609609018625-afef0a259159', // aerial city lights at night
+
+  // donate page — dark potting soil + trowel: what support actually grows
+  supportSoil: '1416879595882-3373a0480b5b', // trowel scooping dark earth (Donate)
 };
 
 /**

@@ -83,6 +83,23 @@ class Config:
     # of any specific version. Override in .env if you want to pin a version.
     ASSISTANT_MODEL = os.getenv("ASSISTANT_MODEL", "gemini-flash-latest")
 
+    # --- Razorpay (donations / "Support EcoTrack") ---
+    # These power the public donation flow (routes/payments.py). They are
+    # TEST-MODE keys, so no real money moves.
+    #   RAZORPAY_KEY_ID     is safe to hand to the browser - Razorpay Checkout
+    #                       needs it, and the create-order route returns it.
+    #   RAZORPAY_KEY_SECRET is a REAL secret. It signs orders and verifies the
+    #                       payment signature, and must live only on the server -
+    #                       never in frontend/.env or any committed file.
+    RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+    RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+
+    # Sanity bounds for the open donation endpoint, in paise (100 paise = ₹1).
+    # A floor of 100 is Razorpay's minimum; the ceiling stops anyone abusing a
+    # public, no-login endpoint to create absurd orders.
+    DONATION_MIN_PAISE = 100          # ₹1
+    DONATION_MAX_PAISE = 10_000_000   # ₹1,00,000
+
     # Firestore collection names kept in one place so a typo can only happen once.
     COLLECTION_USERS = "users"
     COLLECTION_CARBON_RECORDS = "carbonRecords"
