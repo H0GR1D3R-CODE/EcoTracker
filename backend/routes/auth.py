@@ -26,22 +26,31 @@ handles password hashing, storage and reset emails.
 All routes are mounted under /api/auth
 """
 
-import re
-
 from flask import Blueprint, g, request
 from firebase_admin import auth as firebase_auth
 from google.cloud import firestore as gcloud_firestore  # installed with firebase-admin
 
 from config import Config, get_db
-from routes import api_error, api_success, is_admin, require_auth, verify_token
+from routes import (
+    EMAIL_ERROR,
+    api_error,
+    api_success,
+    is_admin,
+    is_valid_email,
+    require_auth,
+    verify_token,
+)
 
 # A Blueprint is a group of related routes. app.py registers it on the real app.
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
-# EcoTrack accounts must use a Gmail address. This is enforced on the server so
-# the rule holds even if someone bypasses the React form and calls the API
-# directly. The frontend (Login.jsx / Register.jsx) uses the same pattern.
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@gmail\.com$", re.IGNORECASE)
+# Email validation lives in routes/__init__.py so registration, feedback and the
+# React forms all apply one rule. Enforced here on the server too, so it holds
+# even if someone bypasses the form and calls the API directly.
+#
+# Previously this demanded @gmail.com. That turned away anyone on Yahoo,
+# Outlook, Proton or a university address such as @bcah.christuniversity.in -
+# they could not create an account at all.
 
 # Strong-password policy. These rules mirror PASSWORD_RULES in the frontend
 # Register.jsx exactly, so the checklist the user sees is the policy the server
@@ -133,9 +142,9 @@ def register():
     if name_error:
         return api_error(name_error, 400, code="invalid_name")
 
-    if not EMAIL_PATTERN.match(email):
+    if not is_valid_email(email):
         return api_error(
-            "Please use a Gmail address (ending in @gmail.com).",
+            EMAIL_ERROR,
             400,
             code="invalid_email",
         )

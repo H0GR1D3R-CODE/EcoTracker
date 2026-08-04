@@ -27,10 +27,10 @@ import Photo from '../components/Photo';
 import AuroraBackground from '../components/AuroraBackground';
 import { PHOTOS } from '../utils/photos';
 import { feedbackApi, getErrorMessage } from '../utils/api';
+import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
-const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const MAX_MESSAGE = 2000;
 
 // What the feedback is about. Selecting one tags the message so the admin can
@@ -97,7 +97,7 @@ export default function Feedback() {
           : null,
     // Email is optional, but if given it must be valid
     email: form.email.trim() && !EMAIL_PATTERN.test(form.email.trim())
-      ? 'That email address does not look valid.'
+      ? EMAIL_ERROR
       : null,
   };
 

@@ -47,8 +47,7 @@ import { loadRazorpay } from '../utils/razorpay';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useCounter } from '../hooks/useCounter';
-
-const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
 
 // These mirror DONATION_MIN_PAISE / DONATION_MAX_PAISE in backend/config.py.
 // The server enforces them for real; checking here just means the user finds
@@ -195,7 +194,7 @@ export default function Donate() {
     // Optional, but must look like an address if it is given
     email:
       form.email.trim() && !EMAIL_PATTERN.test(form.email.trim())
-        ? 'That email address does not look valid.'
+        ? EMAIL_ERROR
         : null,
   };
 
