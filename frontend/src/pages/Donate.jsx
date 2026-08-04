@@ -339,10 +339,11 @@ export default function Donate() {
         <Info size={17} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
         <div style={{ fontSize: '0.86rem', lineHeight: 1.6 }}>
           <strong>Demonstration mode.</strong> EcoTrack runs on Razorpay&apos;s test
-          keys, so <strong>no real money moves</strong> and no card is ever charged.
-          To try the full flow, pay with the test card{' '}
-          <code style={{ fontSize: '0.82rem' }}>4111 1111 1111 1111</code> — any
-          future expiry date, any CVV.
+          keys, so <strong>no real money moves</strong> and nothing is ever charged.
+          To try the full flow, choose <strong>Netbanking</strong>, pick any bank and
+          press Success on the simulated page — or choose UPI and enter the test ID{' '}
+          <code style={{ fontSize: '0.82rem' }}>success@razorpay</code>. Test cards are
+          declined on this account, so please do not use a real card.
         </div>
       </div>
 
