@@ -72,6 +72,16 @@ const PRESETS = [
 // variables - its accent colour has to be a literal hex value.
 const CHECKOUT_THEME = '#2f9d5c';
 
+// Razorpay key ids carry their own mode: rzp_test_... or rzp_live_.... So the
+// "nothing is really charged" notice can decide for itself whether to appear,
+// and switching to live keys removes it with no code change.
+//
+// Deliberately shows ONLY for a confirmed test key. If the id were missing we
+// would not know the mode, and the dangerous direction is telling someone their
+// card is safe while it is actually being charged - so an unknown mode says
+// nothing rather than guessing "demo".
+const IS_TEST_MODE = String(import.meta.env.VITE_RAZORPAY_KEY_ID || '').startsWith('rzp_test_');
+
 // Where the money is forwarded. The same four organisations the home page links
 // to directly, so the two pages never tell different stories.
 const PARTNERS = [
@@ -563,26 +573,29 @@ export default function Donate() {
       </section>
 
       <div className="container" style={{ maxWidth: 1000 }}>
-        {/* one quiet line - while the test keys are in use, the page must not
-            let anyone believe they have really donated */}
-        <p
-          className="eco-text-muted"
-          style={{
-            fontSize: '0.78rem',
-            textAlign: 'center',
-            margin: '0 0 1.8rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.4rem',
-            flexWrap: 'wrap',
-          }}
-        >
-          <Lock size={12} style={{ flexShrink: 0 }} />
-          Demonstration mode — Razorpay test keys, so nothing is actually charged.
-          Pay via Netbanking (any bank → Success) or UPI id{' '}
-          <code style={{ fontSize: '0.75rem' }}>success@razorpay</code>.
-        </p>
+        {/* one quiet line - while test keys are in use, the page must not let
+            anyone believe they have really donated. Disappears by itself once
+            live keys are in (see IS_TEST_MODE). */}
+        {IS_TEST_MODE && (
+          <p
+            className="eco-text-muted"
+            style={{
+              fontSize: '0.78rem',
+              textAlign: 'center',
+              margin: '0 0 1.8rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Lock size={12} style={{ flexShrink: 0 }} />
+            Demonstration mode — Razorpay test keys, so nothing is actually charged.
+            Pay via Netbanking (any bank → Success) or UPI id{' '}
+            <code style={{ fontSize: '0.75rem' }}>success@razorpay</code>.
+          </p>
+        )}
 
         {/* the server has no keys configured */}
         {unavailable && (
