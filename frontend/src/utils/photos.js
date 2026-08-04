@@ -72,6 +72,11 @@ export const PHOTOS = {
 
   // donate page — dark potting soil + trowel: what support actually grows
   supportSoil: '1416879595882-3373a0480b5b', // trowel scooping dark earth (Donate)
+
+  // donate page, the cause itself — distinct from every forest shot above
+  forestWater: '1497436072909-60f360e1d4b1', // aerial forest edge meeting turquoise water (Donate hero)
+  forestLake: '1473448912268-2022ce9509d8', // pine forest around a still lake (Donate: what it protects)
+  planetB: '1552799446-159ba9523315', // "There is no Planet B" climate march placard (Donate: why)
 };
 
 /**
