@@ -46,6 +46,7 @@ import { getErrorCode, getErrorMessage, paymentsApi } from '../utils/api';
 import { loadRazorpay } from '../utils/razorpay';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useCounter } from '../hooks/useCounter';
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -145,6 +146,14 @@ export default function Donate() {
 
   // The verified donation, once one has gone through.
   const [done, setDone] = useState(null);
+
+  // The amount counts up on the thank-you screen. Declared here, unconditionally,
+  // because the thank-you screen returns early - a hook called inside that branch
+  // would run on some renders and not others, which React forbids.
+  const [amountRef, amountShown] = useCounter(done ? done.amount / 100 : 0, {
+    decimals: 0,
+    startOnView: false,
+  });
 
   // Pre-fill from the profile when the visitor is already signed in
   useEffect(() => {
@@ -322,53 +331,123 @@ export default function Donate() {
     ];
 
     return (
-      <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '4rem', maxWidth: 640 }}>
-        {/* ---------- celebration ---------- */}
-        <div className="eco-no-print" style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <motion.div
-            initial={prefersReducedMotion ? false : { scale: 0, rotate: -25 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 14 }}
+      <div style={{ paddingBottom: '0' }}>
+        {/* ---------- celebration: full-bleed, over the thing being funded ---------- */}
+        <section
+          className="eco-no-print"
+          style={{
+            position: 'relative',
+            minHeight: 'clamp(430px, 62vh, 580px)',
+            display: 'flex',
+            alignItems: 'center',
+            overflow: 'hidden',
+            // room for the receipt card to ride up over the bottom edge
+            paddingBottom: '4.5rem',
+          }}
+        >
+          <img
+            src={photoUrl(PHOTOS.ancientTree, 1600)}
+            alt="Sunlight bursting through the canopy of a huge old tree with sprawling roots"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <div
             style={{
-              width: 96,
-              height: 96,
-              margin: '0 auto 1.4rem',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'linear-gradient(135deg, rgba(47,157,92,0.22), rgba(63,176,168,0.22))',
-              border: '1px solid rgba(var(--eco-primary-rgb), 0.45)',
+              position: 'absolute',
+              inset: 0,
+              background:
+                'linear-gradient(180deg, rgba(6,12,7,0.78) 0%, rgba(6,12,7,0.58) 40%, rgba(6,12,7,0.96) 100%)',
             }}
-          >
-            <CheckCircle2 size={52} style={{ color: 'var(--eco-primary)' }} />
-          </motion.div>
+          />
 
-          <motion.h1
-            initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            style={{ fontSize: 'clamp(2.1rem, 6vw, 3.2rem)', lineHeight: 1.05, marginBottom: '0.8rem' }}
-          >
-            Thank you, <span className="eco-gradient-text">truly</span>
-          </motion.h1>
+          <div className="container" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+            {/* tick, with a ring that expands out of it once on arrival */}
+            <div style={{ position: 'relative', width: 104, height: 104, margin: '0 auto 1.5rem' }}>
+              {!prefersReducedMotion && (
+                <motion.span
+                  initial={{ scale: 0.7, opacity: 0.65 }}
+                  animate={{ scale: 2.1, opacity: 0 }}
+                  transition={{ duration: 1.5, ease: 'easeOut', repeat: 2, repeatDelay: 0.35 }}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '50%',
+                    border: '2px solid rgba(126,226,168,0.9)',
+                  }}
+                />
+              )}
+              <motion.div
+                initial={prefersReducedMotion ? false : { scale: 0, rotate: -30 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 190, damping: 13 }}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(10,26,16,0.72)',
+                  border: '1px solid rgba(126,226,168,0.55)',
+                  backdropFilter: 'blur(4px)',
+                }}
+              >
+                <CheckCircle2 size={54} style={{ color: '#7ee2a8' }} />
+              </motion.div>
+            </div>
 
-          <motion.p
-            initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="eco-text-muted"
-            style={{ fontSize: '1.08rem', lineHeight: 1.65, maxWidth: 480, margin: '0 auto' }}
-          >
-            Your{' '}
-            <strong style={{ color: 'var(--eco-primary)' }}>
-              ₹{rupeesGiven.toLocaleString('en-IN')}
-            </strong>{' '}
-            is verified and on its way to the organisations below. Whether it was
-            small or large, it is more than most people ever give — and it goes to
-            work, not to us.
-          </motion.p>
-        </div>
+            <motion.h1
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              style={{
+                fontSize: 'clamp(2.4rem, 7vw, 4rem)',
+                lineHeight: 1.03,
+                marginBottom: '0.5rem',
+                color: '#fff',
+              }}
+            >
+              Thank you, <span className="eco-gradient-text">truly</span>
+            </motion.h1>
+
+            {/* the amount counts up rather than just appearing */}
+            <motion.div
+              ref={amountRef}
+              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.24, type: 'spring', stiffness: 180, damping: 15 }}
+              style={{
+                fontFamily: "'Space Grotesk', sans-serif",
+                fontWeight: 700,
+                fontSize: 'clamp(2.6rem, 9vw, 4.4rem)',
+                lineHeight: 1,
+                color: '#7ee2a8',
+                margin: '0.4rem 0 1rem',
+                letterSpacing: '-0.03em',
+              }}
+            >
+              ₹{amountShown}
+            </motion.div>
+
+            <motion.p
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.34 }}
+              style={{
+                fontSize: 'clamp(0.97rem, 2.2vw, 1.1rem)',
+                lineHeight: 1.65,
+                color: 'rgba(255,255,255,0.82)',
+                maxWidth: 520,
+                margin: '0 auto',
+              }}
+            >
+              Verified and on its way to the organisations below. Whether it was
+              small or large, it is more than most people ever give — and it goes
+              to the work, not to us.
+            </motion.p>
+          </div>
+        </section>
+
+        <div className="container" style={{ maxWidth: 660, marginTop: '-4rem', position: 'relative', zIndex: 2 }}>
 
         {/* ---------- the receipt (the only thing that prints) ---------- */}
         <motion.div
@@ -463,34 +542,102 @@ export default function Donate() {
         </div>
 
         {/* ---------- where it is going ---------- */}
-        <div className="eco-no-print" style={{ marginTop: '2.5rem' }}>
-          <h2 style={{ fontSize: '1.05rem', textAlign: 'center', marginBottom: '1.1rem' }}>
+        {/* Exactly two columns, never auto-fit: there are four partners, and an
+            auto-fit track lands on three at some widths, orphaning the fourth on
+            a row of its own. Two always divides evenly. */}
+        <div className="eco-no-print" style={{ marginTop: '2.8rem' }}>
+          <h2 style={{ fontSize: '1.15rem', textAlign: 'center', marginBottom: '0.4rem' }}>
             Where this goes
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem' }}>
-            {PARTNERS.map((partner) => {
+          <p
+            className="eco-text-muted"
+            style={{ fontSize: '0.84rem', textAlign: 'center', margin: '0 0 1.3rem' }}
+          >
+            Forwarded to these four, less Razorpay&apos;s processing fee.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem' }}>
+            {PARTNERS.map((partner, index) => {
               const Icon = partner.icon;
               return (
-                <a
+                <motion.a
                   key={partner.name}
                   href={partner.href}
                   target="_blank"
                   rel="noopener noreferrer"
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.45 + index * 0.08, duration: 0.45 }}
+                  whileHover={prefersReducedMotion ? {} : { y: -4 }}
                   className="eco-card eco-card-hover"
-                  style={{ padding: '0.95rem', display: 'block' }}
+                  style={{ padding: '1rem', display: 'block' }}
                 >
-                  <Icon size={18} style={{ color: 'var(--eco-primary)', marginBottom: '0.5rem' }} />
-                  <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.15rem' }}>
+                  <Icon size={19} style={{ color: 'var(--eco-primary)', marginBottom: '0.55rem' }} />
+                  <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.15rem' }}>
                     {partner.name}
                   </div>
-                  <div className="eco-text-muted" style={{ fontSize: '0.75rem' }}>
+                  <div className="eco-text-muted" style={{ fontSize: '0.76rem' }}>
                     {partner.focus}
                   </div>
-                </a>
+                </motion.a>
               );
             })}
           </div>
         </div>
+        </div>
+
+        {/* ---------- closing band: what the money turns into ---------- */}
+        <section
+          className="eco-no-print"
+          style={{
+            position: 'relative',
+            marginTop: 'clamp(3rem, 8vw, 5rem)',
+            minHeight: 340,
+            display: 'flex',
+            alignItems: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <img
+            src={photoUrl(PHOTOS.seedlings, 1400)}
+            alt="Rows of young seedlings sprouting from dark soil in a propagation tray"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                'linear-gradient(180deg, rgba(6,12,7,0.94) 0%, rgba(6,12,7,0.6) 50%, rgba(6,12,7,0.9) 100%)',
+            }}
+          />
+
+          <div
+            className="container"
+            style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 620 }}
+          >
+            <motion.h2
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.4 }}
+              transition={{ duration: 0.55 }}
+              style={{ fontSize: 'clamp(1.5rem, 4vw, 2.3rem)', color: '#fff', marginBottom: '0.8rem' }}
+            >
+              Every old tree started exactly like this
+            </motion.h2>
+            <motion.p
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.4 }}
+              transition={{ duration: 0.55, delay: 0.1 }}
+              style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.98rem', lineHeight: 1.7, margin: 0 }}
+            >
+              Nothing about climate change is solved in one payment. But forests
+              are still the cheapest carbon capture we have, and they only exist
+              because somebody funded the first year of them. Today that was you.
+            </motion.p>
+          </div>
+        </section>
       </div>
     );
   }
