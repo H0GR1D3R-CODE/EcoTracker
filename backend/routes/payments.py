@@ -17,8 +17,13 @@ donation is recorded ONLY after that check passes.
 
 TEST MODE
 ---------
-These use Razorpay TEST keys, so no real money moves. Pay with a Razorpay test
-card, e.g. 4111 1111 1111 1111, any future expiry, any CVV, any name.
+These use Razorpay TEST keys, so no real money moves. To pay, use Netbanking
+(pick any bank, then press Success on the simulated page) or UPI with the test
+id success@razorpay.
+
+The 4111 1111 1111 1111 test card is REJECTED on this account with
+"International cards are not supported": it is registered as an international
+Visa, and Indian Razorpay accounts have international payments off by default.
 
 The KEY_SECRET is read from the environment (config.Config) and never leaves
 this server - it is not returned in any response and not sent to the browser.
