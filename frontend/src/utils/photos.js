@@ -77,6 +77,10 @@ export const PHOTOS = {
   forestWater: '1497436072909-60f360e1d4b1', // aerial forest edge meeting turquoise water (Donate hero)
   forestLake: '1473448912268-2022ce9509d8', // pine forest around a still lake (Donate: what it protects)
   planetB: '1552799446-159ba9523315', // "There is no Planet B" climate march placard (Donate: why)
+
+  // donate thank-you — the payoff, kept separate from the images on the form
+  ancientTree: '1518495973542-4542c06a5843', // sun bursting through an ancient fig's canopy (thank-you hero)
+  seedlings: '1466692476868-aef1dfb1e735', // seedlings sprouting in a soil tray (thank-you: what it becomes)
 };
 
 /**
