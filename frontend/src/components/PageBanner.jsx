@@ -6,7 +6,8 @@
 // button) sits on the right. Matches the Dashboard's earth banner so every app
 // page opens the same premium way.
 
-import { motion } from 'framer-motion';
+import { useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 import Photo from './Photo';
 import { PHOTOS } from '../utils/photos';
@@ -24,9 +25,29 @@ export default function PageBanner({
   action,
 }) {
   const { prefersReducedMotion } = useTheme();
+  const bannerRef = useRef(null);
+
+  // Scroll-linked parallax: the photograph scales up and drifts as the banner
+  // leaves the viewport, so the header has depth instead of sliding away flat.
+  //
+  // useScroll/useTransform produce MotionValues, which framer-motion writes
+  // straight to the DOM without re-rendering React. A useState scroll handler
+  // would re-render this component on every scroll frame - and every child with
+  // it - which is exactly how a scroll effect turns into jank.
+  const { scrollYProgress } = useScroll({
+    target: bannerRef,
+    offset: ['start start', 'end start'],
+  });
+
+  const photoScale = useTransform(scrollYProgress, [0, 1], [1, 1.22]);
+  const photoY = useTransform(scrollYProgress, [0, 1], ['0%', '16%']);
+  // The text lifts and fades a little faster than the image behind it
+  const contentY = useTransform(scrollYProgress, [0, 1], ['0%', '-28%']);
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
     <motion.div
+      ref={bannerRef}
       initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
@@ -41,14 +62,26 @@ export default function PageBanner({
         alignItems: 'flex-end',
       }}
     >
-      <Photo
-        id={PHOTOS[photo]}
-        alt={alt}
-        width={1500}
-        color={color}
-        className="eco-photo-cover"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-      />
+      {/* The photo sits in its own transformed layer. Scaling slightly beyond
+          the frame (110%) means the parallax drift never exposes a bare edge. */}
+      <motion.div
+        style={{
+          position: 'absolute',
+          inset: '-5%',
+          scale: prefersReducedMotion ? 1 : photoScale,
+          y: prefersReducedMotion ? 0 : photoY,
+          willChange: prefersReducedMotion ? undefined : 'transform',
+        }}
+      >
+        <Photo
+          id={PHOTOS[photo]}
+          alt={alt}
+          width={1500}
+          color={color}
+          className="eco-photo-cover"
+          style={{ width: '100%', height: '100%' }}
+        />
+      </motion.div>
       <div
         style={{
           position: 'absolute',
@@ -58,7 +91,7 @@ export default function PageBanner({
         }}
       />
 
-      <div
+      <motion.div
         style={{
           position: 'relative',
           zIndex: 1,
@@ -69,6 +102,8 @@ export default function PageBanner({
           flexWrap: 'wrap',
           gap: '1rem',
           padding: 'clamp(1.3rem, 3vw, 1.9rem)',
+          y: prefersReducedMotion ? 0 : contentY,
+          opacity: prefersReducedMotion ? 1 : contentOpacity,
         }}
       >
         <div>
@@ -118,7 +153,7 @@ export default function PageBanner({
         </div>
 
         {action && <div style={{ flexShrink: 0 }}>{action}</div>}
-      </div>
+      </motion.div>
     </motion.div>
   );
 }

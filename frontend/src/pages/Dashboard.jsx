@@ -41,6 +41,7 @@ import { useDashboard } from '../hooks/useDashboard';
 import StatCard from '../components/StatCard';
 import ImpactEquivalents from '../components/ImpactEquivalents';
 import Photo from '../components/Photo';
+import PageBanner from '../components/PageBanner';
 import Reveal from '../components/Reveal';
 import { PHOTOS } from '../utils/photos';
 import {
@@ -285,73 +286,21 @@ export default function Dashboard() {
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
       {/* ============ 1. HEADER (image banner) ============ */}
-      <motion.div
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="eco-card"
-        style={{
-          position: 'relative',
-          overflow: 'hidden',
-          padding: 0,
-          marginBottom: '1.5rem',
-          minHeight: 176,
-          display: 'flex',
-          alignItems: 'flex-end',
-        }}
-      >
-        {/* Earth from space, sitting behind the greeting */}
-        <Photo
-          id={PHOTOS.earth}
-          alt="The Earth seen from space"
-          width={1500}
-          color="#0ea5e9"
-          className="eco-photo-cover"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(110deg, rgba(4,20,12,0.92) 0%, rgba(4,20,12,0.72) 45%, rgba(4,20,12,0.35) 100%)',
-          }}
-        />
-
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            width: '100%',
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '1rem',
-            padding: 'clamp(1.3rem, 3vw, 1.9rem)',
-          }}
-        >
-          <div>
-            <h1 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', marginBottom: '0.3rem', color: '#fff' }}>
-              Welcome back,{' '}
-              <span
-                style={{
-                  background: 'linear-gradient(90deg, var(--eco-primary), #7dd3fc)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                }}
-              >
-                {firstName}
-              </span>
-            </h1>
-            <p style={{ margin: 0, fontSize: '0.92rem', color: 'rgba(255,255,255,0.82)' }}>
-              {hasData
-                ? 'Here is where your footprint stands today.'
-                : 'Log your first activity to bring this dashboard to life.'}
-            </p>
-          </div>
-
+      {/* Was a hand-rolled copy of PageBanner. Now the shared one, so the
+          scroll parallax and any future change land on all four app pages at
+          once instead of three of them. */}
+      <PageBanner
+        photo="earth"
+        alt="The Earth seen from space"
+        color="#0ea5e9"
+        title="Welcome back,"
+        titleAccent={firstName}
+        subtitle={
+          hasData
+            ? 'Here is where your footprint stands today.'
+            : 'Log your first activity to bring this dashboard to life.'
+        }
+        action={
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
             {lastUpdated && (
               <span
@@ -382,8 +331,8 @@ export default function Dashboard() {
               Log emission
             </Link>
           </div>
-        </div>
-      </motion.div>
+        }
+      />
 
       {/* ============ EMPTY STATE ============ */}
       {!hasData && (
