@@ -44,6 +44,7 @@ from routes import (
     api_success,
     fetch_user_records,
     group_by_category,
+    is_admin,
     month_bounds,
     parse_date_string,
     require_auth,
@@ -114,6 +115,119 @@ def _get_client():
     # Passing the key explicitly rather than relying on the ambient environment
     # keeps this behaving the same way locally and on Render
     return genai.Client(api_key=Config.GEMINI_API_KEY), None
+
+
+def _build_admin_context():
+    """
+    Platform-wide figures, for admins only.
+
+    Added on TOP of the admin's own context so they can ask "how many users
+    signed up this month" or "how much has been donated" and get a real answer
+    instead of a guess.
+
+    SCOPE, deliberately: totals and aggregates, plus names and emails, because
+    an admin can already see all of that in the console. It does NOT include
+    per-user records, goals or feedback text - those stay behind the drill-down,
+    where reading them is an explicit act rather than something that quietly
+    ends up in a third-party model's prompt on every unrelated question.
+
+    The caller MUST have checked is_admin first. This function does no checking
+    of its own.
+    """
+    db = get_db()
+    today = date.today()
+    this_month_prefix = today.strftime("%Y-%m")
+
+    # --- users ---
+    users = []
+    for doc in db.collection(Config.COLLECTION_USERS).stream():
+        data = doc.to_dict()
+        created = data.get("createdAt")
+        users.append({
+            "name": data.get("name", ""),
+            "email": data.get("email", ""),
+            "region": data.get("region", ""),
+            "created": created.isoformat() if created else "",
+        })
+
+    new_this_month = sum(1 for u in users if u["created"].startswith(this_month_prefix))
+
+    # --- emissions across everyone ---
+    record_count = 0
+    platform_emission = 0.0
+    month_emission = 0.0
+    category_totals = {}
+    for doc in db.collection(Config.COLLECTION_CARBON_RECORDS).stream():
+        data = doc.to_dict()
+        amount = float(data.get("emissionKgco2", 0) or 0)
+        recorded = str(data.get("recordedDate", ""))
+        record_count += 1
+        platform_emission += amount
+        if recorded.startswith(this_month_prefix):
+            month_emission += amount
+        category = data.get("category", "other")
+        category_totals[category] = category_totals.get(category, 0.0) + amount
+
+    # --- donations ---
+    donation_count = 0
+    donated_paise = 0
+    for doc in db.collection("donations").stream():
+        data = doc.to_dict()
+        donation_count += 1
+        amount = data.get("amount")
+        if isinstance(amount, (int, float)):
+            donated_paise += int(amount)
+
+    # --- feedback ---
+    ratings = []
+    feedback_count = 0
+    for doc in db.collection("feedback").stream():
+        data = doc.to_dict()
+        feedback_count += 1
+        if data.get("rating"):
+            ratings.append(data["rating"])
+
+    lines = [
+        "",
+        "=== PLATFORM DATA (this user is an ADMIN) ===",
+        "You may answer questions about these platform-wide figures.",
+        "",
+        f"Users: {len(users)} total, {new_this_month} joined this month "
+        f"({today.strftime('%B %Y')}).",
+        f"Carbon records: {record_count} total.",
+        f"Emissions logged: {round(platform_emission, 2)} kg CO2 all time, "
+        f"{round(month_emission, 2)} kg this month.",
+    ]
+
+    if category_totals:
+        ranked = sorted(category_totals.items(), key=lambda kv: kv[1], reverse=True)
+        lines.append(
+            "Emissions by category: "
+            + ", ".join(f"{name} {round(value, 1)} kg" for name, value in ranked)
+        )
+
+    lines.append(
+        f"Donations: {donation_count} verified, Rs {donated_paise / 100:,.2f} raised in total."
+    )
+
+    average_rating = round(sum(ratings) / len(ratings), 1) if ratings else None
+    lines.append(
+        f"Feedback: {feedback_count} messages"
+        + (f", average rating {average_rating} out of 5." if average_rating else ".")
+    )
+
+    if users:
+        lines.append("")
+        lines.append("Registered users (name, email, region, joined):")
+        # Newest first, so "who joined recently" is answerable
+        for user in sorted(users, key=lambda u: u["created"], reverse=True):
+            lines.append(
+                f"  - {user['name'] or 'unnamed'} <{user['email']}>"
+                f" {user['region'] or 'region unknown'}"
+                f" joined {user['created'][:10] or 'unknown'}"
+            )
+
+    return "\n".join(lines)
 
 
 def _build_user_context(uid):
@@ -346,10 +460,18 @@ def chat():
             model=Config.ASSISTANT_MODEL,
             contents=contents,
             config=genai_types.GenerateContentConfig(
-                # Two blocks: fixed instructions, then this user's live data
+                # Fixed instructions, then this user's live data, then the
+                # platform block for admins only. The admin check runs on the
+                # server against the verified token, so a normal user cannot
+                # talk their way into it - the data is simply not in the prompt.
                 system_instruction=[
-                    ASSISTANT_INSTRUCTIONS,
-                    _build_user_context(g.uid),
+                    block
+                    for block in [
+                        ASSISTANT_INSTRUCTIONS,
+                        _build_user_context(g.uid),
+                        _build_admin_context() if is_admin(g.uid, g.email) else None,
+                    ]
+                    if block
                 ],
                 max_output_tokens=MAX_REPLY_TOKENS,
                 # Low temperature because this is grounded question answering

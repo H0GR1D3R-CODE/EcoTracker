@@ -42,7 +42,7 @@ import { adminApi, getErrorMessage } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import StatCard from '../components/StatCard';
-import { CategoryDoughnutChart } from '../components/EmissionChart';
+import { CategoryDoughnutChart, TrendLineChart } from '../components/EmissionChart';
 import { SkeletonStatCard, SkeletonTable } from '../components/SkeletonCard';
 import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
 import { formatCategory, formatDate, formatEmission, formatNumber, getInitials } from '../utils/formatters';
@@ -180,6 +180,40 @@ export default function AdminDashboard() {
   }, [users, search]);
 
   // Category totals for the doughnut, filtered to categories with real data
+  // The open user's own figures, shaped for the same chart components the rest
+  // of the console uses. Built here rather than in the drill-down markup so the
+  // work is memoised and does not repeat on every unrelated re-render.
+  const detailCharts = useMemo(() => {
+    if (!detail) return { category: { labels: [], data: [], colors: [] }, trend: { labels: [], data: [] } };
+
+    const entries = CATEGORY_ORDER.map((key) => ({
+      key,
+      value: detail.summary?.categoryTotals?.[key] || 0,
+    })).filter((item) => item.value > 0);
+
+    // Monthly totals from their records. Dates are "YYYY-MM-DD" strings, so the
+    // first seven characters are the month key and sort chronologically as text.
+    const byMonth = new Map();
+    (detail.records || []).forEach((record) => {
+      const key = String(record.recordedDate || '').slice(0, 7);
+      if (key.length !== 7) return;
+      byMonth.set(key, (byMonth.get(key) || 0) + (record.emissionKgco2 || 0));
+    });
+    const months = [...byMonth.keys()].sort();
+
+    return {
+      category: {
+        labels: entries.map((item) => formatCategory(item.key)),
+        data: entries.map((item) => item.value),
+        colors: entries.map((item) => CATEGORY_META[item.key]?.color || '#8888aa'),
+      },
+      trend: {
+        labels: months,
+        data: months.map((key) => Math.round(byMonth.get(key) * 100) / 100),
+      },
+    };
+  }, [detail]);
+
   const categoryChart = useMemo(() => {
     if (!stats?.categoryTotals) return { labels: [], data: [], colors: [] };
 
@@ -1627,6 +1661,62 @@ export default function AdminDashboard() {
                 {Object.keys(detail.summary.categoryTotals || {}).length > 0 && (
                   <div style={{ marginTop: '1.5rem' }}>
                     <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.7rem' }}>Emissions by category</h3>
+
+                    {/* The same two charts the user sees on their own dashboard,
+                        so the console shows their data the way they see it.
+                        The bars below stay: a doughnut is poor at exact
+                        comparison, and the admin often wants the actual numbers. */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: detailCharts.trend.labels.length > 1
+                          ? 'repeat(auto-fit, minmax(240px, 1fr))'
+                          : '1fr',
+                        gap: '1rem',
+                        marginBottom: '1.2rem',
+                      }}
+                    >
+                      {detailCharts.category.data.length > 0 && (
+                        <motion.div
+                          initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.4 }}
+                          style={{
+                            padding: '0.9rem',
+                            borderRadius: 'var(--eco-radius-sm)',
+                            border: '1px solid var(--eco-border)',
+                          }}
+                        >
+                          <CategoryDoughnutChart
+                            labels={detailCharts.category.labels}
+                            data={detailCharts.category.data}
+                            colors={detailCharts.category.colors}
+                            height={200}
+                          />
+                        </motion.div>
+                      )}
+
+                      {/* One month makes no line worth drawing */}
+                      {detailCharts.trend.labels.length > 1 && (
+                        <motion.div
+                          initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.4, delay: 0.08 }}
+                          style={{
+                            padding: '0.9rem',
+                            borderRadius: 'var(--eco-radius-sm)',
+                            border: '1px solid var(--eco-border)',
+                          }}
+                        >
+                          <TrendLineChart
+                            labels={detailCharts.trend.labels}
+                            data={detailCharts.trend.data}
+                            height={200}
+                          />
+                        </motion.div>
+                      )}
+                    </div>
+
                     <div style={{ display: 'grid', gap: '0.55rem' }}>
                       {Object.entries(detail.summary.categoryTotals)
                         .sort((a, b) => b[1] - a[1])
