@@ -41,7 +41,9 @@ const ARTICLES = [
       { label: 'Bicycle', value: 0.0 },
     ],
     body: 'A petrol car emits about 0.141 kg of CO₂ per kilometre; a train seat is 0.041 and a bus 0.082. Cycling is zero. That means swapping one short car trip a week for the train or bus removes most of that journey’s carbon — without you travelling any less. Transport is roughly a quarter of energy-related emissions worldwide, and the fastest-growing source, so this is often the single most effective place to start.',
-    takeaway: 'Swap one weekly car trip for the train and you cut ~80% of that journey’s carbon.',
+    // 70%, not 80%. (0.141 - 0.041) / 0.141 = 70.9%, straight from the two
+    // DEFRA factors this page already quotes two sentences earlier.
+    takeaway: 'Swap one weekly car trip for the train and you cut ~70% of that journey’s carbon.',
     source: 'DEFRA 2023 · IEA',
   },
   {

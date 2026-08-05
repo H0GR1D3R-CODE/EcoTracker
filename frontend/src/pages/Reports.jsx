@@ -155,8 +155,11 @@ function buildNarrative(report) {
 
   // --- one concrete suggestion, tied to the dominant category ---
   const suggestions = {
+    // 5 kg, not 6: (0.141 - 0.082) x 20 km = 1.18 kg a trip, x 4.33 weeks =
+    // 5.1 kg a month. The two factors are quoted in the sentence itself, so an
+    // overstatement here is one a reader can catch with a calculator.
     transport:
-      'Replacing one 20 km car trip a week with the bus saves roughly 6 kg of CO₂ a month, ' +
+      'Replacing one 20 km car trip a week with the bus saves roughly 5 kg of CO₂ a month, ' +
       'because a bus seat is 0.082 kg per km against a petrol car at 0.141.',
     electricity:
       'Grid electricity in India is 0.710 kg per unit — among the highest anywhere, because ' +
