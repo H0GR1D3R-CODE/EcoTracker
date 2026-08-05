@@ -723,18 +723,41 @@ export default function Home() {
             >
               Every number traces back to a published source
             </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center' }}>
+            {/* Citations, not tags. These are the scientific apparatus the whole
+                product rests on, so they are set as a reference line in mono and
+                separated by hairlines - the way sources are listed in a paper -
+                rather than as a row of pills that could be advertising anything. */}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '0.9rem',
+              }}
+            >
               {SOURCES.map((source, index) => (
                 <motion.span
                   key={source}
-                  className="eco-badge"
-                  initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: index * 0.05 }}
-                  style={{ fontSize: '0.82rem', padding: '0.4rem 0.9rem' }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.9rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.78rem',
+                    letterSpacing: '0.02em',
+                    color: 'var(--eco-text-muted)',
+                  }}
                 >
                   {source}
+                  {/* A divider after every entry but the last */}
+                  {index < SOURCES.length - 1 && (
+                    <span style={{ width: 1, height: 11, background: 'var(--rule-strong)' }} />
+                  )}
                 </motion.span>
               ))}
             </div>
@@ -746,11 +769,11 @@ export default function Home() {
       <section className="eco-section">
         <div className="container">
           <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 2.4rem' }}>
-            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+            <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Globe2 size={14} style={{ color: 'var(--eco-primary)' }} />
               Real systems, real impact
             </div>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+            <h2 className="eco-display" style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}>
               The world your choices <span className="eco-gradient-text">touch</span>
             </h2>
             <p className="eco-text-muted" style={{ margin: 0 }}>
@@ -857,11 +880,11 @@ export default function Home() {
               style={{ width: 280, height: 280, top: '-55%', left: '50%', transform: 'translateX(-50%)' }}
             />
             <div style={{ position: 'relative', zIndex: 1 }}>
-              <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+              <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
                 <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
                 30 seconds · no sign-up
               </div>
-              <h2 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+              <h2 className="eco-display" style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}>
                 Not sure where you <span className="eco-gradient-text">stand?</span>
               </h2>
               <p className="eco-text-muted" style={{ maxWidth: 520, margin: '0 auto 1.8rem', fontSize: '1rem' }}>
@@ -881,11 +904,11 @@ export default function Home() {
       <section className="eco-section" id="how-it-works">
         <div className="container">
           <div style={{ textAlign: 'center', maxWidth: 660, margin: '0 auto 3rem' }}>
-            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+            <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
               Seven categories
             </div>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+            <h2 className="eco-display" style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}>
               Everything that makes up <span className="eco-gradient-text">your footprint</span>
             </h2>
             <p className="eco-text-muted" style={{ margin: 0 }}>
@@ -966,11 +989,11 @@ export default function Home() {
       <section className="eco-section">
         <div className="container">
           <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 3rem' }}>
-            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+            <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
               Three simple steps
             </div>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+            <h2 className="eco-display" style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}>
               From one activity to <span className="eco-gradient-text">real change</span>
             </h2>
             <p className="eco-text-muted" style={{ margin: 0 }}>
@@ -1055,11 +1078,11 @@ export default function Home() {
               viewport={{ once: false, amount: 0.3 }}
               transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
             >
-              <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+              <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
                 <BarChart3 size={14} style={{ color: 'var(--eco-primary)' }} />
                 Your dashboard
               </div>
-              <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '1rem' }}>
+              <h2 className="eco-display" style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.2rem' }}>
                 Your whole footprint, <span className="eco-gradient-text">in one place</span>
               </h2>
               <p className="eco-text-muted" style={{ marginBottom: '1.5rem', lineHeight: 1.7 }}>
@@ -1193,11 +1216,11 @@ export default function Home() {
       <section className="eco-section" style={{ background: 'var(--eco-bg-alt)' }}>
         <div className="container">
           <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 3rem' }}>
-            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+            <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
               Small changes, real savings
             </div>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+            <h2 className="eco-display" style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}>
               One swap saves more than <span className="eco-gradient-text">you think</span>
             </h2>
             <p className="eco-text-muted" style={{ margin: 0 }}>
@@ -1272,11 +1295,11 @@ export default function Home() {
       <section className="eco-section">
         <div className="container">
           <div style={{ textAlign: 'center', maxWidth: 660, margin: '0 auto 2.6rem' }}>
-            <div className="eco-badge" style={{ marginBottom: '1rem' }}>
+            <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Heart size={14} style={{ color: 'var(--eco-primary)' }} />
               Take action
             </div>
-            <h2 style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', marginBottom: '0.9rem' }}>
+            <h2 className="eco-display" style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}>
               Tracking is step one. <span className="eco-gradient-text">Giving back</span> is the next.
             </h2>
             <p className="eco-text-muted" style={{ margin: '0 auto', maxWidth: 600 }}>
@@ -1434,7 +1457,7 @@ export default function Home() {
           >
             <Leaf size={40} style={{ color: 'var(--eco-primary)', marginBottom: '1.2rem' }} />
 
-            <h2 style={{ fontSize: 'clamp(1.9rem, 4.5vw, 2.9rem)', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: 'clamp(2.3rem, 6vw, 4rem)', marginBottom: '1.2rem' }}>
               Your first entry takes <span className="eco-gradient-text">thirty seconds</span>
             </h2>
 
