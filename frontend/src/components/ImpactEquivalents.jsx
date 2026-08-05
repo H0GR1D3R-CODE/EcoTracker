@@ -217,7 +217,7 @@ export default function ImpactEquivalents({
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    background: `${item.color}1A`,
+                    background: `color-mix(in srgb, ${item.color} 10%, transparent)`,
                     color: item.color,
                   }}
                 >
@@ -271,7 +271,7 @@ export default function ImpactEquivalents({
                   style={{
                     height: '100%',
                     borderRadius: 6,
-                    background: `linear-gradient(90deg, ${item.color}, ${item.color}88)`,
+                    background: `linear-gradient(90deg, ${item.color}, color-mix(in srgb, ${item.color} 53%, transparent))`,
                   }}
                 />
               </div>

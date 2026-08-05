@@ -16,53 +16,61 @@
 //   const Icon = Icons[CATEGORY_META[category].icon];
 // ---------------------------------------------------------------------------
 
+// Colours are CSS variables, not hexes. They were hardcoded values chosen
+// against a dark background, so they could not respond to the theme - and
+// every one of them failed contrast once light became the default (transport
+// measured 2.10:1 on paper). The light and dark values now live together in
+// index.css, and every consumer of `.color` picks up the right one for free.
+//
+// Anything that needs a translucent version of these must use color-mix();
+// string-concatenating an alpha suffix onto var(--x) produces invalid CSS.
 export const CATEGORY_META = {
   transport: {
     label: 'Transport',
     icon: 'Car',
-    color: '#4fbe80', // leaf green
+    color: 'var(--cat-transport)',
     description: 'Cars, buses, trains and flights',
     quantityLabel: 'Distance travelled',
   },
   electricity: {
     label: 'Electricity',
     icon: 'Zap',
-    color: '#e0a23f', // warm amber
+    color: 'var(--cat-electricity)',
     description: 'Grid power and solar generation',
     quantityLabel: 'Energy used',
   },
   fuel: {
     label: 'Fuel',
     icon: 'Flame',
-    color: '#d9694e', // terracotta
+    color: 'var(--cat-fuel)',
     description: 'LPG cylinders and generators',
     quantityLabel: 'Fuel consumed',
   },
   diet: {
     label: 'Diet',
     icon: 'UtensilsCrossed',
-    color: '#a4739e', // muted berry
+    color: 'var(--cat-diet)',
     description: 'Meals by dietary type',
     quantityLabel: 'Number of meals',
   },
   waste: {
     label: 'Waste',
     icon: 'Trash2',
-    color: '#8f9a86', // sage grey-green
+    color: 'var(--cat-waste)',
     description: 'Landfill and recycled waste',
     quantityLabel: 'Weight of waste',
   },
   water: {
     label: 'Water',
     icon: 'Droplets',
-    color: '#4a9dc4', // natural water blue
+    color: 'var(--cat-water)',
     description: 'Municipal water supply',
     quantityLabel: 'Water used',
   },
   consumption: {
     label: 'Consumption',
     icon: 'ShoppingBag',
-    color: '#cf7d95', // dusty rose
+    color: 'var(--cat-consumption)',
     description: 'Clothing and electronics bought',
     quantityLabel: 'Items purchased',
   },

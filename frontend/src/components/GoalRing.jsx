@@ -121,7 +121,7 @@ export default function GoalRing({
           }}
           style={{
             // A soft glow in the ring's own colour, which makes it read as lit
-            filter: `drop-shadow(0 0 6px ${resolvedColor}55)`,
+            filter: `drop-shadow(0 0 6px color-mix(in srgb, ${resolvedColor} 33%, transparent))`,
           }}
         />
       </svg>

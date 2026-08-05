@@ -317,7 +317,7 @@ export default function Estimate() {
                   padding: 0,
                   overflow: 'hidden',
                   // answering a card marks it, so progress is visible in place
-                  borderColor: answered ? `${question.color}66` : undefined,
+                  borderColor: answered ? `color-mix(in srgb, ${question.color} 40%, transparent)` : undefined,
                   transition: 'border-color 0.3s ease',
                 }}
               >

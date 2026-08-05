@@ -55,11 +55,11 @@ import { PHOTOS } from '../utils/photos';
 // A few real photographs shown in the "world your choices touch" strip near the
 // top of the page - the visual proof that the numbers map to real systems.
 const GLIMPSES = [
-  { photo: 'factory2', label: 'Industry', color: '#7c3aed' },
-  { photo: 'traffic2', label: 'Transport', color: '#00ff87' },
-  { photo: 'powerPlant2', label: 'Energy', color: '#f59e0b' },
-  { photo: 'forest2', label: 'Nature', color: '#00c96b' },
-  { photo: 'cleanEnergy', label: 'Clean energy', color: '#eab308' },
+  { photo: 'factory2', label: 'Industry', color: 'var(--org-goldstandard)' },
+  { photo: 'traffic2', label: 'Transport', color: 'var(--cat-transport)' },
+  { photo: 'powerPlant2', label: 'Energy', color: 'var(--cat-electricity)' },
+  { photo: 'forest2', label: 'Nature', color: 'var(--org-onetree)' },
+  { photo: 'cleanEnergy', label: 'Clean energy', color: 'var(--cat-electricity)' },
 ];
 
 // The published sources every EcoTrack figure traces back to - shown as a
@@ -125,7 +125,7 @@ const CONTRIBUTIONS = [
   {
     name: 'One Tree Planted',
     icon: TreePine,
-    color: '#00c96b',
+    color: 'var(--org-onetree)',
     focus: 'Reforestation',
     body: 'Plants trees in forests worldwide to restore habitats and pull carbon back out of the air — one dollar plants one tree.',
     href: 'https://onetreeplanted.org/products/plant-trees',
@@ -133,7 +133,7 @@ const CONTRIBUTIONS = [
   {
     name: 'Cool Earth',
     icon: Leaf,
-    color: '#38bdf8',
+    color: 'var(--org-coolearth)',
     focus: 'Rainforest protection',
     body: 'Backs the people who live in rainforests to keep them standing — protecting the forests that absorb the most carbon.',
     href: 'https://www.coolearth.org/act-now/ways-to-donate/',
@@ -141,7 +141,7 @@ const CONTRIBUTIONS = [
   {
     name: 'Clean Air Task Force',
     icon: Wind,
-    color: '#f59e0b',
+    color: 'var(--org-catf)',
     focus: 'Cutting emissions',
     body: 'Pushes for the clean-energy technology and policy that drives greenhouse-gas emissions down at scale.',
     href: 'https://www.catf.us/donate/',
@@ -149,7 +149,7 @@ const CONTRIBUTIONS = [
   {
     name: 'Gold Standard',
     icon: ShieldCheck,
-    color: '#7c3aed',
+    color: 'var(--org-goldstandard)',
     focus: 'Verified offsets',
     body: 'Certifies carbon-offset projects, so a contribution provably removes or avoids greenhouse gases — no greenwashing.',
     href: 'https://www.goldstandard.org/donate-to-gold-standard',
@@ -223,7 +223,7 @@ const CATEGORIES = [
     icon: Car,
     name: 'Transport',
     detail: 'Cars, buses, trains and flights',
-    color: '#00ff87',
+    color: 'var(--cat-transport)',
     unit: 'per km',
     source: 'DEFRA 2023',
     intro:
@@ -245,7 +245,7 @@ const CATEGORIES = [
     icon: Zap,
     name: 'Electricity',
     detail: 'Grid power and rooftop solar',
-    color: '#f59e0b',
+    color: 'var(--cat-electricity)',
     unit: 'per kWh (unit)',
     source: 'CEA India 2023',
     intro:
@@ -260,7 +260,7 @@ const CATEGORIES = [
     icon: Flame,
     name: 'Fuel',
     detail: 'LPG cylinders and generators',
-    color: '#ef4444',
+    color: 'var(--cat-fuel)',
     unit: 'per kg / litre',
     source: 'IPCC 2006',
     intro:
@@ -276,7 +276,7 @@ const CATEGORIES = [
     icon: UtensilsCrossed,
     name: 'Diet',
     detail: 'Meals by dietary choice',
-    color: '#7c3aed',
+    color: 'var(--cat-diet)',
     unit: 'per meal',
     source: 'Our World in Data',
     intro:
@@ -292,7 +292,7 @@ const CATEGORIES = [
     icon: Trash2,
     name: 'Waste',
     detail: 'Landfill against recycling',
-    color: '#8888aa',
+    color: 'var(--cat-waste)',
     unit: 'per kg',
     source: 'IPCC waste sector',
     intro:
@@ -307,7 +307,7 @@ const CATEGORIES = [
     icon: Droplets,
     name: 'Water',
     detail: 'The energy behind your tap',
-    color: '#0ea5e9',
+    color: 'var(--cat-water)',
     unit: 'per litre',
     source: 'Water–energy nexus',
     intro:
@@ -319,7 +319,7 @@ const CATEGORIES = [
     icon: ShoppingBag,
     name: 'Consumption',
     detail: 'Clothing and electronics',
-    color: '#ec4899',
+    color: 'var(--cat-consumption)',
     unit: 'per item',
     source: 'Lifecycle averages',
     intro:
@@ -1006,7 +1006,7 @@ export default function Home() {
                       justifyContent: 'center',
                       flexShrink: 0,
                       // The 1A on the end of the hex is roughly 10% opacity
-                      background: `${category.color}1A`,
+                      background: `color-mix(in srgb, ${category.color} 10%, transparent)`,
                       color: category.color,
                     }}
                   >
@@ -1152,8 +1152,12 @@ export default function Home() {
                         borderRadius: '50%',
                         flexShrink: 0,
                         marginTop: 1,
-                        background: 'rgba(var(--eco-primary-rgb), 0.16)',
-                        color: 'var(--eco-primary)',
+                        // A green tick on a 16% tint of the SAME green measured
+                        // 3.62:1 - the disc pulls the background toward the
+                        // glyph and eats the contrast. Lighter disc, darker
+                        // tick: same look, and it clears AA.
+                        background: 'rgba(var(--eco-primary-rgb), 0.1)',
+                        color: 'var(--eco-primary-dark)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1209,9 +1213,9 @@ export default function Home() {
                 {/* stat tiles */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', marginBottom: '1.1rem' }}>
                   {[
-                    { label: 'This month', value: '142 kg', color: '#00ff87' },
-                    { label: 'This year', value: '1.6 t', color: '#7c3aed' },
-                    { label: 'Goals', value: '2 active', color: '#f59e0b' },
+                    { label: 'This month', value: '142 kg', color: 'var(--cat-transport)' },
+                    { label: 'This year', value: '1.6 t', color: 'var(--org-goldstandard)' },
+                    { label: 'Goals', value: '2 active', color: 'var(--cat-electricity)' },
                   ].map((tile) => (
                     <div
                       key={tile.label}
@@ -1282,9 +1286,9 @@ export default function Home() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.3rem' }}>
             {[
-              { icon: Car, color: '#4fbe80', action: 'Take the bus twice a week', detail: 'instead of driving those trips', save: '~20 kg', unit: 'CO₂ saved / month' },
-              { icon: UtensilsCrossed, color: '#a4739e', action: 'One veg meal a day', detail: 'swapped in for meat', save: '~48 kg', unit: 'CO₂ saved / month' },
-              { icon: ShoppingBag, color: '#d9694e', action: 'Repair, don’t replace', detail: 'one gadget kept going', save: '~85 kg', unit: 'CO₂ per device' },
+              { icon: Car, color: 'var(--cat-transport)', action: 'Take the bus twice a week', detail: 'instead of driving those trips', save: '~20 kg', unit: 'CO₂ saved / month' },
+              { icon: UtensilsCrossed, color: 'var(--cat-diet)', action: 'One veg meal a day', detail: 'swapped in for meat', save: '~48 kg', unit: 'CO₂ saved / month' },
+              { icon: ShoppingBag, color: 'var(--cat-fuel)', action: 'Repair, don’t replace', detail: 'one gadget kept going', save: '~85 kg', unit: 'CO₂ per device' },
             ].map((s, index) => {
               const Icon = s.icon;
               return (
@@ -1305,7 +1309,7 @@ export default function Home() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: `${s.color}22`,
+                      background: `color-mix(in srgb, ${s.color} 13%, transparent)`,
                       color: s.color,
                       marginBottom: '1.1rem',
                     }}
@@ -1389,7 +1393,7 @@ export default function Home() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       // 1A ≈ 10% opacity of the org's accent colour
-                      background: `${org.color}1A`,
+                      background: `color-mix(in srgb, ${org.color} 10%, transparent)`,
                       color: org.color,
                       marginBottom: '1rem',
                     }}
@@ -1663,7 +1667,7 @@ export default function Home() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: `${openCategory.color}1A`,
+                    background: `color-mix(in srgb, ${openCategory.color} 10%, transparent)`,
                     color: openCategory.color,
                   }}
                 >

@@ -291,7 +291,7 @@ export default function Profile() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      background: `${item.color}1A`,
+                      background: `color-mix(in srgb, ${item.color} 10%, transparent)`,
                       color: item.color,
                       marginBottom: '0.7rem',
                     }}

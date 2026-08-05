@@ -710,7 +710,7 @@ export default function Reports() {
                               style={{
                                 height: '100%',
                                 borderRadius: 8,
-                                background: `linear-gradient(90deg, ${color}, ${color}88)`,
+                                background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 53%, transparent))`,
                               }}
                             />
                           </div>

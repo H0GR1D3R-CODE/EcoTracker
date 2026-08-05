@@ -86,7 +86,7 @@ export default function StatCard({
               justifyContent: 'center',
               flexShrink: 0,
               // Appending a hex alpha value tints the accent colour to ~10%
-              background: `${accent}1A`,
+              background: `color-mix(in srgb, ${accent} 10%, transparent)`,
               color: accent,
             }}
           >

@@ -67,7 +67,7 @@ function makeAreaGradient(context, colour) {
   const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
   gradient.addColorStop(0, `${colour}00`); // fully transparent at the bottom
   gradient.addColorStop(0.55, `${colour}33`);
-  gradient.addColorStop(1, `${colour}66`); // ~40% opaque at the top
+  gradient.addColorStop(1, `color-mix(in srgb, ${colour} 40%, transparent)`); // ~40% opaque at the top
   return gradient;
 }
 
@@ -270,7 +270,7 @@ export function ComparisonBarChart({
         {
           label: 'Last month',
           data: previousData,
-          backgroundColor: `${purple}66`,
+          backgroundColor: `color-mix(in srgb, ${purple} 40%, transparent)`,
           borderColor: purple,
           borderWidth: 1,
           borderRadius: 6,

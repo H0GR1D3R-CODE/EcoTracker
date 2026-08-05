@@ -337,7 +337,7 @@ export default function Calculator() {
                 padding: '0.6rem 1rem',
                 borderRadius: 'var(--eco-radius-sm)',
                 border: '1px solid',
-                borderColor: isActive ? `${categoryMeta.color}55` : 'var(--eco-border)',
+                borderColor: isActive ? `color-mix(in srgb, ${categoryMeta.color} 33%, transparent)` : 'var(--eco-border)',
                 background: 'transparent',
                 color: isActive ? categoryMeta.color : 'var(--eco-text-muted)',
                 fontWeight: isActive ? 600 : 500,
@@ -358,7 +358,7 @@ export default function Calculator() {
                     position: 'absolute',
                     inset: 0,
                     borderRadius: 'var(--eco-radius-sm)',
-                    background: `${categoryMeta.color}18`,
+                    background: `color-mix(in srgb, ${categoryMeta.color} 9%, transparent)`,
                     zIndex: 0,
                   }}
                 />
@@ -461,7 +461,7 @@ export default function Calculator() {
                           fontWeight: 600,
                           cursor: 'pointer',
                           border: `1px solid ${active ? meta.color : 'var(--eco-border)'}`,
-                          background: active ? `${meta.color}1f` : 'transparent',
+                          background: active ? `color-mix(in srgb, ${meta.color} 12%, transparent)` : 'transparent',
                           color: active ? meta.color : 'var(--eco-text-muted)',
                           transition: 'all 0.16s ease',
                         }}
@@ -536,8 +536,8 @@ export default function Calculator() {
         <motion.div
           className="eco-card"
           animate={{
-            borderColor: `${meta.color}44`,
-            backgroundColor: `${meta.color}0a`,
+            borderColor: `color-mix(in srgb, ${meta.color} 27%, transparent)`,
+            backgroundColor: `color-mix(in srgb, ${meta.color} 4%, transparent)`,
           }}
           transition={{ duration: 0.35 }}
           style={{

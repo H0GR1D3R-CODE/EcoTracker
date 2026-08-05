@@ -107,6 +107,64 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   CATEGORY COLOURS
+   ---------------------------------------------------------------------------
+   The seven category accents, as variables rather than hexes baked into JS.
+
+   They used to live only in CATEGORY_META, chosen against a dark background
+   and hardcoded, so they could not respond to the theme. Measured on the light
+   ground, every one of them failed: transport's #4fbe80 came out at 2.10:1 and
+   the neon #00ff87 used on the landing page at 1.21:1, which is very close to
+   invisible. Now that light is the default, that is not a nuance.
+
+   The light values are the same hue walked down in brightness until each
+   clears 4.8:1 on the paper ground - a little above the 4.5 floor, so
+   antialiasing cannot push them under. All seven also clear it on cards.
+   --------------------------------------------------------------------------- */
+:root,
+[data-theme='dark'] {
+  --cat-transport: #4fbe80;
+  --cat-electricity: #e0a23f;
+  --cat-fuel: #d9694e;
+  --cat-diet: #a4739e;
+  --cat-waste: #8f9a86;
+  --cat-water: #4a9dc4;
+  --cat-consumption: #cf7d95;
+}
+
+/* The four partner organisations on the landing page carry their own accents.
+   Same treatment and same reason: picked against a dark ground, and #00c96b
+   measured 1.98:1 on paper. Gold Standard's violet already passed at 5.13:1
+   and is therefore unchanged in both themes. */
+:root,
+[data-theme='dark'] {
+  --org-onetree: #00c96b;
+  --org-coolearth: #38bdf8;
+  --org-catf: #f59e0b;
+  /* Lightened for dark. The brand violet #7c3aed measured 3.39:1 on the dark
+     ground and 3.15:1 on a card - it reads as passable and is not. This is the
+     same hue lifted 30% toward white: 5.87:1 on the ground, 5.18:1 on cards. */
+  --org-goldstandard: #a375f2;
+}
+
+[data-theme='light'] {
+  --org-onetree: #007b41;      /* 4.84:1 */
+  --org-coolearth: #227195;    /* 4.89:1 */
+  --org-catf: #935f07;         /* 4.87:1 */
+  --org-goldstandard: #7c3aed; /* 5.13:1 - the brand violet works as-is here */
+}
+
+[data-theme='light'] {
+  --cat-transport: #31764f;    /* 4.93:1 */
+  --cat-electricity: #896326;  /* 4.88:1 */
+  --cat-fuel: #a7513c;         /* 4.87:1 */
+  --cat-diet: #865e82;         /* 4.80:1 */
+  --cat-waste: #666d5f;        /* 4.83:1 */
+  --cat-water: #35718d;        /* 4.85:1 */
+  --cat-consumption: #93596a;  /* 4.88:1 */
+}
+
 /* A measured value. Mono, tight, amber - the same everywhere it appears. */
 .eco-readout {
   font-family: var(--font-mono);
