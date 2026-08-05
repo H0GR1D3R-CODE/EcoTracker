@@ -14,9 +14,11 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  GoogleAuthProvider,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
 } from 'firebase/auth';
 
@@ -42,6 +44,18 @@ function friendlyAuthError(error) {
     'auth/weak-password': 'Password must be at least 6 characters long.',
     'auth/too-many-requests': 'Too many failed attempts. Please wait a moment and try again.',
     'auth/network-request-failed': 'Network error. Check your internet connection.',
+    // Closing the Google popup is a decision, not a failure - say nothing
+    // alarming about it.
+    'auth/popup-closed-by-user': 'Sign-in cancelled.',
+    'auth/cancelled-popup-request': 'Sign-in cancelled.',
+    'auth/popup-blocked':
+      'Your browser blocked the sign-in window. Allow pop-ups for this site and try again.',
+    'auth/account-exists-with-different-credential':
+      'You already have an account with this email. Sign in with your password instead.',
+    'auth/operation-not-allowed':
+      'Google sign-in is not enabled for this project yet.',
+    'auth/unauthorized-domain':
+      'This domain is not authorised for sign-in in the Firebase console.',
   };
 
   return messages[code] || error?.message || 'Authentication failed. Please try again.';
@@ -168,6 +182,41 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
+   * Sign in with Google, for both new and returning people.
+   *
+   * There is deliberately no separate "register with Google" path. Google tells
+   * us whether the account is new; either way the same two steps follow, and
+   * POST /api/auth/login builds the Firestore profile from the token when one
+   * does not exist yet - using the display name and email Google supplies.
+   *
+   * A side benefit worth knowing: Google has already proven the person owns
+   * that inbox, so these accounts arrive verified with no email round trip.
+   */
+  const loginWithGoogle = useCallback(async () => {
+    let credential;
+
+    try {
+      const provider = new GoogleAuthProvider();
+      // Always ask which account to use. Without this, anyone already signed
+      // in to one Google account is silently forced into it, which is
+      // maddening on a shared machine.
+      provider.setCustomParameters({ prompt: 'select_account' });
+      credential = await signInWithPopup(auth, provider);
+    } catch (error) {
+      throw new Error(friendlyAuthError(error));
+    }
+
+    try {
+      const idToken = await credential.user.getIdToken();
+      const data = await authApi.login(idToken);
+      setProfile(data);
+      return data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Could not load your profile.'));
+    }
+  }, []);
+
+  /**
    * Sign out. onAuthStateChanged fires straight after and clears the state.
    */
   const logout = useCallback(async () => {
@@ -206,11 +255,23 @@ export function AuthProvider({ children }) {
       isAdmin: Boolean(profile?.isAdmin),
       register,
       login,
+      loginWithGoogle,
       logout,
       updateProfile,
       refreshProfile,
     }),
-    [user, profile, loading, profileError, register, login, logout, updateProfile, refreshProfile]
+    [
+      user,
+      profile,
+      loading,
+      profileError,
+      register,
+      login,
+      loginWithGoogle,
+      logout,
+      updateProfile,
+      refreshProfile,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
