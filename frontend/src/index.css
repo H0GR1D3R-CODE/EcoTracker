@@ -23,6 +23,115 @@
    =========================================================================== */
 
 /* ===========================================================================
+   0. THE INSTRUMENT SYSTEM
+   ===========================================================================
+   EcoTrack is a device for reading a gas nobody can see. The interface is
+   built to behave like a precision instrument rather than a dashboard
+   template, and these are its primitives.
+
+   THE ONE IDEA: measured values and the living world are never the same
+   colour. Amber is what the instrument reports - a reading, a quantity, a
+   number that came from an equation. Green is what is actually at stake. A
+   figure never borrows the colour of the thing it describes, so a person can
+   tell at a glance what is a measurement and what is a claim.
+
+   Amber is the deliberate risk here. Every carbon app on the market is acid
+   green on near-black; instrument amber is the colour of an analogue gauge
+   and of a readout you are meant to trust, and it belongs to a tracker in a
+   way that a second green never could.
+
+   Type is three roles, never mixed: display speaks, mono measures, Inter
+   explains. Any number a person could act on is set in mono.
+   =========================================================================== */
+
+:root {
+  --font-display: 'Bricolage Grotesque', 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Display type is set tight on both axes. Headlines lock up as a shape
+     rather than reading as a row of words - the single biggest reason the
+     reference site feels authored and a bootstrap page does not. */
+  --track-display: -0.045em;
+  --leading-display: 0.93;
+
+  /* Instrument amber: what the machine reports */
+  --readout: #ffb000;
+  --readout-dim: rgba(255, 176, 0, 0.55);
+  --readout-rgb: 255, 176, 0;
+
+  /* Hairlines and tick marks. A rule, not a card, is the default way to
+     separate things in this system. */
+  --rule: rgba(233, 240, 222, 0.14);
+  --rule-strong: rgba(233, 240, 222, 0.28);
+}
+
+[data-theme='light'] {
+  /* Amber has to darken considerably on paper or it turns to mustard and
+     fails contrast against a light ground. */
+  --readout: #a86b00;
+  --readout-dim: rgba(168, 107, 0, 0.6);
+  --readout-rgb: 168, 107, 0;
+
+  --rule: rgba(24, 40, 26, 0.16);
+  --rule-strong: rgba(24, 40, 26, 0.32);
+}
+
+/* The calibration rail. CSS owns whether it is visible, not JavaScript.
+   A matchMedia('change') listener alone proved unreliable - it does not fire in
+   every environment, which left the rail on screen at widths where it had
+   already been measured as too narrow. A media query cannot get this wrong. */
+.eco-rail {
+  display: none;
+}
+
+/* 1280px, not 1100. The rail needs a column of its own: at 1100 the content
+   container still runs edge to edge and the rail would sit on top of anything
+   left-aligned. Below this width it simply does not appear - it is an
+   enhancement, and it takes nothing with it when it goes. */
+@media (min-width: 1280px) {
+  .eco-rail {
+    display: flex;
+  }
+
+  /* Reserve the gutter the rail occupies. The page becomes deliberately
+     asymmetric here, which suits it: the instrument owns the left margin and
+     the content sits to its right, rather than the two fighting over the same
+     56px of gutter. */
+  .container {
+    padding-left: 112px;
+  }
+}
+
+/* A measured value. Mono, tight, amber - the same everywhere it appears. */
+.eco-readout {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--readout);
+}
+
+/* The small uppercase mono marker that labels a section. Structural, not
+   decorative: it says what kind of thing follows. */
+.eco-marker {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--eco-text-muted);
+}
+
+/* Display headline. Set enormous, tracked in, leaded under 1. */
+.eco-display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: var(--track-display);
+  line-height: var(--leading-display);
+  text-wrap: balance;
+}
+
+/* ===========================================================================
    1. THEME VARIABLES
    =========================================================================== */
 
