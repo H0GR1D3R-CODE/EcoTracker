@@ -33,6 +33,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import SelectField from '../components/SelectField';
 import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
+import AuthBackground from '../components/AuthBackground';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const TOTAL_STEPS = 3;
 
@@ -274,14 +276,9 @@ export default function Register() {
         overflow: 'hidden',
       }}
     >
-      <div
-        className="eco-glow-orb"
-        style={{ width: 400, height: 400, background: 'var(--eco-purple)', top: '-10%', right: '-8%' }}
-      />
-      <div
-        className="eco-glow-orb"
-        style={{ width: 340, height: 340, background: 'var(--eco-primary)', bottom: '-12%', left: '-6%' }}
-      />
+      {/* Drifting orbs, a masked grid and rising motes, replacing the two
+          static discs that used to sit here. */}
+      <AuthBackground />
 
       <motion.div
         initial={prefersReducedMotion ? false : { opacity: 0, y: 26, scale: 0.98 }}
@@ -664,6 +661,44 @@ export default function Register() {
               )}
             </motion.div>
           </AnimatePresence>
+
+          {/* ---------- Google, on the first step only ---------- */}
+          {/* Only on step 1: Google replaces the whole three-step form, so
+              offering it beside "Back" halfway through would be confusing -
+              and the account would already be half-described by then. */}
+          {step === 1 && (
+            <>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.8rem',
+                  margin: '1.5rem 0 1.2rem',
+                }}
+              >
+                <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+                <span
+                  className="eco-text-muted"
+                  style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}
+                >
+                  OR
+                </span>
+                <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+              </div>
+
+              <GoogleSignInButton
+                label="Sign up with Google"
+                onDone={() => navigate('/dashboard', { replace: true })}
+              />
+
+              <p
+                className="eco-text-muted"
+                style={{ fontSize: '0.74rem', textAlign: 'center', margin: '0.7rem 0 0' }}
+              >
+                No password to choose — Google has already verified your email
+              </p>
+            </>
+          )}
 
           {/* ---------- Navigation buttons ---------- */}
           <div style={{ display: 'flex', gap: '0.7rem', marginTop: '1.5rem' }}>

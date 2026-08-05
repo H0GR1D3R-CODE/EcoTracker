@@ -254,10 +254,14 @@ def login():
     user_doc = user_ref.get()
 
     if not user_doc.exists:
-        # Self-healing: the Auth account is valid but the profile is missing.
-        # This can only happen if the Firestore write failed during registration
-        # and the rollback also failed. Rebuilding it here keeps the user from
-        # being permanently locked out of an account they cannot re-register.
+        # A valid Auth account with no profile yet. Two ways to get here:
+        #
+        #   1. FIRST GOOGLE SIGN-IN - the normal path now. Google creates the
+        #      Auth account without ever touching /register, so this is where
+        #      their profile gets built, from the name and email in the token.
+        #   2. A failed Firestore write during registration whose rollback also
+        #      failed. Rare, but rebuilding here stops the user being locked out
+        #      of an account they cannot re-register.
         fallback_name = decoded_token.get("name") or email.split("@")[0] or "EcoTrack User"
         user_ref.set({
             "name": fallback_name,

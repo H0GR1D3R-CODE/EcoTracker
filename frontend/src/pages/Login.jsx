@@ -14,6 +14,8 @@ import { AlertCircle, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail } from 'lucide-r
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
+import AuthBackground from '../components/AuthBackground';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function Login() {
   const { login, user, loading, isAdmin } = useAuth();
@@ -111,15 +113,10 @@ export default function Login() {
         overflow: 'hidden',
       }}
     >
-      {/* Soft coloured glows behind the card */}
-      <div
-        className="eco-glow-orb"
-        style={{ width: 380, height: 380, background: 'var(--eco-primary)', top: '-8%', left: '-6%' }}
-      />
-      <div
-        className="eco-glow-orb"
-        style={{ width: 320, height: 320, background: 'var(--eco-purple)', bottom: '-10%', right: '-5%' }}
-      />
+      {/* Drifting orbs, a masked grid and rising motes. Replaces the two static
+          discs that used to sit here - on a page that is mostly empty space,
+          the background is most of what a visitor actually looks at. */}
+      <AuthBackground />
 
       <motion.div
         initial={prefersReducedMotion ? false : { opacity: 0, y: 26, scale: 0.98 }}
@@ -144,6 +141,30 @@ export default function Login() {
           <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.92rem' }}>
             Sign in to continue tracking your footprint
           </p>
+        </div>
+
+        {/* ---------- Google, first ---------- */}
+        {/* Above the form on purpose: it is one click against typing an email
+            and a password, so burying it under the thing it replaces would be
+            perverse. It signs in existing accounts and creates new ones. */}
+        <GoogleSignInButton
+          label="Sign in with Google"
+          onDone={() => navigate(redirectTo, { replace: true })}
+        />
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.8rem',
+            margin: '1.3rem 0',
+          }}
+        >
+          <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+          <span className="eco-text-muted" style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}>
+            OR
+          </span>
+          <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
         </div>
 
         {/* ---------- Form ---------- */}
