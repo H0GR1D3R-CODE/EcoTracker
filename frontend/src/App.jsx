@@ -17,6 +17,7 @@ import PublicHelper from './components/PublicHelper';
 import { useTheme } from './context/ThemeContext';
 
 import LoadingSpinner from './components/LoadingSpinner';
+import CalibrationRail from './components/CalibrationRail';
 
 // ---------------------------------------------------------------------------
 // CODE SPLITTING
@@ -195,6 +196,12 @@ export default function App() {
 
   return (
     <>
+      {/* The signature element. Fixed to the viewport rather than mounted per
+          page, so the instrument reads continuously as you move through the
+          site instead of resetting at every route. Removes itself below
+          1100px. */}
+      <CalibrationRail />
+
       <Navbar />
 
       <ErrorBoundary>

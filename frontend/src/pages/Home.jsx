@@ -573,54 +573,51 @@ export default function Home() {
 
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <div style={{ maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
-            {/* SDG 13 badge with an animated gradient border */}
+            {/* Was a pill with a gradient ring - the single most templated
+                element on the page, and the kind of thing that appears on every
+                SaaS landing page regardless of what it sells.
+                Replaced with instrument notation: a hairline, a mono marker,
+                and the one number that actually frames the whole product. 425
+                ppm is the current atmospheric CO2 concentration (NOAA Mauna
+                Loa, 2025) - the reading everything else on this page is a
+                response to. It earns its place because it is true and it is
+                the subject, not because a badge goes there. */}
             <motion.div
-              initial={prefersReducedMotion ? false : { opacity: 0, y: -14 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
               style={{
-                display: 'inline-block',
-                marginBottom: '1.6rem',
-                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.85rem',
+                marginBottom: '2rem',
               }}
             >
-              <div
-                className="eco-badge"
-                style={{
-                  position: 'relative',
-                  zIndex: 1,
-                  background: 'var(--eco-bg)',
-                  padding: '0.45rem 1rem',
-                }}
-              >
-                <Globe2 size={15} style={{ color: 'var(--eco-primary)' }} />
-                <span style={{ fontWeight: 600 }}>UN SDG 13 · Climate Action</span>
-              </div>
-
-              {/* A static gradient border behind the badge - 2px larger so it
-                  shows as a thin ring. It used to shimmer continuously; that was
-                  part of the restless feeling, so it now simply sits there. */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: -2,
-                  borderRadius: 999,
-                  background: 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
-                  zIndex: 0,
-                }}
-              />
+              <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
+              <span className="eco-marker">Atmospheric CO<sub>2</sub></span>
+              <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
+                425 PPM
+              </span>
+              <span className="eco-marker" style={{ opacity: 0.6 }}>and rising</span>
+              <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
             </motion.div>
 
             {/* Each word rises into place one after another, then stops dead.
                 No permanent transform is left behind, so the type is perfectly
                 sharp for as long as anyone actually reads it. */}
+            {/* Set in the display face at instrument scale: tracked in to
+                -0.045em and leaded under 1, so the headline locks up as a
+                single shape rather than reading as a row of words. That tight
+                lockup is most of the difference between type that looks
+                authored and type that looks defaulted. */}
             <h1
+              className="eco-display"
               style={{
                 // clamp() picks a size between the two limits based on screen
                 // width, so one line handles phones through to desktops
-                fontSize: 'clamp(2.3rem, 6.5vw, 4.2rem)',
-                lineHeight: 1.06,
-                marginBottom: '1.2rem',
+                fontSize: 'clamp(2.8rem, 9vw, 6.4rem)',
+                marginBottom: '1.6rem',
               }}
             >
               {HEADLINE_LINES.map((line, lineIndex) => (
