@@ -68,10 +68,14 @@
 
 [data-theme='light'] {
   /* Amber has to darken considerably on paper or it turns to mustard and
-     fails contrast against a light ground. */
-  --readout: #a86b00;
-  --readout-dim: rgba(168, 107, 0, 0.6);
-  --readout-rgb: 168, 107, 0;
+     fails contrast against a light ground.
+     Measured, not guessed: #a86b00 came out at 3.97:1 on the #f5f3ec ground,
+     which is below the 4.5:1 AA floor for body text - and readouts appear at
+     small sizes, so large-text allowances do not apply. #966000 measures
+     4.76:1 on the ground and 5.15:1 on the card. */
+  --readout: #966000;
+  --readout-dim: rgba(150, 96, 0, 0.62);
+  --readout-rgb: 150, 96, 0;
 
   --rule: rgba(24, 40, 26, 0.16);
   --rule-strong: rgba(24, 40, 26, 0.32);
@@ -184,11 +188,20 @@
 }
 
 [data-theme='light'] {
-  /* The neon green is unreadable on white, so light mode uses the darker green.
-     Same variable name, different value - no component code changes. */
-  --eco-primary: #2f9d5c;
-  --eco-primary-dark: #237a46;
-  --eco-primary-rgb: 47, 157, 92;
+  /* The neon green is unreadable on white, so light mode uses a darker green.
+     Same variable name, different value - no component code changes.
+
+     Darkened again now that light is the DEFAULT rather than an option: the
+     previous #2f9d5c measured 3.10:1 on the paper ground, which is fine for a
+     headline and a failure for anything at body size. Green is used for links
+     and small labels throughout, so it has to clear 4.5:1.
+
+     #1f7a44 measures 4.82:1 on the ground and comfortably clears it on cards.
+     The ui-ux-pro-max database suggested #15803D, which also passes but only
+     at 4.52:1 - this is the same colour a shade deeper, for headroom. */
+  --eco-primary: #1f7a44;
+  --eco-primary-dark: #176035;
+  --eco-primary-rgb: 31, 122, 68;
 
   --eco-bg: #f5f3ec;             /* warm linen/paper, not a cold grey-white */
   --eco-bg-alt: #edeae0;
