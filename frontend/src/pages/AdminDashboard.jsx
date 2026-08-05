@@ -45,7 +45,15 @@ import StatCard from '../components/StatCard';
 import { CategoryDoughnutChart, TrendLineChart } from '../components/EmissionChart';
 import { SkeletonStatCard, SkeletonTable } from '../components/SkeletonCard';
 import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
-import { formatCategory, formatDate, formatEmission, formatNumber, getInitials } from '../utils/formatters';
+import {
+  formatCategory,
+  formatDate,
+  formatEmission,
+  formatNumber,
+  formatRelativeDate,
+  getInitials,
+  truncate,
+} from '../utils/formatters';
 import Photo from '../components/Photo';
 import { PHOTOS } from '../utils/photos';
 
@@ -213,6 +221,89 @@ export default function AdminDashboard() {
       },
     };
   }, [detail]);
+
+  // One chronological stream of everything that has happened on the platform.
+  // The three collections are already loaded for their own tabs, so this costs
+  // no extra request - it just stops "what changed recently?" being a question
+  // you answer by reading three separate lists and comparing dates by eye.
+  const activity = useMemo(() => {
+    const events = [];
+
+    users.forEach((user) => {
+      if (!user.createdAt) return;
+      events.push({
+        id: `join-${user.uid}`,
+        at: user.createdAt,
+        icon: Users,
+        color: 'var(--eco-primary)',
+        title: `${user.name || 'Someone'} joined`,
+        detail: user.email,
+        uid: user.uid,
+      });
+    });
+
+    donations.forEach((donation) => {
+      if (!donation.createdAt) return;
+      events.push({
+        id: `give-${donation.id}`,
+        at: donation.createdAt,
+        icon: HeartHandshake,
+        color: '#3fb0a8',
+        title:
+          donation.amount == null
+            ? `${donation.name} donated`
+            : `${donation.name} gave ₹${(donation.amount / 100).toLocaleString('en-IN')}`,
+        detail: donation.razorpayPaymentId,
+        uid: donation.userId || null,
+      });
+    });
+
+    feedback.forEach((item) => {
+      if (!item.createdAt) return;
+      events.push({
+        id: `say-${item.id}`,
+        at: item.createdAt,
+        icon: MessageSquare,
+        color: 'var(--eco-orange)',
+        title: `${item.name} sent feedback`,
+        detail: truncate(item.message, 80),
+        uid: null,
+      });
+    });
+
+    // ISO timestamps sort correctly as plain strings
+    return events.sort((a, b) => (b.at || '').localeCompare(a.at || ''));
+  }, [users, donations, feedback]);
+
+  // Growth, regions and who is actually using the thing.
+  const insights = useMemo(() => {
+    const byMonth = new Map();
+    const regions = new Map();
+
+    users.forEach((user) => {
+      const key = String(user.createdAt || '').slice(0, 7);
+      if (key.length === 7) byMonth.set(key, (byMonth.get(key) || 0) + 1);
+
+      const region = user.region || 'Unknown';
+      regions.set(region, (regions.get(region) || 0) + 1);
+    });
+
+    const months = [...byMonth.keys()].sort();
+
+    return {
+      months,
+      signups: months.map((key) => byMonth.get(key)),
+      peakSignups: Math.max(...byMonth.values(), 1),
+      regions: [...regions.entries()].sort((a, b) => b[1] - a[1]),
+      // Most active by entries logged, which is the thing the app is for.
+      // Highest emissions would rank the least green user first, which is a
+      // leaderboard nobody wants to top.
+      topContributors: [...users]
+        .filter((user) => user.recordCount > 0)
+        .sort((a, b) => b.recordCount - a.recordCount)
+        .slice(0, 5),
+    };
+  }, [users]);
 
   const categoryChart = useMemo(() => {
     if (!stats?.categoryTotals) return { labels: [], data: [], colors: [] };
@@ -560,6 +651,8 @@ export default function AdminDashboard() {
       >
         {[
           { id: 'overview', label: 'Overview', icon: BarChart3, count: null },
+          { id: 'insights', label: 'Insights', icon: TrendingUp, count: null },
+          { id: 'activity', label: 'Activity', icon: Activity, count: activity.length },
           { id: 'users', label: 'Users', icon: Users, count: users.length },
           { id: 'donations', label: 'Donations', icon: HeartHandshake, count: donations.length },
           { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: feedback.length },
@@ -823,6 +916,384 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      </motion.div>
+      )}
+
+      {/* ============ INSIGHTS TAB ============ */}
+      {tab === 'insights' && (
+      <motion.div
+        key="tab-insights"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+        style={{ display: 'grid', gap: '1.5rem' }}
+      >
+        {/* ---- signups per month ---- */}
+        <div className="eco-card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+            <TrendingUp size={18} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Sign-ups by month</h2>
+          </div>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.4rem', fontSize: '0.82rem' }}>
+            When people actually found EcoTrack
+          </p>
+
+          {insights.months.length === 0 ? (
+            <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+              No sign-ups recorded yet.
+            </p>
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-end',
+                gap: '0.7rem',
+                height: 190,
+                paddingTop: '1rem',
+              }}
+            >
+              {insights.months.map((month, index) => {
+                const value = insights.signups[index];
+                // Bars are drawn as a share of the busiest month, so the tallest
+                // always fills the box however small the numbers are.
+                const heightPct = (value / insights.peakSignups) * 100;
+                return (
+                  <div
+                    key={month}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      height: '100%',
+                      justifyContent: 'flex-end',
+                    }}
+                  >
+                    <span className="eco-tabular" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                      {value}
+                    </span>
+                    <motion.div
+                      initial={prefersReducedMotion ? false : { height: 0 }}
+                      animate={{ height: `${heightPct}%` }}
+                      transition={{
+                        duration: 0.7,
+                        delay: index * 0.06,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      style={{
+                        width: '100%',
+                        maxWidth: 54,
+                        minHeight: 4,
+                        borderRadius: '7px 7px 3px 3px',
+                        background: 'linear-gradient(180deg, var(--eco-primary), rgba(var(--eco-primary-rgb), 0.35))',
+                      }}
+                    />
+                    <span
+                      className="eco-text-muted"
+                      style={{ fontSize: '0.68rem', whiteSpace: 'nowrap' }}
+                    >
+                      {month}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+          {/* ---- most active users ---- */}
+          <div className="eco-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+              <Star size={17} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Most active</h2>
+            </div>
+            <p className="eco-text-muted" style={{ margin: '0 0 1.1rem', fontSize: '0.82rem' }}>
+              By entries logged — not by emissions, which would rank the least
+              green user first
+            </p>
+
+            {insights.topContributors.length === 0 ? (
+              <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+                Nobody has logged an entry yet.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.65rem' }}>
+                {insights.topContributors.map((user, index) => (
+                  <motion.button
+                    key={user.uid}
+                    type="button"
+                    onClick={() => openDetail(user.uid)}
+                    initial={prefersReducedMotion ? false : { opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.06, duration: 0.35 }}
+                    whileHover={prefersReducedMotion ? {} : { x: 3 }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      padding: '0.6rem 0.7rem',
+                      borderRadius: 'var(--eco-radius-sm)',
+                      border: '1px solid var(--eco-border)',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      color: 'var(--eco-text)',
+                    }}
+                  >
+                    <span
+                      className="eco-tabular"
+                      style={{
+                        fontFamily: "'Space Grotesk', sans-serif",
+                        fontWeight: 700,
+                        fontSize: '0.95rem',
+                        color: index === 0 ? 'var(--eco-orange)' : 'var(--eco-text-muted)',
+                        width: 18,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {index + 1}
+                    </span>
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        background: 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
+                        color: '#04140c',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '0.72rem',
+                        fontFamily: "'Space Grotesk', sans-serif",
+                      }}
+                    >
+                      {getInitials(user.name)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          fontSize: '0.86rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {user.name || 'Unnamed'}
+                      </div>
+                      <div className="eco-text-muted" style={{ fontSize: '0.74rem' }}>
+                        {formatEmission(user.totalEmission || 0)}
+                      </div>
+                    </div>
+                    <span
+                      className="eco-tabular"
+                      style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--eco-primary)', flexShrink: 0 }}
+                    >
+                      {user.recordCount}
+                    </span>
+                  </motion.button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ---- where users are ---- */}
+          <div className="eco-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+              <MapPin size={17} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Where they are</h2>
+            </div>
+            <p className="eco-text-muted" style={{ margin: '0 0 1.1rem', fontSize: '0.82rem' }}>
+              Region chosen at sign-up — it also picks their grid factor
+            </p>
+
+            <div style={{ display: 'grid', gap: '0.8rem' }}>
+              {insights.regions.map(([region, count], index) => {
+                const share = users.length ? (count / users.length) * 100 : 0;
+                return (
+                  <div key={region}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: '0.82rem',
+                        marginBottom: '0.3rem',
+                      }}
+                    >
+                      <span>{region}</span>
+                      <span className="eco-text-muted eco-tabular">
+                        {count} · {Math.round(share)}%
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        height: 8,
+                        borderRadius: 999,
+                        background: 'var(--eco-border)',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <motion.div
+                        initial={prefersReducedMotion ? false : { width: 0 }}
+                        animate={{ width: `${share}%` }}
+                        transition={{ duration: 0.6, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                        style={{
+                          height: '100%',
+                          borderRadius: 999,
+                          background: 'linear-gradient(90deg, var(--eco-primary), var(--eco-purple))',
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+      )}
+
+      {/* ============ ACTIVITY TAB ============ */}
+      {tab === 'activity' && (
+      <motion.div
+        key="tab-activity"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+        <div className="eco-card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+            <Activity size={18} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
+              Everything that has happened
+              <span className="eco-text-muted" style={{ fontWeight: 400, marginLeft: '0.4rem' }}>
+                ({activity.length})
+              </span>
+            </h2>
+          </div>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.5rem', fontSize: '0.82rem' }}>
+            Sign-ups, donations and feedback in one timeline, newest first
+          </p>
+
+          {activity.length === 0 ? (
+            <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+              Nothing has happened yet.
+            </p>
+          ) : (
+            <div style={{ position: 'relative', paddingLeft: '1.6rem' }}>
+              {/* the spine the dots sit on */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 11,
+                  top: 6,
+                  bottom: 6,
+                  width: 2,
+                  background:
+                    'linear-gradient(180deg, rgba(var(--eco-primary-rgb),0.5), rgba(var(--eco-primary-rgb),0.05))',
+                }}
+              />
+
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {activity.map((event, index) => {
+                  const EventIcon = event.icon;
+                  return (
+                    <motion.div
+                      key={event.id}
+                      initial={prefersReducedMotion ? false : { opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{
+                        // capped so a long history does not take forever to draw
+                        delay: Math.min(index * 0.04, 0.6),
+                        duration: 0.35,
+                      }}
+                      style={{ position: 'relative', display: 'flex', gap: '0.85rem', alignItems: 'flex-start' }}
+                    >
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: -1.6 * 16 + 4,
+                          top: 2,
+                          width: 16,
+                          height: 16,
+                          borderRadius: '50%',
+                          background: 'var(--eco-bg)',
+                          border: `2px solid ${event.color}`,
+                          flexShrink: 0,
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: 9,
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(var(--eco-primary-rgb), 0.1)',
+                          color: event.color,
+                        }}
+                      >
+                        <EventIcon size={15} />
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            gap: '0.6rem',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{event.title}</span>
+                          <span className="eco-text-muted" style={{ fontSize: '0.72rem' }}>
+                            {formatRelativeDate(event.at)}
+                          </span>
+                          {event.uid && (
+                            <button
+                              type="button"
+                              onClick={() => openDetail(event.uid)}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                padding: 0,
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                color: 'var(--eco-primary)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.2rem',
+                              }}
+                            >
+                              <Eye size={11} />
+                              open
+                            </button>
+                          )}
+                        </div>
+                        {event.detail && (
+                          <div
+                            className="eco-text-muted"
+                            style={{ fontSize: '0.76rem', marginTop: '0.15rem', wordBreak: 'break-word' }}
+                          >
+                            {event.detail}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </motion.div>
       )}
 
