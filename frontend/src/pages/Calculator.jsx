@@ -70,6 +70,29 @@ const CATEGORY_ICONS = {
   consumption: ShoppingBag,
 };
 
+// Quick amounts offered under the quantity box, keyed by the FACTOR'S unit
+// rather than the category: the sensible jumps depend on what is being counted,
+// and 5 km, 5 kWh and 5 meals are nothing like each other. Every value here is
+// a plausible single entry - a commute, a month's electricity, a week of meals.
+const QUICK_AMOUNTS = {
+  km: [5, 10, 25, 50],
+  kWh: [10, 50, 100, 200],
+  kg: [1, 5, 10, 25],
+  liter: [1, 5, 10, 20],
+  meal: [1, 2, 3, 7],
+  item: [1, 2, 3, 5],
+};
+
+// A climate-safe personal footprint is ~2 tonnes a year, so ~167 kg a month.
+//
+// MONTHLY, not daily, and that matters. An entry does not represent a day: an
+// electricity reading is usually a whole month's bill, and a laptop is a one-off
+// whose footprint is spread over years. Measured against a DAILY allowance a
+// 100 kWh bill reads "1296%", which is alarming and meaningless. Against the
+// month it reads 43%, which is both true and useful - a contribution to the
+// month, with no claim about how long the activity took.
+const MONTHLY_BUDGET_KG = 2000 / 12;
+
 export default function Calculator() {
   const { prefersReducedMotion } = useTheme();
 
@@ -411,6 +434,44 @@ export default function Calculator() {
                   {errors.quantity}
                 </div>
               )}
+
+              {/* Quick amounts for the unit in play. Logging a commute is the
+                  thing people do most often here, and typing "25" every day is
+                  friction for no reason. Keyed to the unit rather than the
+                  category, because the sensible jumps depend on what is being
+                  counted - 5 km and 5 kWh are not comparable amounts. */}
+              {selectedFactor && QUICK_AMOUNTS[selectedFactor.unit] && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.6rem' }}>
+                  {QUICK_AMOUNTS[selectedFactor.unit].map((amount) => {
+                    const active = parseFloat(quantity) === amount;
+                    return (
+                      <motion.button
+                        key={amount}
+                        type="button"
+                        onClick={() => {
+                          setQuantity(String(amount));
+                          setTouched((prev) => ({ ...prev, quantity: true }));
+                        }}
+                        whileTap={prefersReducedMotion ? {} : { scale: 0.94 }}
+                        disabled={submitting}
+                        style={{
+                          padding: '0.3rem 0.7rem',
+                          borderRadius: 999,
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          border: `1px solid ${active ? meta.color : 'var(--eco-border)'}`,
+                          background: active ? `${meta.color}1f` : 'transparent',
+                          color: active ? meta.color : 'var(--eco-text-muted)',
+                          transition: 'all 0.16s ease',
+                        }}
+                      >
+                        {amount} {selectedFactor.unit}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Date */}
@@ -470,11 +531,24 @@ export default function Calculator() {
         </div>
 
         {/* ---------- live preview ---------- */}
-        <div
+        {/* The panel takes on the current category's colour, so switching
+            category is felt rather than just read. */}
+        <motion.div
           className="eco-card"
-          style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+          animate={{
+            borderColor: `${meta.color}44`,
+            backgroundColor: `${meta.color}0a`,
+          }}
+          transition={{ duration: 0.35 }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
         >
-          <div style={{ textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
             <span
               className="eco-text-muted"
               style={{
@@ -487,8 +561,15 @@ export default function Calculator() {
               Live preview
             </span>
 
-            {/* The number updates on every keystroke, before anything is saved */}
-            <div
+            {/* The number updates on every keystroke, before anything is saved.
+                It pulses on each change so a keystroke visibly moves it - the
+                whole point of a live preview is the cause and effect. Keyed on
+                the value so React remounts and replays the animation. */}
+            <motion.div
+              key={previewEmission}
+              initial={prefersReducedMotion ? false : { scale: 0.94, opacity: 0.55 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 24 }}
               className="eco-gradient-text"
               style={{
                 fontFamily: 'Space Grotesk, sans-serif',
@@ -500,7 +581,7 @@ export default function Calculator() {
               }}
             >
               {formatNumber(previewEmission, previewEmission < 1 && previewEmission > 0 ? 3 : 2)}
-            </div>
+            </motion.div>
             <div className="eco-text-muted" style={{ fontSize: '0.9rem' }}>
               kg CO₂
             </div>
@@ -511,6 +592,52 @@ export default function Calculator() {
                   <span className={`eco-badge ${previewSeverity.className}`}>
                     {previewSeverity.label}
                   </span>
+                </div>
+
+                {/* This entry as a share of a climate-safe month. A bare
+                    "3.5 kg" means nothing to most people; "2% of your month"
+                    does. Capped at 100% so one large entry cannot draw a bar
+                    off the end of the card. */}
+                <div style={{ marginTop: '1.2rem', textAlign: 'left' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '0.74rem',
+                      marginBottom: '0.35rem',
+                    }}
+                  >
+                    <span className="eco-text-muted">of a climate-safe month</span>
+                    <span className="eco-tabular" style={{ fontWeight: 700, color: meta.color }}>
+                      {/* A decimal below 10%, because a short trip really is a
+                          fraction of a per cent and a bare "0%" reads as an
+                          error rather than as "genuinely tiny". */}
+                      {(() => {
+                        const share = (previewEmission / MONTHLY_BUDGET_KG) * 100;
+                        return share < 10 ? share.toFixed(1) : Math.round(share);
+                      })()}
+                      %
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      height: 8,
+                      borderRadius: 999,
+                      background: 'var(--eco-border)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <motion.div
+                      animate={{
+                        width: `${Math.min((previewEmission / MONTHLY_BUDGET_KG) * 100, 100)}%`,
+                      }}
+                      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                      style={{ height: '100%', borderRadius: 999, background: meta.color }}
+                    />
+                  </div>
+                  <p className="eco-text-muted" style={{ fontSize: '0.72rem', margin: '0.35rem 0 0' }}>
+                    A 2-tonne year works out at {formatNumber(MONTHLY_BUDGET_KG, 0)} kg a month.
+                  </p>
                 </div>
 
                 {selectedFactor && (
@@ -532,7 +659,7 @@ export default function Calculator() {
               </p>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* ============ RESULT CARD ============ */}
