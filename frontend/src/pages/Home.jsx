@@ -173,11 +173,47 @@ const HEADLINE_LINES = [
   { words: ['Then', 'change', 'it.'], accent: true },
 ];
 
+// The instrument's specification - four constants, every one of them checkable.
+//
+// These replaced invented vanity metrics: "12,480 kg CO2 tracked", "340+ active
+// trackers", "1,250 goals achieved". The real figures at the time of writing
+// were 55 kg, 7 users and 0 goals achieved, so those claims overstated the
+// truth by between fifty and two hundred times, on a public page, for a project
+// that expects to be examined.
+//
+// Constants are also simply the better answer here. A young product cannot win
+// on usage numbers, but the science it applies is the same science a large one
+// would apply - and a reader can verify every line below against the published
+// source, which is worth more than a number they have to take on trust.
 const HERO_STATS = [
-  { value: 12480, suffix: ' kg', label: 'CO₂ tracked', decimals: 0 },
-  { value: 340, suffix: '+', label: 'Active trackers', decimals: 0 },
-  { value: 1250, suffix: '', label: 'Goals achieved', decimals: 0 },
-  { value: 7, suffix: '', label: 'Emission categories', decimals: 0 },
+  {
+    value: 7,
+    suffix: '',
+    label: 'Categories measured',
+    note: 'transport → water',
+    decimals: 0,
+  },
+  {
+    value: 21,
+    suffix: '',
+    label: 'Published factors',
+    note: 'DEFRA · IPCC · CEA',
+    decimals: 0,
+  },
+  {
+    value: 0.71,
+    suffix: '',
+    label: 'kg CO₂ per kWh',
+    note: "India's grid, CEA 2023",
+    decimals: 2,
+  },
+  {
+    value: 2000,
+    suffix: ' kg',
+    label: 'Climate-safe year',
+    note: 'per person, 1.5 °C',
+    decimals: 0,
+  },
 ];
 
 // Clicking a category opens a detail panel explaining it. The factors below are
@@ -345,19 +381,38 @@ const TESTIMONIALS = [
 // A statistic that counts up when it scrolls into view
 // ---------------------------------------------------------------------------
 
-function CountUpStat({ value, suffix, label, decimals }) {
+/**
+ * One channel on the instrument panel.
+ *
+ * Left-aligned under its own rule rather than centred in a card. Four centred
+ * gradient numbers in a row is the stat-strip every landing page ships; a
+ * column of readings hanging off a hairline reads as a specification, which is
+ * what these actually are.
+ *
+ * The figure is amber and monospaced because it is a measured quantity, and
+ * this app never lets a measurement borrow the colour of the thing it
+ * describes. The caption underneath cites where the number comes from - a
+ * reading without a provenance is just an assertion.
+ */
+function CountUpStat({ value, suffix, label, note, decimals }) {
   const [ref, formatted] = useCounter(value, { decimals, duration: 1800 });
 
   return (
-    <div ref={ref} style={{ textAlign: 'center' }}>
+    <div
+      ref={ref}
+      style={{
+        textAlign: 'left',
+        paddingTop: '0.95rem',
+        borderTop: '1px solid var(--rule-strong)',
+      }}
+    >
       <div
-        className="eco-gradient-text"
+        className="eco-readout"
         style={{
-          fontFamily: 'Space Grotesk, sans-serif',
-          fontSize: 'clamp(1.5rem, 3.4vw, 2.2rem)',
-          fontWeight: 700,
-          lineHeight: 1.1,
-          // Without this, "12,480 kg" breaks across two lines in a narrow
+          fontSize: 'clamp(1.6rem, 3.6vw, 2.4rem)',
+          fontWeight: 500,
+          lineHeight: 1,
+          // Without this, "2,000 kg" breaks across two lines in a narrow
           // grid column and the row loses its alignment
           whiteSpace: 'nowrap',
         }}
@@ -365,9 +420,27 @@ function CountUpStat({ value, suffix, label, decimals }) {
         {formatted}
         {suffix}
       </div>
-      <div className="eco-text-muted" style={{ fontSize: '0.84rem', marginTop: '0.25rem' }}>
+
+      <div
+        className="eco-marker"
+        style={{ marginTop: '0.6rem', display: 'block', letterSpacing: '0.1em' }}
+      >
         {label}
       </div>
+
+      {note && (
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.68rem',
+            marginTop: '0.25rem',
+            color: 'var(--eco-text-muted)',
+            opacity: 0.7,
+          }}
+        >
+          {note}
+        </div>
+      )}
     </div>
   );
 }
@@ -689,11 +762,16 @@ export default function Home() {
               className="eco-reveal"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                gap: '1.4rem',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                // Wider gaps than a card grid needs: with no card edges to
+                // separate them, the whitespace is what groups each reading
+                // with its own label.
+                gap: '1.8rem',
                 marginTop: '4rem',
-                paddingTop: '2.2rem',
-                borderTop: '1px solid var(--eco-border)',
+                // No rule here any more - each channel carries its own, which
+                // is what makes the row read as a panel of separate
+                // instruments rather than one boxed-off strip.
+                textAlign: 'left',
               }}
             >
               {HERO_STATS.map((stat) => (
