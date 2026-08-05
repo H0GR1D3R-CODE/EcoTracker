@@ -2,72 +2,76 @@
 //
 // The living backdrop behind Login and Register. Those two pages are a single
 // small card on a very large empty area, so the background is most of what a
-// visitor actually sees - it was two static circles, which read as flat.
+// visitor actually sees.
 //
-// Three layers, cheapest first:
-//   1. drifting colour orbs   - slow, blurred, the ambient light in the room
-//   2. a faint grid           - gives the empty space structure and depth
-//   3. rising motes           - the only fast-ish motion, and it is tiny
+// PERFORMANCE, learned the hard way
+// The first version of this made the Google sign-in popup stutter badly. Three
+// causes, all fixed here:
 //
-// Everything is fixed-position and pointer-events:none, so it never intercepts
-// a click on the form and never scrolls out from under it. Under
-// prefers-reduced-motion the whole thing renders as a still image.
+//   1. `filter: blur(90px)` on large animated divs. A blur is re-rasterised on
+//      EVERY frame the element moves, and these were 620px across. Replaced
+//      with a radial-gradient, which is painted once and then merely moved -
+//      visually near-identical, and it costs nothing per frame.
+//   2. Sixteen framer-motion loops. Each one ticks on the main thread via
+//      requestAnimationFrame, so they competed with React exactly when it was
+//      busiest. They are now a CSS keyframe (.eco-mote), which the compositor
+//      runs off-thread and keeps smooth while the main thread is blocked.
+//   3. A grid layer drawn here on top of the .eco-dot-grid the pages already
+//      apply - two grids painted for one visible result. This one is gone.
+//
+// Everything animates transform and opacity only, so no frame triggers layout
+// or paint. The whole layer is fixed and pointer-events:none.
 
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
-
-import { useTheme } from '../context/ThemeContext';
 
 // Spread far apart so they read as separate washes rather than one muddy blob.
+// The gradient stops do the softening that `filter: blur()` used to.
 const ORBS = [
   {
-    size: 620,
-    top: '-18%',
-    left: '-12%',
-    colour: 'rgba(var(--eco-primary-rgb), 0.30)',
-    drift: { x: [0, 60, -20, 0], y: [0, -40, 30, 0] },
-    duration: 26,
+    size: 680,
+    top: '-20%',
+    left: '-14%',
+    tint: 'rgba(var(--eco-primary-rgb), 0.34)',
+    drift: { x1: '55px', y1: '-38px', x2: '-18px', y2: '26px' },
+    duration: '28s',
   },
   {
-    size: 520,
-    bottom: '-20%',
-    right: '-10%',
-    colour: 'rgba(63, 176, 168, 0.26)',
-    drift: { x: [0, -50, 25, 0], y: [0, 35, -25, 0] },
-    duration: 32,
+    size: 560,
+    bottom: '-22%',
+    right: '-12%',
+    tint: 'rgba(63, 176, 168, 0.30)',
+    drift: { x1: '-46px', y1: '32px', x2: '22px', y2: '-22px' },
+    duration: '34s',
   },
   {
-    size: 380,
-    top: '40%',
-    right: '22%',
-    colour: 'rgba(var(--eco-primary-rgb), 0.16)',
-    drift: { x: [0, 35, -30, 0], y: [0, -30, 20, 0] },
-    duration: 38,
+    size: 420,
+    top: '38%',
+    right: '20%',
+    tint: 'rgba(var(--eco-primary-rgb), 0.18)',
+    drift: { x1: '32px', y1: '-26px', x2: '-26px', y2: '18px' },
+    duration: '40s',
   },
 ];
 
-const MOTE_COUNT = 16;
+// Ten reads as a drift; sixteen was not noticeably richer and cost more.
+const MOTE_COUNT = 10;
 
 export default function AuthBackground() {
-  const { prefersReducedMotion } = useTheme();
-
-  // Positions are derived from the index rather than Math.random(), so they
-  // stay put across re-renders. A random layout would visibly reshuffle every
-  // time the form re-rendered - which, on a page with live validation, is on
-  // more or less every keystroke.
+  // Positions derive from the index rather than Math.random(), so they stay put
+  // across re-renders. Random ones visibly reshuffle on every render - and with
+  // live validation that is nearly every keystroke.
   const motes = useMemo(
     () =>
       Array.from({ length: MOTE_COUNT }, (_, index) => {
-        // Two different irrationals keep x and y from falling into a pattern
-        const left = ((index * 61.803) % 100).toFixed(2);
-        const size = 3 + ((index * 7) % 5);
+        const size = 3 + ((index * 7) % 4);
         return {
           id: index,
-          left: `${left}%`,
+          // An irrational step keeps them from lining up in a visible pattern
+          left: `${((index * 61.803) % 100).toFixed(2)}%`,
           size,
-          delay: (index * 1.37) % 12,
-          duration: 16 + ((index * 3) % 11),
-          drift: ((index % 5) - 2) * 18,
+          delay: `${((index * 1.9) % 14).toFixed(2)}s`,
+          duration: `${18 + ((index * 3) % 10)}s`,
+          drift: `${((index % 5) - 2) * 16}px`,
         };
       }),
     []
@@ -84,83 +88,47 @@ export default function AuthBackground() {
         zIndex: 0,
       }}
     >
-      {/* ---- 1. drifting orbs ---- */}
+      {/* ---- drifting orbs (CSS-driven, see .eco-orb in index.css) ---- */}
       {ORBS.map((orb, index) => (
-        <motion.div
+        <div
           key={index}
-          animate={prefersReducedMotion ? undefined : orb.drift}
-          transition={{
-            duration: orb.duration,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
+          className="eco-orb"
           style={{
-            position: 'absolute',
             width: orb.size,
             height: orb.size,
             top: orb.top,
             left: orb.left,
             right: orb.right,
             bottom: orb.bottom,
-            borderRadius: '50%',
-            background: orb.colour,
-            // The blur is what turns a hard circle into light. Without it these
-            // are the flat discs this component exists to replace.
-            filter: 'blur(90px)',
+            // The soft edge comes from the gradient itself. This is the whole
+            // point: no filter pass, so moving it is a pure composite.
+            background: `radial-gradient(circle at 50% 50%, ${orb.tint} 0%, ${orb.tint} 18%, transparent 68%)`,
+            animationDuration: orb.duration,
+            '--eco-orb-x1': orb.drift.x1,
+            '--eco-orb-y1': orb.drift.y1,
+            '--eco-orb-x2': orb.drift.x2,
+            '--eco-orb-y2': orb.drift.y2,
           }}
         />
       ))}
 
-      {/* ---- 2. faint grid ---- */}
-      {/* Masked to fade out at the edges, so it never ends in a visible line */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: `
-            linear-gradient(rgba(var(--eco-primary-rgb), 0.055) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(var(--eco-primary-rgb), 0.055) 1px, transparent 1px)
-          `,
-          backgroundSize: '64px 64px',
-          maskImage: 'radial-gradient(ellipse 80% 70% at 50% 45%, #000 30%, transparent 78%)',
-          WebkitMaskImage:
-            'radial-gradient(ellipse 80% 70% at 50% 45%, #000 30%, transparent 78%)',
-        }}
-      />
-
-      {/* ---- 3. rising motes ---- */}
-      {/* Skipped entirely rather than frozen: sixteen motionless dots scattered
-          over the page would look like dirt on the screen. */}
-      {!prefersReducedMotion &&
-        motes.map((mote) => (
-          <motion.span
-            key={mote.id}
-            initial={{ y: '105vh', opacity: 0 }}
-            animate={{
-              y: '-10vh',
-              x: [0, mote.drift, 0],
-              opacity: [0, 0.7, 0.7, 0],
-            }}
-            transition={{
-              duration: mote.duration,
-              repeat: Infinity,
-              delay: mote.delay,
-              ease: 'linear',
-              opacity: { duration: mote.duration, repeat: Infinity, times: [0, 0.15, 0.8, 1] },
-              x: { duration: mote.duration / 2, repeat: Infinity, ease: 'easeInOut' },
-            }}
-            style={{
-              position: 'absolute',
-              left: mote.left,
-              bottom: 0,
-              width: mote.size,
-              height: mote.size,
-              borderRadius: '50%',
-              background: 'rgba(var(--eco-primary-rgb), 0.55)',
-              boxShadow: '0 0 8px rgba(var(--eco-primary-rgb), 0.5)',
-            }}
-          />
-        ))}
+      {/* ---- rising motes ---- */}
+      {/* CSS-driven (see .eco-mote in index.css) so they stay smooth while the
+          main thread is busy opening the Google popup. */}
+      {motes.map((mote) => (
+        <span
+          key={mote.id}
+          className="eco-mote"
+          style={{
+            left: mote.left,
+            width: mote.size,
+            height: mote.size,
+            animationDuration: mote.duration,
+            animationDelay: mote.delay,
+            '--eco-mote-drift': mote.drift,
+          }}
+        />
+      ))}
     </div>
   );
 }

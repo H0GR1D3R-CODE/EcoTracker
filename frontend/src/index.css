@@ -1054,6 +1054,68 @@ a:hover {
    12. ANIMATIONS
    =========================================================================== */
 
+/* Drifting orbs on the Login and Register backdrop.
+   One keyframe serves all of them: each orb sets its own offsets as custom
+   properties, so three different drifts cost one animation definition. Only
+   transform moves, and the soft edge is a gradient rather than filter: blur(),
+   so a frame is a pure composite - no re-rasterising, no paint. */
+@keyframes eco-orb-drift {
+  0%,
+  100% { transform: translate3d(0, 0, 0); }
+  33%  { transform: translate3d(var(--eco-orb-x1, 0px), var(--eco-orb-y1, 0px), 0); }
+  66%  { transform: translate3d(var(--eco-orb-x2, 0px), var(--eco-orb-y2, 0px), 0); }
+}
+
+.eco-orb {
+  position: absolute;
+  border-radius: 50%;
+  animation-name: eco-orb-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* Still present, just still - unlike the motes, a motionless wash of colour
+   still looks deliberate */
+@media (prefers-reduced-motion: reduce) {
+  .eco-orb {
+    animation: none;
+    will-change: auto;
+  }
+}
+
+/* Rising motes on the Login and Register backdrop.
+   A CSS keyframe rather than a JS-driven animation on purpose: this runs on the
+   compositor, off the main thread, so it keeps going smoothly while React is
+   busy - which is exactly the moment it used to stutter, when opening the
+   Google sign-in popup. Only transform and opacity are animated, so no frame
+   ever triggers layout or paint. */
+@keyframes eco-mote-rise {
+  0%   { transform: translate3d(0, 0, 0); opacity: 0; }
+  12%  { opacity: 0.65; }
+  80%  { opacity: 0.65; }
+  100% { transform: translate3d(var(--eco-mote-drift, 0px), -115vh, 0); opacity: 0; }
+}
+
+.eco-mote {
+  position: absolute;
+  bottom: -12px;
+  border-radius: 50%;
+  background: rgba(var(--eco-primary-rgb), 0.55);
+  animation-name: eco-mote-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+/* Nothing rising, rather than a scatter of frozen dots that would read as
+   dirt on the screen */
+@media (prefers-reduced-motion: reduce) {
+  .eco-mote {
+    display: none;
+  }
+}
+
 @keyframes eco-shimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
