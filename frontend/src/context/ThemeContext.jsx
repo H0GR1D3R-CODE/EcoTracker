@@ -2,9 +2,13 @@
 // Holds the dark/light theme choice and the user's motion preference, and
 // makes both available to every component in the app.
 //
-// Dark is the default. The choice is saved to localStorage so it survives a
+// Light is the default. The choice is saved to localStorage so it survives a
 // refresh, and index.html reads that value before the first paint so there is
 // no flash of the wrong theme while React starts.
+//
+// Three places have to agree on the default or the page visibly flips theme
+// during load: the data-theme attribute on <html>, the inline script in
+// index.html, and getInitialTheme below.
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
@@ -13,7 +17,7 @@ const ThemeContext = createContext(null);
 const STORAGE_KEY = 'ecotrack-theme';
 
 /**
- * Read the saved theme, falling back to dark.
+ * Read the saved theme, falling back to light.
  * Wrapped in try/catch because localStorage throws in some private browsing modes.
  */
 function getInitialTheme() {
@@ -23,7 +27,7 @@ function getInitialTheme() {
   } catch {
     // ignore and use the default below
   }
-  return 'dark';
+  return 'light';
 }
 
 export function ThemeProvider({ children }) {
@@ -45,7 +49,10 @@ export function ThemeProvider({ children }) {
     // Keep the mobile browser chrome in step with the page background
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
-      themeColorMeta.setAttribute('content', theme === 'dark' ? '#0a0a0f' : '#f4f6f9');
+      // These must match --eco-bg for each theme in index.css. They were
+      // #0a0a0f / #f4f6f9, neither of which the app has used for some time,
+      // so the phone's chrome sat a shade off the page it framed.
+      themeColorMeta.setAttribute('content', theme === 'dark' ? '#0b0f0a' : '#f5f3ec');
     }
 
     try {

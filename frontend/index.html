@@ -2,7 +2,7 @@
 <!-- This is the only real HTML page in the whole app. React builds every screen
      inside the <div id="root"> below - that is what "single page application" means. -->
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,8 +12,10 @@
       name="description"
       content="Track, understand and reduce your personal carbon footprint across seven categories. Built for SDG 13: Climate Action."
     />
-    <!-- Colours the browser chrome on mobile to match the dark theme -->
-    <meta name="theme-color" content="#0b0f0a" />
+    <!-- Colours the browser chrome on mobile to match the light theme. The
+         value is kept in step with --eco-bg by ThemeContext when the user
+         toggles; this is only the pre-JavaScript default. -->
+    <meta name="theme-color" content="#f5f3ec" />
 
     <!-- Google Fonts: Space Grotesk for headings, Inter for body text.
          preconnect tells the browser to open the connection early, which makes
@@ -46,11 +48,16 @@
       (function applySavedTheme() {
         try {
           var saved = localStorage.getItem('ecotrack-theme');
-          if (saved === 'light' || saved === 'dark') {
-            document.documentElement.setAttribute('data-theme', saved);
-          }
+          // Light is the default now, so an unset preference must be written
+          // out explicitly - <html> ships with data-theme="light" for the very
+          // first paint, and anyone who previously chose dark keeps it.
+          document.documentElement.setAttribute(
+            'data-theme',
+            saved === 'dark' ? 'dark' : 'light'
+          );
         } catch (error) {
-          // localStorage can throw in private browsing mode - dark stays as the default
+          // localStorage throws in some private browsing modes - the attribute
+          // already on <html> stands, so light is what renders
         }
       })();
     </script>
