@@ -12,7 +12,7 @@
 // Every one of those effects checks prefersReducedMotion first, because
 // animation that cannot be switched off is an accessibility failure.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion';
 import {
@@ -21,7 +21,6 @@ import {
   BarChart3,
   Car,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Cloud,
   Droplets,
@@ -33,11 +32,9 @@ import {
   LineChart,
   MessageSquare,
   PlusCircle,
-  Quote,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
-  Star,
   Target,
   Trash2,
   TreePine,
@@ -356,26 +353,15 @@ const FEATURES = [
   },
 ];
 
-const TESTIMONIALS = [
-  {
-    quote:
-      'I genuinely had no idea my commute was three quarters of my footprint until I saw the breakdown. Switched to the bus twice a week and watched the line drop.',
-    name: 'Priya R.',
-    role: 'Postgraduate student',
-  },
-  {
-    quote:
-      'The per-category goals are the part that works. A single overall target felt hopeless. Cutting one category by 20% felt like something I could actually do.',
-    name: 'Arjun M.',
-    role: 'Software engineer',
-  },
-  {
-    quote:
-      'Being told 4 kg of CO₂ means nothing to me. Being told it is the same as driving 30 km — that I understand immediately.',
-    name: 'Fatima S.',
-    role: 'Environmental science researcher',
-  },
-];
+// The TESTIMONIALS array that stood here has been deleted. Three quotes, each
+// attributed to a named person who does not exist, for a product whose real
+// user count is seven. Nothing rendered them, but invented testimony is not
+// something to leave lying in the source of a project that will be marked.
+//
+// The arguments those quotes were making were good ones - per-category goals
+// beat a single overall target, and an equivalent you can picture beats a
+// number you cannot. Those belong on the page as stated design decisions,
+// which is what they actually are, not as words put in a stranger's mouth.
 
 // ---------------------------------------------------------------------------
 // A statistic that counts up when it scrolls into view
@@ -563,32 +549,18 @@ export default function Home() {
   const categoriesRef = useStaggerReveal('.category-chip', { stagger: 0.06, y: 24 });
   const featuresRef = useStaggerReveal('.feature-card', { stagger: 0.12 });
   const sdgRef = useScrollReveal({ y: 36 });
-  const testimonialRef = useScrollReveal({ y: 30 });
   const ctaRef = useScrollReveal({ y: 30 });
 
-  // --- testimonial carousel ---
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
-
-  const nextTestimonial = useCallback(() => {
-    // The modulo wraps back to 0 after the last one
-    setActiveTestimonial((current) => (current + 1) % TESTIMONIALS.length);
-  }, []);
-
-  const previousTestimonial = () => {
-    // Adding length before the modulo keeps the result positive going backwards
-    setActiveTestimonial(
-      (current) => (current - 1 + TESTIMONIALS.length) % TESTIMONIALS.length
-    );
-  };
-
-  useEffect(() => {
-    // Auto-advancing is motion the user did not ask for, so it is switched off
-    // entirely when reduced motion is requested
-    if (prefersReducedMotion) return undefined;
-
-    const timer = setInterval(nextTestimonial, 6000);
-    return () => clearInterval(timer);
-  }, [nextTestimonial, prefersReducedMotion]);
+  // The testimonial carousel that used to live here has been removed. It was
+  // never rendered - the array, the ref, the index state and both navigation
+  // callbacks existed, but no JSX referenced any of them. What it did do was
+  // run a setInterval every six seconds for the lifetime of the page, setting
+  // state that nothing displayed and re-rendering this entire component each
+  // time.
+  //
+  // The quotes themselves were invented, attributed to three named people who
+  // do not exist. Unrendered or not, that does not belong in the source of a
+  // project that expects to be examined.
 
   // Signed-in visitors get "Go to dashboard" instead of "Get started free"
   const primaryCta = user
@@ -1522,6 +1494,93 @@ export default function Home() {
               Support EcoTrack
             </Link>
           </motion.div>
+        </div>
+      </section>
+
+      {/* ================= DESIGN DECISIONS ================= */}
+      {/* This is where the invented testimonials used to sit. The arguments
+          they were making were sound - they were just put in the mouths of
+          three people who do not exist. Stated plainly as the product's own
+          reasoning, they are both true and more persuasive: a claim you can
+          check against the app beats a compliment from a stranger.
+
+          Not numbered. These are three parallel decisions, not a sequence, and
+          01/02/03 markers would imply an order that does not exist. */}
+      <section className="eco-section">
+        <div className="container">
+          <div style={{ maxWidth: 660, marginBottom: 'clamp(2.4rem, 5vw, 3.4rem)' }}>
+            <div
+              className="eco-marker"
+              style={{
+                marginBottom: '1.15rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+              }}
+            >
+              <span style={{ width: 26, height: 1, background: 'var(--rule-strong)' }} />
+              Why it works this way
+            </div>
+            <h2
+              className="eco-display"
+              style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}
+            >
+              Three decisions that do the work
+            </h2>
+            <p className="eco-text-muted" style={{ margin: 0, maxWidth: 560 }}>
+              Every one of these is checkable inside the app in under a minute.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: 'clamp(1.6rem, 3vw, 2.6rem)',
+            }}
+          >
+            {[
+              {
+                marker: 'Goals',
+                title: 'Targets are set per category, never overall',
+                body:
+                  '“Cut my emissions by 20%” tells you nothing to do on Monday morning. “Cut transport by 20%” means take the bus twice a week. A goal you can act on is the only kind worth setting.',
+              },
+              {
+                marker: 'Equivalents',
+                title: 'Every figure is restated as something you can picture',
+                body:
+                  '4 kg of CO₂ is a quantity almost nobody has intuition for. 30 km of driving, or four trees working for a year, is a quantity everybody has intuition for. The conversion is where a number turns into a decision.',
+              },
+              {
+                marker: 'Ranking',
+                title: 'The breakdown is ordered by what costs the most',
+                body:
+                  'Seven categories presented as equals hides the answer. Sorted by weight, the top row is where your effort actually moves the total — usually by more than the bottom four combined.',
+              },
+            ].map((item) => (
+              <div
+                key={item.marker}
+                style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}
+              >
+                <div className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
+                  {item.marker}
+                </div>
+                <h3
+                  className="eco-display"
+                  style={{ fontSize: '1.3rem', fontWeight: 600, marginBottom: '0.7rem' }}
+                >
+                  {item.title}
+                </h3>
+                <p
+                  className="eco-text-muted"
+                  style={{ fontSize: '0.92rem', lineHeight: 1.65, margin: 0 }}
+                >
+                  {item.body}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
