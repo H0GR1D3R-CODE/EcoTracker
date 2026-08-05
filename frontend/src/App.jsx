@@ -3,7 +3,7 @@
 // fade-and-slide transition, and catches crashes so a bug in one page never
 // takes the whole app down.
 
-import React, { useEffect } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import NProgress from 'nprogress';
@@ -16,21 +16,39 @@ import Assistant from './components/Assistant';
 import PublicHelper from './components/PublicHelper';
 import { useTheme } from './context/ThemeContext';
 
+import LoadingSpinner from './components/LoadingSpinner';
+
+// ---------------------------------------------------------------------------
+// CODE SPLITTING
+//
+// Every page used to be imported eagerly, which put the whole app - admin
+// console, chart pages, the lot - into one 571 kB file that a first-time
+// visitor downloaded before seeing the landing page.
+//
+// lazy() gives each page its own chunk, fetched when its route is first
+// opened. Home stays eager: it is the landing page and by far the most common
+// entry point, so deferring it would only add a round trip before first paint.
+//
+// This also stops the charting library loading for people who never open a
+// page that draws one.
+// ---------------------------------------------------------------------------
+
 import Home from './pages/Home';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import About from './pages/About';
-import Learn from './pages/Learn';
-import Gallery from './pages/Gallery';
-import Estimate from './pages/Estimate';
-import Feedback from './pages/Feedback';
-import Donate from './pages/Donate';
-import Dashboard from './pages/Dashboard';
-import CalculatorPage from './pages/Calculator';
-import Goals from './pages/Goals';
-import Reports from './pages/Reports';
-import Profile from './pages/Profile';
-import AdminDashboard from './pages/AdminDashboard';
+
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const About = lazy(() => import('./pages/About'));
+const Learn = lazy(() => import('./pages/Learn'));
+const Gallery = lazy(() => import('./pages/Gallery'));
+const Estimate = lazy(() => import('./pages/Estimate'));
+const Feedback = lazy(() => import('./pages/Feedback'));
+const Donate = lazy(() => import('./pages/Donate'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const CalculatorPage = lazy(() => import('./pages/Calculator'));
+const Goals = lazy(() => import('./pages/Goals'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Profile = lazy(() => import('./pages/Profile'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 // ---------------------------------------------------------------------------
 // ERROR BOUNDARY
@@ -189,6 +207,24 @@ export default function App() {
             interrupting an exit animation so the "exit complete" callback never
             fires and the view freezes until a full reload. Remounting on the
             location key gives a clean enter animation with none of that risk. */}
+        {/* Shown only while a page's chunk is in flight - usually a few
+            hundred milliseconds on a first visit to that route, and nothing at
+            all afterwards, because the browser caches it. Sized to the same
+            min-height the pages use so the footer does not jump up and back. */}
+        <Suspense
+          fallback={
+            <div
+              style={{
+                minHeight: '70dvh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <LoadingSpinner size="lg" />
+            </div>
+          }
+        >
         <Routes location={location} key={location.pathname}>
             {/* ---------- Public ---------- */}
             <Route path="/" element={<MotionPage><Home /></MotionPage>} />
@@ -261,6 +297,7 @@ export default function App() {
             {/* replace means the bad URL does not stay in the back button history */}
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </ErrorBoundary>
 
       {/* The marketing footer. It renders itself to null for signed-in users,
