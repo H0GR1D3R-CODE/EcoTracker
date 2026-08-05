@@ -88,6 +88,12 @@ export default function AdminDashboard() {
   const [totalPaise, setTotalPaise] = useState(0);
   const [deletingDonationId, setDeletingDonationId] = useState(null);
 
+  // Live service status. Kept out of the main load()'s Promise.all: it makes a
+  // real round trip to Firestore to time it, so pairing it with the queries it
+  // is measuring would slow every dashboard load to prove a point.
+  const [system, setSystem] = useState(null);
+  const [systemLoading, setSystemLoading] = useState(false);
+
   // The per-user drill-down: which user's full detail is open, the loaded data,
   // and whether it is still loading / failed
   const [detailUid, setDetailUid] = useState(null);
@@ -132,6 +138,37 @@ export default function AdminDashboard() {
       setDeletingFeedbackId(null);
     }
   };
+
+  const loadSystem = async () => {
+    setSystemLoading(true);
+    try {
+      setSystem(await adminApi.getSystem());
+    } catch (requestError) {
+      // A failed health check is itself a health signal, so show it as one
+      // rather than as an empty panel.
+      setSystem({
+        overall: 'down',
+        checks: [
+          {
+            id: 'api',
+            label: 'API',
+            status: 'down',
+            detail: getErrorMessage(requestError, 'The status check itself failed.'),
+          },
+        ],
+      });
+    } finally {
+      setSystemLoading(false);
+    }
+  };
+
+  // Fetch on first visit to the tab, then leave it alone - it has its own
+  // refresh button, and re-running a timed round trip on every tab switch
+  // would be noise.
+  useEffect(() => {
+    if (tab === 'system' && !system && !systemLoading) loadSystem();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   const handleDeleteDonation = async (id, amount) => {
     setDeletingDonationId(id);
@@ -656,6 +693,7 @@ export default function AdminDashboard() {
           { id: 'users', label: 'Users', icon: Users, count: users.length },
           { id: 'donations', label: 'Donations', icon: HeartHandshake, count: donations.length },
           { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: feedback.length },
+          { id: 'system', label: 'System', icon: Activity, count: null, dot: system?.overall },
         ].map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
@@ -704,6 +742,25 @@ export default function AdminDashboard() {
               >
                 <Icon size={16} />
                 {item.label}
+                {/* a status pip on the System tab, so a problem is visible
+                    without opening it */}
+                {item.dot && (
+                  <span
+                    title={`System status: ${item.dot}`}
+                    style={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      flexShrink: 0,
+                      background:
+                        item.dot === 'ok'
+                          ? 'var(--eco-primary)'
+                          : item.dot === 'warn'
+                            ? 'var(--eco-orange)'
+                            : 'var(--eco-danger)',
+                    }}
+                  />
+                )}
                 {item.count != null && (
                   <span
                     className="eco-tabular"
@@ -1868,6 +1925,165 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      </motion.div>
+      )}
+
+      {/* ============ SYSTEM TAB ============ */}
+      {tab === 'system' && (
+      <motion.div
+        key="tab-system"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+        <div className="eco-card">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap',
+              marginBottom: '0.3rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Activity size={18} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Service status</h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadSystem}
+              disabled={systemLoading}
+              className="eco-btn eco-btn-ghost"
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
+            >
+              <RefreshCw
+                size={14}
+                style={systemLoading ? { animation: 'eco-spin 0.9s linear infinite' } : undefined}
+              />
+              Re-check
+            </button>
+          </div>
+
+          <p className="eco-text-muted" style={{ margin: '0 0 1.5rem', fontSize: '0.82rem' }}>
+            Checked live against the running server — never shows a key, only
+            whether one is present
+          </p>
+
+          {!system && systemLoading && (
+            <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+              Checking services…
+            </p>
+          )}
+
+          {system && (
+            <div style={{ display: 'grid', gap: '0.8rem' }}>
+              {system.checks.map((check, index) => {
+                const colour =
+                  check.status === 'ok'
+                    ? 'var(--eco-primary)'
+                    : check.status === 'warn'
+                      ? 'var(--eco-orange)'
+                      : 'var(--eco-danger)';
+                return (
+                  <motion.div
+                    key={check.id}
+                    initial={prefersReducedMotion ? false : { opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.07, duration: 0.35 }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.9rem',
+                      padding: '0.95rem 1.1rem',
+                      borderRadius: 'var(--eco-radius-sm)',
+                      border: '1px solid var(--eco-border)',
+                      background: 'rgba(var(--eco-primary-rgb), 0.03)',
+                    }}
+                  >
+                    {/* a live dot: healthy services breathe, problems sit still
+                        and coloured, so the eye goes to what is wrong */}
+                    <span style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
+                      {check.status === 'ok' && !prefersReducedMotion && (
+                        <motion.span
+                          animate={{ scale: [1, 2.4], opacity: [0.55, 0] }}
+                          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            borderRadius: '50%',
+                            background: colour,
+                          }}
+                        />
+                      )}
+                      <span
+                        style={{
+                          width: 11,
+                          height: 11,
+                          borderRadius: '50%',
+                          background: colour,
+                          position: 'relative',
+                        }}
+                      />
+                    </span>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{check.label}</div>
+                      <div
+                        className="eco-text-muted"
+                        style={{ fontSize: '0.78rem', wordBreak: 'break-word' }}
+                      >
+                        {check.detail}
+                      </div>
+                    </div>
+
+                    {check.latencyMs != null && (
+                      <span
+                        className="eco-tabular"
+                        title="Round trip to Firestore and back"
+                        style={{
+                          fontSize: '0.76rem',
+                          flexShrink: 0,
+                          color:
+                            check.latencyMs > 1500 ? 'var(--eco-orange)' : 'var(--eco-text-muted)',
+                        }}
+                      >
+                        {check.latencyMs} ms
+                      </span>
+                    )}
+
+                    <span
+                      style={{
+                        fontSize: '0.66rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        padding: '0.18rem 0.5rem',
+                        borderRadius: 999,
+                        flexShrink: 0,
+                        color: colour,
+                        background: 'var(--eco-border)',
+                      }}
+                    >
+                      {check.status}
+                    </span>
+                  </motion.div>
+                );
+              })}
+
+              {system.generatedAt && (
+                <p
+                  className="eco-text-muted"
+                  style={{ fontSize: '0.72rem', margin: '0.4rem 0 0', textAlign: 'right' }}
+                >
+                  Checked {formatRelativeDate(system.generatedAt)}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </motion.div>
       )}
 

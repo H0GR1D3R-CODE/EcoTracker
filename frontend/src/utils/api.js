@@ -274,6 +274,10 @@ export const adminApi = {
   // Deletes EcoTrack's record of a donation, not the payment itself
   deleteDonation: (donationId) =>
     api.delete(`/api/admin/donations/${donationId}`).then(unwrap),
+
+  // Live status of Firestore, Razorpay, the assistant and the API itself.
+  // Returns booleans and the PUBLIC Razorpay key id only - never a secret.
+  getSystem: () => api.get('/api/admin/system').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
