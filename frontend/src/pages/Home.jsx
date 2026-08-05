@@ -237,7 +237,9 @@ const CATEGORIES = [
       ['Train', 0.041],
       ['Bicycle', 0.0],
     ],
-    tip: 'Swapping one 20 km car trip a week for the train cuts about 80% of that journey’s carbon.',
+    // 70%, not 80%: (0.141 - 0.041) / 0.141 = 70.9%, from the petrol-car and
+    // train factors listed in this very card.
+    tip: 'Swapping one 20 km car trip a week for the train cuts about 70% of that journey’s carbon.',
   },
   {
     icon: Zap,
