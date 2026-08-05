@@ -25,6 +25,7 @@ hole. Do it by hand once:
 Mounted at /api/admin
 """
 
+import time
 from datetime import date, datetime, timezone
 
 from flask import Blueprint, g, request
@@ -670,3 +671,136 @@ def delete_donation(donation_id):
 
     ref.delete()
     return api_success({"id": donation_id}, message="Donation record deleted.")
+
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/system
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/system", methods=["GET"])
+@require_admin
+def system_health():
+    """
+    Live status of every external service EcoTrack depends on.
+
+    WHAT THIS DELIBERATELY DOES NOT RETURN
+    No secret, or any part of one. Only booleans ("a key is present"), the
+    PUBLIC Razorpay key id, and the model name. A health endpoint that echoed
+    key material back would be a far worse problem than the outage it was
+    built to diagnose - and this route, while admin-gated, is still reachable
+    over the network.
+
+    Each check reports one of:
+        ok    working, and proven so where a live call was possible
+        warn  reachable but not fully configured - a feature is switched off
+        down  configured but not responding
+    """
+    checks = []
+
+    # --- Firestore: timed, because a slow database is a real symptom that a
+    # simple up/down check would miss entirely ---
+    started = time.perf_counter()
+    try:
+        db = get_db()
+        # Reading one document is the cheapest possible proof of a round trip
+        next(db.collection(Config.COLLECTION_USERS).limit(1).stream(), None)
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        checks.append({
+            "id": "firestore",
+            "label": "Firestore",
+            "status": "ok",
+            "detail": f"Connected to {Config.FIREBASE_PROJECT_ID or 'project'}",
+            "latencyMs": latency_ms,
+        })
+    except Exception as error:
+        checks.append({
+            "id": "firestore",
+            "label": "Firestore",
+            "status": "down",
+            # The class name says what broke without echoing connection strings
+            "detail": f"Unreachable ({type(error).__name__})",
+            "latencyMs": int((time.perf_counter() - started) * 1000),
+        })
+
+    # --- Razorpay: presence of both halves, and which mode the key id implies ---
+    key_id = Config.RAZORPAY_KEY_ID
+    has_secret = bool(Config.RAZORPAY_KEY_SECRET)
+    if key_id and has_secret:
+        live = key_id.startswith("rzp_live_")
+        checks.append({
+            "id": "razorpay",
+            "label": "Razorpay",
+            "status": "ok",
+            "detail": f"{'LIVE' if live else 'Test'} mode · {key_id}",
+            "mode": "live" if live else "test",
+        })
+    else:
+        missing = []
+        if not key_id:
+            missing.append("RAZORPAY_KEY_ID")
+        if not has_secret:
+            missing.append("RAZORPAY_KEY_SECRET")
+        checks.append({
+            "id": "razorpay",
+            "label": "Razorpay",
+            "status": "warn",
+            "detail": f"Donations off — missing {' and '.join(missing)}",
+        })
+
+    # --- Assistant ---
+    if Config.GEMINI_API_KEY:
+        checks.append({
+            "id": "assistant",
+            "label": "AI assistant",
+            "status": "ok",
+            "detail": f"Key set · {Config.ASSISTANT_MODEL}",
+        })
+    else:
+        checks.append({
+            "id": "assistant",
+            "label": "AI assistant",
+            "status": "warn",
+            "detail": "Assistant off — no GEMINI_API_KEY",
+        })
+
+    # --- Admin access model ---
+    if Config.ADMIN_EMAILS:
+        checks.append({
+            "id": "admin",
+            "label": "Admin access",
+            "status": "ok",
+            "detail": f"{len(Config.ADMIN_EMAILS)} allow-listed address"
+                      f"{'' if len(Config.ADMIN_EMAILS) == 1 else 'es'}",
+        })
+    else:
+        checks.append({
+            "id": "admin",
+            "label": "Admin access",
+            "status": "warn",
+            "detail": "No ADMIN_EMAILS — falling back to the admins collection",
+        })
+
+    # --- The API answering this request, by definition, is up ---
+    checks.append({
+        "id": "api",
+        "label": "API",
+        "status": "ok" if not Config.DEBUG else "warn",
+        "detail": (
+            f"{Config.FLASK_ENV} mode"
+            + (" — DEBUG is on, do not ship this" if Config.DEBUG else "")
+        ),
+    })
+
+    worst = "ok"
+    for check in checks:
+        if check["status"] == "down":
+            worst = "down"
+            break
+        if check["status"] == "warn":
+            worst = "warn"
+
+    return api_success({
+        "checks": checks,
+        "overall": worst,
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+    })
