@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -494,8 +494,8 @@ function RevealWord({ word, delay, accent, reduced, isLast }) {
 //
 // Hover states are now symmetric and contained - the element grows or glows in
 // place, on its own centre, and never moves anything around it. Entrance
-// animations play once and stop. The only thing that tracks the pointer is the
-// spotlight in the hero, because light has no edges to look misaligned.
+// animations play once and stop. Nothing tracks the pointer.
+
 
 // ---------------------------------------------------------------------------
 // THE PAGE
@@ -510,17 +510,9 @@ export default function Home() {
   // opposite of the calm, premium feel we want. The hero now holds still: the
   // dot grid, the static glow orbs and the one-time word reveal carry it.
 
-  // --- cursor spotlight ---
-  // A soft light that follows the pointer around the hero.
-  //
-  // Note what this deliberately does NOT do: it never moves the headline or the
-  // paragraph. Drifting text with the cursor leaves every glyph sitting at a
-  // fractional pixel position, and the browser has to anti-alias it differently
-  // on every frame - which reads as blurry, unstable text rather than as motion.
-  // Type stays locked to the pixel grid; only light moves.
-  const spotlightX = useMotionValue(0);
-  const spotlightY = useMotionValue(0);
-  const [spotlightVisible, setSpotlightVisible] = useState(false);
+  // The cursor spotlight was removed with the glow orbs: two motion values, a
+  // spring pair, a visibility flag and two pointer handlers, all driving an
+  // effect that only ever made sense over a near-black page.
 
   // Which category's detail panel is open (null = none). Set by clicking a
   // category card in the "Seven categories" section.
@@ -528,23 +520,6 @@ export default function Home() {
 
   // Which landing-page FAQ answer is expanded (-1 = all closed).
   const [openFaq, setOpenFaq] = useState(0);
-
-  // The spring is what stops the light being welded to the cursor - it trails
-  // slightly behind, which is what makes it feel like a light rather than a dot
-  const smoothSpotlightX = useSpring(spotlightX, { stiffness: 130, damping: 26, mass: 0.5 });
-  const smoothSpotlightY = useSpring(spotlightY, { stiffness: 130, damping: 26, mass: 0.5 });
-
-  const handleHeroPointerMove = (event) => {
-    if (prefersReducedMotion) return;
-
-    const bounds = event.currentTarget.getBoundingClientRect();
-    spotlightX.set(event.clientX - bounds.left);
-    spotlightY.set(event.clientY - bounds.top);
-
-    if (!spotlightVisible) setSpotlightVisible(true);
-  };
-
-  const handleHeroPointerLeave = () => setSpotlightVisible(false);
 
   // --- scroll animations ---
   const statsRef = useScrollReveal({ y: 30 });
@@ -572,54 +547,23 @@ export default function Home() {
   return (
     <div>
       {/* ================= HERO ================= */}
-      <section
-        className="eco-hero eco-dot-grid"
-        onPointerMove={handleHeroPointerMove}
-        onPointerLeave={handleHeroPointerLeave}
-      >
-        {/* Static ambient glows. These do not move: a slowly drifting background
-            behind sharp text is what made the page feel unsteady. */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <div
-            className="eco-glow-orb eco-glow-orb-green"
-            style={{ width: 560, height: 560, top: '-16%', left: '-12%' }}
-          />
-          <div
-            className="eco-glow-orb eco-glow-orb-purple"
-            style={{ width: 480, height: 480, bottom: '-18%', right: '-10%' }}
-          />
-        </div>
-
-        {/* The cursor spotlight. It is a fixed-size gradient that gets TRANSLATED
-            to the pointer, rather than a gradient whose position is recalculated -
-            translation is handled by the compositor and costs virtually nothing. */}
-        {!prefersReducedMotion && (
-          <motion.div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: 620,
-              height: 620,
-              // The negative margins centre the light on the cursor
-              marginLeft: -310,
-              marginTop: -310,
-              x: smoothSpotlightX,
-              y: smoothSpotlightY,
-              borderRadius: '50%',
-              background:
-                'radial-gradient(circle closest-side, rgba(0,255,135,0.13), rgba(124,58,237,0.07) 45%, transparent 100%)',
-              pointerEvents: 'none',
-              zIndex: 1,
-              opacity: spotlightVisible ? 1 : 0,
-              transition: 'opacity 0.45s ease',
-            }}
-          />
-        )}
+      <section className="eco-hero eco-dot-grid">
+        {/* The two ambient glow orbs and the cursor-following spotlight that
+            used to sit here are gone.
+            All three were dark-ground effects: coloured light bleeding out of a
+            near-black page. On paper a neon-green radial glow does not read as
+            light, it reads as a smudge - and a spotlight that follows the
+            pointer is decoration that says nothing about the product.
+            An instrument does not glow. What is left is the paper, the rule,
+            and the type, which is the whole point of this direction. */}
 
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
-          <div style={{ maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
+          {/* Left-aligned, not centred. Centred hero copy is the default
+              arrangement on every landing page; ranging it left gives the
+              headline a spine to hang off, sets up a real column measure for
+              the paragraph, and lines the whole block up with the calibration
+              rail running down the same edge. */}
+          <div style={{ maxWidth: 940, textAlign: 'left' }}>
             {/* Was a pill with a gradient ring - the single most templated
                 element on the page, and the kind of thing that appears on every
                 SaaS landing page regardless of what it sells.
@@ -636,12 +580,10 @@ export default function Home() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
                 gap: '0.85rem',
-                marginBottom: '2rem',
+                marginBottom: '2.2rem',
               }}
             >
-              <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
               <span className="eco-marker">Atmospheric CO<sub>2</sub></span>
               <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
                 425 PPM
@@ -693,7 +635,8 @@ export default function Home() {
               style={{
                 fontSize: 'clamp(1rem, 2.2vw, 1.18rem)',
                 maxWidth: 620,
-                margin: '0 auto 2.2rem',
+                margin: '0 0 2.4rem',
+                maxWidth: '54ch',
               }}
             >
               EcoTrack turns everyday choices — your commute, your meals, your
@@ -708,7 +651,6 @@ export default function Home() {
               style={{
                 display: 'flex',
                 gap: '0.85rem',
-                justifyContent: 'center',
                 flexWrap: 'wrap',
               }}
             >
