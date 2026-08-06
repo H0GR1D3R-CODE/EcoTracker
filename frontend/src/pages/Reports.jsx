@@ -19,7 +19,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { format as formatDateFns, startOfMonth, startOfYear, subMonths } from 'date-fns';
+import { format as formatDateFns, startOfDay, startOfMonth, startOfWeek, startOfYear } from 'date-fns';
 import {
   AlertCircle,
   CalendarRange,
@@ -35,7 +35,6 @@ import { assistantApi, getErrorMessage, reportsApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import ImpactEquivalents from '../components/ImpactEquivalents';
-import SelectField from '../components/SelectField';
 import PageBanner from '../components/PageBanner';
 import { CATEGORY_META } from '../utils/emissionHelpers';
 import {
@@ -50,10 +49,16 @@ import {
 // roughly 2 tonnes per person per year - about 5.5 kg a day.
 const DAILY_BUDGET_KG = 2000 / 365;
 
+// Every preset here is "from the start of the period to today" - the same
+// rule applied at four scales, so choosing between them is really just
+// choosing a zoom level. Custom is the odd one out and stays that way: it
+// does not compute a range, it lets you pick one.
 const REPORT_TYPES = [
+  { value: 'daily', label: 'Today', hint: 'Just today' },
+  { value: 'weekly', label: 'This week', hint: 'From Monday to today' },
   { value: 'monthly', label: 'This month', hint: 'From the 1st to today' },
   { value: 'yearly', label: 'This year', hint: 'From 1 January to today' },
-  { value: 'custom', label: 'Custom range', hint: 'Pick any two dates' },
+  { value: 'custom', label: 'Custom', hint: 'Pick any two dates' },
 ];
 
 /**
@@ -250,14 +255,21 @@ export default function Reports() {
     }
   };
 
-  // The two preset periods fill the dates in for you. "Custom" is left alone
-  // on purpose: switching to it keeps whatever dates are already showing, so
-  // you can nudge one end without the range jumping back to a default. When a
+  // Four preset periods fill the dates in for you, "custom" is left alone on
+  // purpose: switching to it keeps whatever dates are already showing, so you
+  // can nudge one end without the range jumping back to a default. When a
   // date is edited directly (see handleStartChange below) the type flips to
   // custom, and this effect must NOT then reset it - hence the empty branch.
   useEffect(() => {
     const today = new Date();
-    if (reportType === 'monthly') {
+    if (reportType === 'daily') {
+      setStartDate(startOfDay(today));
+      setEndDate(today);
+    } else if (reportType === 'weekly') {
+      // weekStartsOn: 1 -> Monday, not Sunday
+      setStartDate(startOfWeek(today, { weekStartsOn: 1 }));
+      setEndDate(today);
+    } else if (reportType === 'monthly') {
       setStartDate(startOfMonth(today));
       setEndDate(today);
     } else if (reportType === 'yearly') {
@@ -383,6 +395,59 @@ export default function Reports() {
 
       {/* ============ CONTROLS ============ */}
       <div className="eco-card eco-no-print" style={{ marginBottom: '1.5rem' }}>
+        {/* The period used to be a dropdown - one click to open, one more to
+            read the options, a third to pick. A segmented row shows every
+            choice at once, so "which periods can I even ask for?" is answered
+            just by looking, and the current one is never hidden behind a
+            closed control. */}
+        <div style={{ marginBottom: '1.2rem' }}>
+          <span
+            className="eco-text-muted"
+            style={{ fontSize: '0.72rem', fontWeight: 500, display: 'block', marginBottom: '0.55rem' }}
+          >
+            Period
+          </span>
+          <div
+            role="radiogroup"
+            aria-label="Report period"
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '0.5rem',
+            }}
+          >
+            {REPORT_TYPES.map((item) => {
+              const active = reportType === item.value;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setReportType(item.value)}
+                  title={item.hint}
+                  style={{
+                    padding: '0.55rem 1.1rem',
+                    borderRadius: 'var(--eco-radius-sm)',
+                    border: `1px solid ${active ? 'var(--eco-primary)' : 'var(--eco-border)'}`,
+                    background: active ? 'rgba(var(--eco-primary-rgb), 0.12)' : 'transparent',
+                    color: active ? 'var(--eco-primary)' : 'var(--eco-text-muted)',
+                    fontWeight: active ? 600 : 500,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease',
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="eco-text-muted" style={{ fontSize: '0.78rem', margin: '0.6rem 0 0' }}>
+            {REPORT_TYPES.find((item) => item.value === reportType)?.hint}
+          </p>
+        </div>
+
         <div
           style={{
             display: 'grid',
@@ -391,14 +456,6 @@ export default function Reports() {
             alignItems: 'start',
           }}
         >
-          <SelectField
-            id="report-type"
-            label="Period"
-            value={reportType}
-            onChange={setReportType}
-            options={REPORT_TYPES}
-          />
-
           <div>
             <label
               className="eco-text-muted"
