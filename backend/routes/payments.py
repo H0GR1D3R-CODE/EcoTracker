@@ -42,6 +42,7 @@ from flask import Blueprint, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
+from email_service import send_donation_thank_you_email
 from routes import api_error, api_success, verify_token
 
 payments_bp = Blueprint("payments", __name__, url_prefix="/api")
@@ -219,15 +220,20 @@ def verify_payment():
 
     # Verified. Record the donation as best-effort: a Firestore hiccup must not
     # turn a real, verified payment into an error for the person who just paid.
+    amount = _to_int(body.get("amount"))       # paise; may be None
+    currency = (str(body.get("currency", "INR")).strip().upper() or "INR")[:3]
+    name = str(body.get("name", "")).strip()[:MAX_NAME] or "Anonymous"
+    email = str(body.get("email", "")).strip().lower()[:MAX_EMAIL]
+
     try:
         db = get_db()
         db.collection(COLLECTION_DONATIONS).add({
             "razorpayOrderId": order_id,
             "razorpayPaymentId": payment_id,
-            "amount": _to_int(body.get("amount")),      # paise; may be None
-            "currency": (str(body.get("currency", "INR")).strip().upper() or "INR")[:3],
-            "name": str(body.get("name", "")).strip()[:MAX_NAME] or "Anonymous",
-            "email": str(body.get("email", "")).strip().lower()[:MAX_EMAIL],
+            "amount": amount,
+            "currency": currency,
+            "name": name,
+            "email": email,
             # None for an anonymous donor. When present it comes from a verified
             # token, never from the request body, so it cannot be spoofed - this
             # is what lets the admin console show a user's own giving history.
@@ -237,6 +243,15 @@ def verify_payment():
     except Exception:
         # Swallow deliberately - the payment is real regardless of our logging.
         pass
+
+    # Best-effort thank-you email, same non-blocking pattern as the Firestore
+    # write above: only when a donor actually gave an email, and never able to
+    # turn a verified payment into an error response for them.
+    if email:
+        try:
+            send_donation_thank_you_email(email, name, amount, currency, payment_id)
+        except Exception:
+            pass
 
     return api_success(
         {"orderId": order_id, "paymentId": payment_id},
