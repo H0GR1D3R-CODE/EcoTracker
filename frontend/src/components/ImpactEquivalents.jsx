@@ -71,8 +71,8 @@ export default function ImpactEquivalents({
   // Nothing to translate yet - say so plainly rather than showing a row of zeros
   if (total <= 0) {
     return (
-      <div className="eco-card">
-        <h3 style={{ fontSize: '1.05rem', marginBottom: '0.5rem' }}>{title}</h3>
+      <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+        <h3 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.5rem' }}>{title}</h3>
         <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>
           Log an activity and this panel will translate it into distances, trees
           and units of electricity.
@@ -84,7 +84,7 @@ export default function ImpactEquivalents({
   const equivalents = [
     {
       icon: Car,
-      color: '#00ff87',
+      color: 'var(--cat-transport)',
       value: total / PETROL_CAR_KG_PER_KM,
       unit: 'km',
       label: 'Driving a petrol car',
@@ -92,7 +92,7 @@ export default function ImpactEquivalents({
     },
     {
       icon: Plug,
-      color: '#f59e0b',
+      color: 'var(--cat-electricity)',
       value: total / GRID_KG_PER_KWH,
       unit: 'units',
       label: 'Grid electricity burned',
@@ -100,7 +100,7 @@ export default function ImpactEquivalents({
     },
     {
       icon: Lightbulb,
-      color: '#eab308',
+      color: 'var(--cat-fuel)',
       value: total / LED_BULB_KG_PER_HOUR,
       unit: 'hours',
       label: 'A 9 W LED bulb left on',
@@ -108,7 +108,7 @@ export default function ImpactEquivalents({
     },
     {
       icon: Smartphone,
-      color: '#0ea5e9',
+      color: 'var(--cat-water)',
       value: total / PHONE_CHARGE_KG,
       unit: 'charges',
       label: 'Phone charges',
@@ -126,21 +126,22 @@ export default function ImpactEquivalents({
   const largestValue = Math.max(...equivalents.map((item) => item.value));
 
   return (
-    <div className="eco-card">
-      <h3 style={{ fontSize: '1.05rem', marginBottom: '0.25rem' }}>{title}</h3>
-      <p className="eco-text-muted" style={{ fontSize: '0.85rem', marginBottom: '1.4rem' }}>
+    <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+      <h3 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>{title}</h3>
+      <p className="eco-text-muted" style={{ fontSize: '0.85rem', marginBottom: '1.6rem' }}>
         {subtitle || `${formatNumber(total, 1)} kg of CO₂, expressed in everyday terms`}
       </p>
 
       {/* ---------- Tree pictogram ---------- */}
       {showPictogram && (
+        // The pictogram was boxed in a tinted, bordered panel - a green tint
+        // behind a row of green trees. A rule down its edge marks it as the
+        // one pictorial statement in the panel without tinting it.
         <div
           style={{
-            padding: '1.1rem',
-            borderRadius: 'var(--eco-radius-sm)',
-            background: 'rgba(var(--eco-primary-rgb), 0.05)',
-            border: '1px solid var(--eco-border)',
-            marginBottom: '1.4rem',
+            paddingLeft: '0.9rem',
+            borderLeft: '2px solid var(--eco-primary)',
+            marginBottom: '1.6rem',
           }}
         >
           <div
@@ -181,7 +182,10 @@ export default function ImpactEquivalents({
           </div>
 
           <div style={{ fontSize: '0.9rem' }}>
-            <strong style={{ color: 'var(--eco-primary)' }}>
+            {/* A count of trees is a derived quantity like any other, so it is
+                a readout - it was green, borrowing the colour of the trees it
+                counts. */}
+            <strong className="eco-readout" style={{ fontWeight: 600 }}>
               {formatNumber(wholeTrees, 0)} tree{wholeTrees === 1 ? '' : 's'}
             </strong>{' '}
             <span className="eco-text-muted">
@@ -208,42 +212,33 @@ export default function ImpactEquivalents({
                   marginBottom: '0.45rem',
                 }}
               >
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 9,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    background: `color-mix(in srgb, ${item.color} 10%, transparent)`,
-                    color: item.color,
-                  }}
-                >
-                  <Icon size={17} />
-                </div>
+                <Icon size={17} style={{ color: item.color, flexShrink: 0 }} />
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: '0.88rem', fontWeight: 500 }}>{item.label}</div>
-                  <div className="eco-text-muted" style={{ fontSize: '0.74rem' }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.7rem',
+                      color: 'var(--eco-text-muted)',
+                      opacity: 0.75,
+                    }}
+                  >
                     {item.note}
                   </div>
                 </div>
 
+                {/* Every one of these figures was bold Space Grotesk tinted the
+                    same colour as the bar under it. They are conversions of a
+                    measured value, so they are readouts. */}
                 <div
-                  style={{
-                    fontFamily: 'Space Grotesk, sans-serif',
-                    fontWeight: 700,
-                    fontSize: '1rem',
-                    whiteSpace: 'nowrap',
-                    color: item.color,
-                  }}
+                  className="eco-readout"
+                  style={{ fontWeight: 500, fontSize: '1.05rem', whiteSpace: 'nowrap' }}
                 >
                   {formatNumber(smartRound(item.value), item.value >= 10 ? 0 : 2)}
                   <span
-                    className="eco-text-muted"
-                    style={{ fontSize: '0.72rem', fontWeight: 600, marginLeft: '0.25rem' }}
+                    className="eco-marker"
+                    style={{ fontSize: '0.6rem', marginLeft: '0.3rem' }}
                   >
                     {item.unit}
                   </span>
@@ -252,14 +247,7 @@ export default function ImpactEquivalents({
 
               {/* The bar itself. Only its width animates, and width on a
                   transform-free element this small is cheap. */}
-              <div
-                style={{
-                  height: 6,
-                  borderRadius: 6,
-                  background: 'var(--eco-border)',
-                  overflow: 'hidden',
-                }}
-              >
+              <div style={{ height: 5, background: 'var(--rule)', overflow: 'hidden' }}>
                 <motion.div
                   initial={prefersReducedMotion ? false : { width: 0 }}
                   animate={{ width: `${fillPercent}%` }}
@@ -268,11 +256,7 @@ export default function ImpactEquivalents({
                     delay: 0.15 + index * 0.1,
                     ease: [0.22, 1, 0.36, 1],
                   }}
-                  style={{
-                    height: '100%',
-                    borderRadius: 6,
-                    background: `linear-gradient(90deg, ${item.color}, color-mix(in srgb, ${item.color} 53%, transparent))`,
-                  }}
+                  style={{ height: '100%', background: item.color }}
                 />
               </div>
             </div>

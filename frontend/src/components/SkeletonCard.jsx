@@ -23,34 +23,34 @@ export function SkeletonLine({ width = '100%', height = 14, radius = 6, style = 
 }
 
 /**
- * Placeholder for one of the four animated stat cards on the dashboard.
+ * Placeholder for one of the four readings on the dashboard.
+ *
+ * Shaped like a channel, not a card, because that is what StatCard renders now.
+ * A skeleton that does not match what replaces it defeats the entire point of
+ * having one: the page would settle into a different shape the moment the data
+ * landed, which is exactly the jump this is here to prevent.
  */
 export function SkeletonStatCard() {
   return (
-    <div className="eco-card" style={{ minHeight: 130 }}>
+    <div style={{ minHeight: 118, paddingTop: '0.95rem', borderTop: '1px solid var(--rule-strong)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <SkeletonLine width="45%" height={12} />
-        <SkeletonLine width={38} height={38} radius={10} />
+        <SkeletonLine width="45%" height={11} radius={2} />
+        <SkeletonLine width={18} height={18} radius={4} />
       </div>
-      <SkeletonLine width="65%" height={30} style={{ marginTop: '1.1rem' }} />
-      <SkeletonLine width="35%" height={11} style={{ marginTop: '0.7rem' }} />
+      <SkeletonLine width="60%" height={30} radius={3} style={{ marginTop: '1.1rem' }} />
+      <SkeletonLine width="35%" height={10} radius={2} style={{ marginTop: '0.9rem' }} />
     </div>
   );
 }
 
 /**
- * Placeholder for a chart panel.
+ * Placeholder for a chart panel - also a channel now.
  */
 export function SkeletonChart({ height = 300 }) {
   return (
-    <div className="eco-card">
-      <SkeletonLine width="35%" height={16} />
-      <SkeletonLine
-        width="100%"
-        height={height}
-        radius={12}
-        style={{ marginTop: '1.2rem' }}
-      />
+    <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+      <SkeletonLine width="35%" height={16} radius={3} />
+      <SkeletonLine width="100%" height={height} radius={6} style={{ marginTop: '1.4rem' }} />
     </div>
   );
 }
