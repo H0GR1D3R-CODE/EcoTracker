@@ -1360,6 +1360,32 @@ a:hover {
   }
 }
 
+/* ---- Estimate (Estimate.jsx) ---- */
+/* The questions column and the readout panel are NOT equal halves. The
+   questions carry four options each and need the width; the panel is a gauge
+   and reads better narrow. auto-fit with one minmax() cannot express that -
+   it splits the row evenly - so this is a real two-column rule with a
+   breakpoint, which is also the only place either column can be told to stack.
+   Below 900px the panel drops under the questions and stops being sticky:
+   pinning a tall readout to the top of a phone screen would leave the answers
+   almost no room to scroll in. */
+.eco-estimate-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+  gap: clamp(2rem, 4vw, 3.5rem);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .eco-estimate-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .eco-estimate-grid > * {
+    position: static !important;
+  }
+}
+
 /* ---- Site footer (Footer.jsx) ---- */
 .eco-footer-link {
   color: var(--eco-text-muted);
