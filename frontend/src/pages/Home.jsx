@@ -1232,7 +1232,12 @@ export default function Home() {
                       <div className="eco-text-muted" style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         {tile.label}
                       </div>
-                      <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '0.95rem', color: tile.color }}>
+                      {/* This is a mock of the real dashboard, so it has to
+                          look like the real dashboard. Those figures are mono
+                          readouts in the app now; leaving the mock in Space
+                          Grotesk would make the preview a picture of a version
+                          that no longer exists. */}
+                      <div className="eco-readout" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
                         {tile.value}
                       </div>
                     </div>
@@ -1301,40 +1306,37 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: false, amount: 0.3 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  whileHover={prefersReducedMotion ? {} : { y: -5 }}
-                  className="eco-card eco-card-hover"
+                  // The saving is set in amber, not in the category's colour.
+                  // That is the one rule the whole palette rests on: a measured
+                  // quantity never borrows the colour of the thing it measures,
+                  // so a reader can always tell a reading from a label. It was
+                  // previously a Space Grotesk figure tinted the same green as
+                  // the transport icon beside it, which blurred exactly that
+                  // distinction.
+                  style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}
                 >
+                  <Icon
+                    size={20}
+                    style={{ color: s.color, display: 'block', marginBottom: '1.1rem' }}
+                  />
+
                   <div
-                    style={{
-                      width: 46,
-                      height: 46,
-                      borderRadius: 13,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: `color-mix(in srgb, ${s.color} 13%, transparent)`,
-                      color: s.color,
-                      marginBottom: '1.1rem',
-                    }}
-                  >
-                    <Icon size={23} />
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      fontWeight: 700,
-                      fontSize: 'clamp(1.8rem, 4vw, 2.4rem)',
-                      lineHeight: 1,
-                      color: s.color,
-                    }}
+                    className="eco-readout"
+                    style={{ fontSize: 'clamp(1.7rem, 3.8vw, 2.3rem)', fontWeight: 500, lineHeight: 1 }}
                   >
                     {s.save}
                   </div>
-                  <div className="eco-text-muted" style={{ fontSize: '0.78rem', marginTop: '0.25rem', marginBottom: '1rem' }}>
+                  <div className="eco-marker" style={{ display: 'block', marginTop: '0.4rem' }}>
                     {s.unit}
                   </div>
-                  <h3 style={{ fontSize: '1.08rem', marginBottom: '0.35rem' }}>{s.action}</h3>
-                  <p className="eco-text-muted" style={{ fontSize: '0.88rem', margin: 0 }}>
+
+                  <h3
+                    className="eco-display"
+                    style={{ fontSize: '1.15rem', fontWeight: 600, margin: '1.1rem 0 0.35rem' }}
+                  >
+                    {s.action}
+                  </h3>
+                  <p className="eco-text-muted" style={{ fontSize: '0.88rem', margin: 0, lineHeight: 1.6 }}>
                     {s.detail}
                   </p>
                 </motion.div>
@@ -1384,50 +1386,55 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: false, amount: 0.25 }}
                   transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                  className="eco-card eco-card-hover"
-                  style={{ display: 'flex', flexDirection: 'column' }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    paddingTop: '1.05rem',
+                    borderTop: '1px solid var(--rule-strong)',
+                  }}
                 >
                   <div
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 13,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      // 1A ≈ 10% opacity of the org's accent colour
-                      background: `color-mix(in srgb, ${org.color} 10%, transparent)`,
-                      color: org.color,
-                      marginBottom: '1rem',
+                      gap: '0.55rem',
+                      marginBottom: '0.9rem',
                     }}
                   >
-                    <Icon size={24} />
+                    <Icon size={19} style={{ color: org.color, flexShrink: 0 }} />
+                    <span className="eco-marker">{org.focus}</span>
                   </div>
-                  <span
-                    style={{
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      color: org.color,
-                      marginBottom: '0.35rem',
-                    }}
+
+                  <h3
+                    className="eco-display"
+                    style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '0.5rem' }}
                   >
-                    {org.focus}
-                  </span>
-                  <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>{org.name}</h3>
-                  <p className="eco-text-muted" style={{ fontSize: '0.88rem', lineHeight: 1.6, margin: '0 0 1.2rem' }}>
+                    {org.name}
+                  </h3>
+                  <p className="eco-text-muted" style={{ fontSize: '0.88rem', lineHeight: 1.6, margin: '0 0 1.3rem' }}>
                     {org.body}
                   </p>
+
+                  {/* A text link with an arrow, not a full-width outlined
+                      button. Four identical buttons in a row competed with the
+                      page's actual primary action; these are four ways out to
+                      other people's sites, and should read as such. */}
                   <a
                     href={org.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="eco-btn eco-btn-outline"
-                    style={{ marginTop: 'auto', width: '100%' }}
+                    style={{
+                      marginTop: 'auto',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                      fontSize: '0.86rem',
+                      fontWeight: 600,
+                      color: 'var(--eco-primary)',
+                    }}
                   >
-                    Donate
-                    <ArrowUpRight size={16} />
+                    Donate to {org.name}
+                    <ArrowUpRight size={15} />
                   </a>
                 </motion.div>
               );
@@ -1459,36 +1466,26 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.5 }}
-            className="eco-card"
+            // The last floating card on Home. It sat centred at 780px while
+            // everything around it ranged left off a rule, so it read as a
+            // panel that had drifted in from the old design.
             style={{
-              marginTop: '2.6rem',
-              marginLeft: 'auto',
-              marginRight: 'auto',
-              maxWidth: 780,
+              marginTop: '2.8rem',
+              paddingTop: '1.3rem',
+              borderTop: '1px solid var(--rule-strong)',
               display: 'flex',
               alignItems: 'center',
               gap: '1.2rem',
               flexWrap: 'wrap',
             }}
           >
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 13,
-                flexShrink: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(var(--eco-primary-rgb), 0.14)',
-                color: 'var(--eco-primary)',
-              }}
-            >
-              <Leaf size={23} />
-            </div>
+            <Leaf size={22} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
 
             <div style={{ flex: '1 1 260px', minWidth: 0 }}>
-              <h3 style={{ fontSize: '1.05rem', marginBottom: '0.3rem' }}>
+              <h3
+                className="eco-display"
+                style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.3rem' }}
+              >
                 Or give once, here, and we pass it on
               </h3>
               <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>
