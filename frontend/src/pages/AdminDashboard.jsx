@@ -1031,7 +1031,7 @@ export default function AdminDashboard() {
                         justifyContent: 'center',
                         fontWeight: 700,
                         fontSize: '0.72rem',
-                        fontFamily: "'Space Grotesk', sans-serif",
+                        fontFamily: 'var(--font-display)',
                       }}
                     >
                       {getInitials(user.name)}
@@ -1341,7 +1341,7 @@ export default function AdminDashboard() {
                               justifyContent: 'center',
                               fontWeight: 700,
                               fontSize: '0.78rem',
-                              fontFamily: 'Space Grotesk, sans-serif',
+                              fontFamily: 'var(--font-display)',
                               background: row.isAdmin
                                 ? 'linear-gradient(135deg, var(--eco-purple), var(--eco-primary))'
                                 : 'var(--eco-border)',
@@ -2045,7 +2045,7 @@ export default function AdminDashboard() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontWeight: 700,
-                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontFamily: 'var(--font-display)',
                       background: detail.profile.isAdmin
                         ? 'linear-gradient(135deg, var(--eco-purple), var(--eco-primary))'
                         : 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',

@@ -259,7 +259,10 @@ export default function SelectField({
               background: 'var(--eco-card)',
               border: '1px solid var(--eco-glass-border)',
               borderRadius: 'var(--eco-radius-sm)',
-              boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
+              // The theme's own layered shadow, not a flat black one - a
+              // 45%-opacity black shadow looked heavy and muddy against the
+              // light theme's soft paper shadows everywhere else.
+              boxShadow: 'var(--eco-shadow)',
               // A long list scrolls inside itself rather than running off the page
               maxHeight: 280,
               overflowY: 'auto',

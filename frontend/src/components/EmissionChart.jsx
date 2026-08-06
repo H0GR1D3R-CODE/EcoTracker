@@ -79,9 +79,9 @@ function useBaseOptions() {
 
   // Recalculated whenever the theme changes, so charts restyle on the toggle
   return useMemo(() => {
-    const textMuted = readCssVariable('--eco-text-muted', '#8888aa');
-    const cardColour = readCssVariable('--eco-card', '#12121a');
-    const textColour = readCssVariable('--eco-text', '#f0f0f0');
+    const textMuted = readCssVariable('--eco-text-muted', '#93a58c');
+    const cardColour = readCssVariable('--eco-card', '#171e14');
+    const textColour = readCssVariable('--eco-text', '#edf1e6');
     const gridColour =
       theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(10,10,15,0.07)';
 
@@ -111,7 +111,7 @@ function useBaseOptions() {
           cornerRadius: 10,
           displayColors: true,
           boxPadding: 4,
-          titleFont: { family: 'Space Grotesk, sans-serif', size: 13, weight: '600' },
+          titleFont: { family: "'Bricolage Grotesque', 'Space Grotesk', sans-serif", size: 13, weight: '600' },
           bodyFont: { family: 'Inter, sans-serif', size: 12 },
           callbacks: {
             // Without this the tooltip just shows a bare number
@@ -148,7 +148,7 @@ export function TrendLineChart({ labels = [], data = [], height = 300 }) {
   const { theme } = useTheme();
 
   const chartData = useMemo(() => {
-    const primary = readCssVariable('--eco-primary', '#00ff87');
+    const primary = readCssVariable('--eco-primary', '#4fbe80');
 
     return {
       labels,
@@ -164,7 +164,7 @@ export function TrendLineChart({ labels = [], data = [], height = 300 }) {
           // A little tension turns the straight segments into a smooth curve
           tension: 0.38,
           pointBackgroundColor: primary,
-          pointBorderColor: readCssVariable('--eco-bg', '#0a0a0f'),
+          pointBorderColor: readCssVariable('--eco-bg', '#0b0f0a'),
           pointBorderWidth: 2,
           pointRadius: 4,
           // Points grow on hover so it is obvious which one the tooltip means
@@ -197,10 +197,10 @@ export function CategoryDoughnutChart({ labels = [], data = [], colors = [], hei
           data,
           backgroundColor: colors,
           // A border in the page background colour separates the segments
-          borderColor: readCssVariable('--eco-bg', '#0a0a0f'),
+          borderColor: readCssVariable('--eco-bg', '#0b0f0a'),
           borderWidth: 3,
           hoverOffset: 10, // the hovered slice pulls out slightly
-          hoverBorderColor: readCssVariable('--eco-text', '#f0f0f0'),
+          hoverBorderColor: readCssVariable('--eco-text', '#edf1e6'),
         },
       ],
     }),
@@ -220,9 +220,9 @@ export function CategoryDoughnutChart({ labels = [], data = [], colors = [], hei
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: readCssVariable('--eco-card', '#12121a'),
-          titleColor: readCssVariable('--eco-text', '#f0f0f0'),
-          bodyColor: readCssVariable('--eco-text-muted', '#8888aa'),
+          backgroundColor: readCssVariable('--eco-card', '#171e14'),
+          titleColor: readCssVariable('--eco-text', '#edf1e6'),
+          bodyColor: readCssVariable('--eco-text-muted', '#93a58c'),
           padding: 12,
           cornerRadius: 10,
           callbacks: {
@@ -261,8 +261,8 @@ export function ComparisonBarChart({
   const { theme } = useTheme();
 
   const chartData = useMemo(() => {
-    const primary = readCssVariable('--eco-primary', '#00ff87');
-    const purple = readCssVariable('--eco-purple', '#7c3aed');
+    const primary = readCssVariable('--eco-primary', '#4fbe80');
+    const purple = readCssVariable('--eco-purple', '#3fb0a8');
 
     return {
       labels,

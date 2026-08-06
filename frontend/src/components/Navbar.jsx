@@ -146,7 +146,7 @@ export default function Navbar() {
             <span
               className="eco-gradient-text"
               style={{
-                fontFamily: 'Space Grotesk, sans-serif',
+                fontFamily: 'var(--font-display)',
                 fontWeight: 700,
                 fontSize: '1.32rem',
                 letterSpacing: '-0.03em',
@@ -270,7 +270,7 @@ export default function Navbar() {
                       justifyContent: 'center',
                       fontWeight: 700,
                       fontSize: '0.82rem',
-                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontFamily: 'var(--font-display)',
                     }}
                   >
                     {getInitials(profile?.name)}
@@ -388,7 +388,7 @@ export default function Navbar() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontWeight: 700,
-                      fontFamily: 'Space Grotesk, sans-serif',
+                      fontFamily: 'var(--font-display)',
                     }}
                   >
                     {getInitials(profile?.name)}

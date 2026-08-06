@@ -9,6 +9,11 @@
 // Email is shown but cannot be edited. Changing an email address has to go
 // through Firebase Auth itself, otherwise the Auth account and the Firestore
 // profile would disagree about who the user is.
+//
+// Restyled into the instrument system. The identity block and stats summary
+// lose their cards for channels under rules - they are readings about the
+// account, not separate widgets - while the edit form keeps its card as the
+// page's one control surface.
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -151,36 +156,44 @@ export default function Profile() {
   };
 
   return (
-    <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3rem', maxWidth: 760 }}>
-      <h1 style={{ fontSize: 'clamp(1.7rem, 4vw, 2.4rem)', marginBottom: '0.4rem' }}>
-        Your <span className="eco-gradient-text">Profile</span>
-      </h1>
-      <p className="eco-text-muted" style={{ marginBottom: '2rem' }}>
-        Manage your account details.
-      </p>
+    <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem', maxWidth: 780 }}>
+      <div style={{ marginBottom: '2.4rem' }}>
+        <div className="eco-marker" style={{ marginBottom: '1rem', display: 'block' }}>
+          Your account
+        </div>
+        <h1 className="eco-display" style={{ fontSize: 'clamp(2rem, 5vw, 2.8rem)', margin: '0 0 0.5rem' }}>
+          Your <span className="eco-gradient-text">Profile</span>
+        </h1>
+        <p className="eco-text-muted" style={{ margin: 0 }}>
+          Manage your account details.
+        </p>
+      </div>
 
-      {/* ---------- Identity card ---------- */}
+      {/* ---------- Identity ---------- */}
       <motion.div
         initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="eco-card"
-        style={{ marginBottom: '1.3rem' }}
+        style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)', marginBottom: '2rem' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap' }}>
+          {/* The avatar keeps the gradient disc - it is the one place on the
+              site a person's identity is represented, not a measurement, so it
+              is exempt from the "never gradient-fill a figure" rule that
+              applies to numbers. */}
           <div
             style={{
-              width: 68,
-              height: 68,
+              width: 60,
+              height: 60,
               borderRadius: '50%',
               background: 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
               color: '#04140c',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: '1.5rem',
-              fontFamily: 'Space Grotesk, sans-serif',
+              fontWeight: 600,
+              fontSize: '1.3rem',
+              fontFamily: 'var(--font-display)',
               flexShrink: 0,
             }}
           >
@@ -188,7 +201,7 @@ export default function Profile() {
           </div>
 
           <div style={{ minWidth: 0, flex: 1 }}>
-            <h2 style={{ fontSize: '1.35rem', marginBottom: '0.2rem' }}>
+            <h2 className="eco-display" style={{ fontSize: '1.4rem', margin: '0 0 0.3rem' }}>
               {profile?.name || 'EcoTrack user'}
             </h2>
 
@@ -196,12 +209,18 @@ export default function Profile() {
               className="eco-text-muted"
               style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem' }}
             >
-              <Mail size={14} />
+              <Mail size={13} style={{ flexShrink: 0 }} />
               <span style={{ wordBreak: 'break-all' }}>{profile?.email}</span>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.7rem', flexWrap: 'wrap' }}>
-              <span className="eco-badge eco-badge-low">
+            {/* Status markers, not badge pills - they were glass chips; a
+                marker in mono is the same instrument notation the calibration
+                rail and every readout label already use. */}
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.8rem', flexWrap: 'wrap' }}>
+              <span
+                className="eco-marker"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--eco-primary)' }}
+              >
                 <Check size={12} />
                 Active account
               </span>
@@ -209,14 +228,17 @@ export default function Profile() {
               {/* The admin badge reflects the admins collection in Firestore.
                   It is display only - every admin route re-checks it server-side. */}
               {isAdmin && (
-                <span className="eco-badge" style={{ color: 'var(--eco-purple)' }}>
+                <span
+                  className="eco-marker"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--eco-purple)' }}
+                >
                   <Shield size={12} />
                   Administrator
                 </span>
               )}
 
               {profile?.createdAt && (
-                <span className="eco-badge eco-text-muted">
+                <span className="eco-marker">
                   Member since {formatDate(profile.createdAt, 'MMM yyyy')}
                 </span>
               )}
@@ -231,86 +253,59 @@ export default function Profile() {
           initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.06 }}
-          className="eco-card"
-          style={{ marginBottom: '1.3rem' }}
+          style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)', marginBottom: '2rem' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.2rem' }}>
-            <Activity size={18} style={{ color: 'var(--eco-primary)' }} />
-            <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Your activity at a glance</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '1.4rem' }}>
+            <Activity size={17} style={{ color: 'var(--eco-primary)' }} />
+            <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
+              Your activity at a glance
+            </h3>
           </div>
 
           <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-              gap: '0.9rem',
+              gap: '1.6rem',
             }}
           >
+            {/* The four accents are the theme-aware category variables now,
+                not the hardcoded dark-theme hexes (#00ff87 etc.) that used to
+                sit here - #00ff87 measures 1.21:1 on the paper ground. */}
             {[
               {
                 icon: CalendarDays,
-                color: '#00ff87',
+                color: 'var(--cat-transport)',
                 label: 'This month',
                 value: formatEmission(stats.thisMonth || 0),
               },
               {
                 icon: Leaf,
-                color: '#7c3aed',
+                color: 'var(--org-goldstandard)',
                 label: 'This year',
                 value: formatEmission(stats.thisYear || 0),
               },
               {
                 icon: Database,
-                color: '#0ea5e9',
+                color: 'var(--cat-water)',
                 label: 'Entries logged',
                 value: formatNumber(stats.totalRecords || 0, 0),
               },
               {
                 icon: Target,
-                color: '#f59e0b',
+                color: 'var(--cat-electricity)',
                 label: 'Active goals',
                 value: formatNumber(stats.activeGoals || 0, 0),
               },
             ].map((item) => {
               const Icon = item.icon;
               return (
-                <div
-                  key={item.label}
-                  style={{
-                    padding: '0.9rem 1rem',
-                    borderRadius: 'var(--eco-radius-sm)',
-                    background: 'rgba(var(--eco-primary-rgb), 0.04)',
-                    border: '1px solid var(--eco-border)',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 9,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: `color-mix(in srgb, ${item.color} 10%, transparent)`,
-                      color: item.color,
-                      marginBottom: '0.7rem',
-                    }}
-                  >
-                    <Icon size={16} />
-                  </div>
-                  <div
-                    className="eco-tabular"
-                    style={{
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      fontWeight: 700,
-                      fontSize: '1.15rem',
-                      lineHeight: 1.15,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                <div key={item.label} style={{ paddingTop: '0.85rem', borderTop: '1px solid var(--rule)' }}>
+                  <Icon size={16} style={{ color: item.color, display: 'block', marginBottom: '0.6rem' }} />
+                  <div className="eco-readout" style={{ fontSize: '1.15rem', fontWeight: 500, lineHeight: 1.15 }}>
                     {item.value}
                   </div>
-                  <div className="eco-text-muted" style={{ fontSize: '0.76rem', marginTop: '0.2rem' }}>
+                  <div className="eco-marker" style={{ marginTop: '0.3rem' }}>
                     {item.label}
                   </div>
                 </div>
@@ -322,9 +317,9 @@ export default function Profile() {
           {stats.bestCategory?.category && (
             <p
               className="eco-text-muted"
-              style={{ fontSize: '0.84rem', marginTop: '1.1rem', marginBottom: 0 }}
+              style={{ fontSize: '0.86rem', marginTop: '1.4rem', marginBottom: 0, lineHeight: 1.6 }}
             >
-              <Leaf size={13} style={{ verticalAlign: -2, marginRight: 4, color: 'var(--eco-primary)' }} />
+              <Leaf size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--eco-primary)' }} />
               Your standout category this month is{' '}
               <strong style={{ color: 'var(--eco-text)' }}>
                 {formatCategory(stats.bestCategory.category)}
@@ -336,13 +331,17 @@ export default function Profile() {
       )}
 
       {/* ---------- Edit form ---------- */}
+      {/* The form keeps its card - the only control surface on the page, the
+          same reasoning applied to every form elsewhere in the app. */}
       <motion.div
         initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.08 }}
         className="eco-card"
       >
-        <h3 style={{ fontSize: '1.05rem', marginBottom: '1.3rem' }}>Edit details</h3>
+        <h3 className="eco-display" style={{ fontSize: '1.15rem', marginBottom: '1.4rem' }}>
+          Edit details
+        </h3>
 
         <form className="eco-form" onSubmit={handleSubmit} noValidate>
           <div className="mb-3">
@@ -428,8 +427,11 @@ export default function Profile() {
                   style={{
                     width: 16,
                     height: 16,
-                    border: '2px solid rgba(0,0,0,0.25)',
-                    borderTopColor: '#04140c',
+                    // White, matching the button's own label - it was near-black
+                    // on a gradient dark enough to need white text, the same fix
+                    // already applied to Login and Register.
+                    border: '2px solid rgba(255,255,255,0.35)',
+                    borderTopColor: '#ffffff',
                     borderRadius: '50%',
                     animation: 'eco-spin 0.8s linear infinite',
                   }}

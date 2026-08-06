@@ -89,7 +89,7 @@ export default function LoadingSpinner({
             color: 'var(--eco-text-muted)',
             fontSize: dimensions.font,
             margin: 0,
-            fontFamily: 'Space Grotesk, sans-serif',
+            fontFamily: 'var(--font-display)',
           }}
         >
           {message}

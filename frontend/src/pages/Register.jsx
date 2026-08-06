@@ -86,12 +86,18 @@ function scorePassword(password) {
 
   const met = PASSWORD_RULES.filter((rule) => rule.test(password)).length;
 
+  // "Fair" was --eco-orange, which measures 3.29:1 on the paper ground - under
+  // the 4.5:1 floor a label at this size needs. "Good" was a hardcoded
+  // #eab308 matching no theme variable at all. Both are now measured,
+  // theme-aware values: the instrument amber, then the electricity category's
+  // gold, giving a real progression toward green rather than two granular
+  // near-identical yellows.
   const levels = [
     { label: 'Too weak', color: 'var(--eco-danger)' },
     { label: 'Too weak', color: 'var(--eco-danger)' },
     { label: 'Weak', color: 'var(--eco-danger)' },
-    { label: 'Fair', color: 'var(--eco-orange)' },
-    { label: 'Good', color: '#eab308' },
+    { label: 'Fair', color: 'var(--readout)' },
+    { label: 'Good', color: 'var(--cat-electricity)' },
     { label: 'Strong', color: 'var(--eco-primary)' },
   ];
 
