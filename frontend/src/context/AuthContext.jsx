@@ -228,15 +228,34 @@ export function AuthProvider({ children }) {
    * the "forgot password" path, reachable from the login page without being
    * signed in at all.
    *
+   * TWO EMAILS, ONE FUNCTION
+   * Tries EcoTrack's own branded email first (POST /api/auth/forgot-password,
+   * which generates the reset link via the Admin SDK and sends it through
+   * Resend - see backend/email_service.py). If the server reports that path
+   * as unavailable (no RESEND_API_KEY configured yet, or Resend itself could
+   * not deliver) - or if the backend cannot be reached AT ALL - this falls
+   * back to Firebase's own built-in sendPasswordResetEmail, exactly as this
+   * function worked before the branded email existed. Either path ends with
+   * the user getting a real, working reset link; only which envelope it
+   * arrives in differs; there is no case where a genuine account is left with
+   * no way to reset at all just because Resend is not configured yet.
+   *
    * DELIBERATELY does not distinguish "no account with that email" from
    * "email sent" in what it shows the user: telling a stranger which email
-   * addresses have EcoTrack accounts is an account-enumeration leak, so
-   * auth/user-not-found is treated as success here rather than surfaced as an
-   * error. Anything else (a malformed address, no network, too many attempts)
-   * still surfaces, because those are about the request itself, not about
-   * whether an account exists.
+   * addresses have EcoTrack accounts is an account-enumeration leak. The
+   * backend already treats a not-found address as {sent: true} for the same
+   * reason; auth/user-not-found from the Firebase fallback gets the same
+   * treatment here.
    */
   const resetPassword = useCallback(async (email) => {
+    try {
+      const result = await authApi.forgotPassword(email);
+      if (result?.sent) return; // the branded email genuinely went out (or a safe no-op)
+    } catch {
+      // Backend unreachable or erroring - fall through to Firebase below
+      // rather than surfacing a failure for a path that still works.
+    }
+
     try {
       await sendPasswordResetEmail(auth, email);
     } catch (error) {

@@ -100,6 +100,23 @@ class Config:
     DONATION_MIN_PAISE = 100          # ₹1
     DONATION_MAX_PAISE = 10_000_000   # ₹1,00,000
 
+    # --- Password reset email (Resend) ---
+    # Optional, same pattern as GEMINI_API_KEY above: "forgot password" works
+    # completely without this - routes/auth.py's /forgot-password route simply
+    # reports the custom email as unavailable, and AuthContext.resetPassword()
+    # on the frontend falls back to Firebase's own built-in reset email, exactly
+    # as it did before this existed. Set it to send EcoTrack's own branded
+    # design instead of Firebase's plain default.
+    # Free, no card, at https://resend.com - without verifying your own sending
+    # domain there, Resend only delivers to the address the account was
+    # created with, so this is worth configuring for real use beyond testing.
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "EcoTrack <onboarding@resend.dev>")
+
+    # The live frontend, used to build the link a reset/notification email
+    # sends the user back to once they are done.
+    PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "https://ecotrackapp.web.app")
+
     # Firestore collection names kept in one place so a typo can only happen once.
     COLLECTION_USERS = "users"
     COLLECTION_CARBON_RECORDS = "carbonRecords"
