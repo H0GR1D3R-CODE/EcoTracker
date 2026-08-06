@@ -927,53 +927,90 @@ export default function Home() {
               return (
                 // A button, not a div, so it is keyboard-focusable and screen
                 // readers announce it as clickable. Opens the detail panel.
+                // A button, not a div, so it is keyboard-focusable and screen
+                // readers announce it as clickable. Opens the detail panel.
+                //
+                // No card, no shadow. Each category is a channel hanging off
+                // its own rule, matching the hero readings and the design
+                // decisions further down - seven raised tiles in a grid was the
+                // last piece of Home still built out of boxes.
+                //
+                // The range is the point. Every category already carries its
+                // published factors, and the SPREAD is the useful fact: a train
+                // and a domestic flight differ by six times per kilometre, and
+                // showing 0.000-0.255 says that instantly where an icon says
+                // nothing. Read straight off the same factors the detail panel
+                // lists, so it cannot drift out of step with them.
                 <button
                   type="button"
                   key={category.name}
                   onClick={() => setOpenCategory(category)}
-                  className="eco-card eco-card-hover category-chip eco-reveal"
+                  className="category-chip eco-reveal"
                   style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '0.9rem',
+                    display: 'block',
                     textAlign: 'left',
                     cursor: 'pointer',
                     width: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    borderTop: '1px solid var(--rule-strong)',
+                    padding: '0.95rem 0 0',
+                    color: 'var(--eco-text)',
                   }}
                 >
                   <div
                     style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      // The 1A on the end of the hex is roughly 10% opacity
-                      background: `color-mix(in srgb, ${category.color} 10%, transparent)`,
-                      color: category.color,
+                      justifyContent: 'space-between',
+                      gap: '0.5rem',
+                      marginBottom: '0.7rem',
                     }}
                   >
-                    <Icon size={21} />
+                    <Icon size={19} style={{ color: category.color, flexShrink: 0 }} />
+                    <ChevronRight size={15} style={{ color: 'var(--eco-text-muted)', opacity: 0.6 }} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontFamily: 'Space Grotesk, sans-serif',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.4rem',
-                      }}
-                    >
-                      {category.name}
-                      <ChevronRight size={15} style={{ color: category.color, opacity: 0.7 }} />
-                    </div>
-                    <div className="eco-text-muted" style={{ fontSize: '0.85rem' }}>
-                      {category.detail}
-                    </div>
+
+                  <div
+                    className="eco-readout"
+                    style={{ fontSize: '1.15rem', fontWeight: 500, lineHeight: 1 }}
+                  >
+                    {(() => {
+                      const values = category.factors.map(([, value]) => value);
+                      const low = Math.min(...values);
+                      const high = Math.max(...values);
+                      // A fixed 3 decimals cannot serve factors that span from
+                      // 0.0003 (a litre of water) to 85 (a laptop). It rendered
+                      // water as "0.000" - stating the category emits nothing,
+                      // which flatly contradicts the explanation inside it - and
+                      // padded consumption into "8.000-85.000".
+                      // Precision now follows magnitude, and trailing zeros are
+                      // dropped so each figure shows what it actually is.
+                      const show = (v) => {
+                        if (v === 0) return '0';
+                        if (v < 0.01) return v.toFixed(4).replace(/0+$/, '');
+                        if (v < 1) return v.toFixed(3).replace(/0+$/, '');
+                        return String(Number(v.toFixed(2)));
+                      };
+                      // A single-factor category has no range to show
+                      return low === high ? show(high) : `${show(low)}–${show(high)}`;
+                    })()}
+                  </div>
+                  <div
+                    className="eco-marker"
+                    style={{ display: 'block', marginTop: '0.3rem', fontSize: '0.64rem' }}
+                  >
+                    kg CO₂ {category.unit}
+                  </div>
+
+                  <div
+                    className="eco-display"
+                    style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0.85rem 0 0.15rem' }}
+                  >
+                    {category.name}
+                  </div>
+                  <div className="eco-text-muted" style={{ fontSize: '0.82rem', lineHeight: 1.5 }}>
+                    {category.detail}
                   </div>
                 </button>
               );
