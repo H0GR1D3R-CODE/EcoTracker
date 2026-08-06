@@ -307,8 +307,11 @@ export default function Login() {
                   style={{
                     width: 16,
                     height: 16,
-                    border: '2px solid rgba(0,0,0,0.25)',
-                    borderTopColor: '#04140c',
+                    // White, matching the label beside it. It was near-black on
+                    // a button whose gradient is dark enough to need white
+                    // text - the spinner was all but invisible on it.
+                    border: '2px solid rgba(255,255,255,0.35)',
+                    borderTopColor: '#ffffff',
                     borderRadius: '50%',
                     animation: 'eco-spin 0.8s linear infinite',
                   }}
