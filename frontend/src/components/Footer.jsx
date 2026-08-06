@@ -83,7 +83,7 @@ export default function Footer() {
               <span
                 className="eco-gradient-text"
                 style={{
-                  fontFamily: 'Space Grotesk, sans-serif',
+                  fontFamily: 'var(--font-display)',
                   fontWeight: 700,
                   fontSize: '1.25rem',
                   letterSpacing: '-0.03em',
@@ -102,9 +102,11 @@ export default function Footer() {
               Goal 13: Climate Action.
             </p>
 
-            <span className="eco-badge">
-              <Leaf size={13} style={{ color: 'var(--eco-primary)' }} />
-              SDG 13 · Climate Action
+            {/* Citation, not a pill - the same instrument notation used for
+                every "SDG 13" reference elsewhere in the app. */}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Leaf size={13} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
+              <span className="eco-marker">SDG 13 · Climate Action</span>
             </span>
 
             {/* Hosting this costs a little; this is the one ask on the page.

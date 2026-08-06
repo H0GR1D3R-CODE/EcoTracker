@@ -13,14 +13,15 @@ import { Toaster } from 'react-hot-toast';
 import { useTheme } from '../context/ThemeContext';
 
 export default function ToastProvider() {
-  const { isDark, prefersReducedMotion } = useTheme();
+  const { prefersReducedMotion } = useTheme();
 
-  // Toast colours are set in JavaScript rather than CSS because react-hot-toast
-  // applies them as inline styles, which would override a stylesheet
-  const background = isDark ? 'rgba(18, 18, 26, 0.95)' : 'rgba(255, 255, 255, 0.97)';
-  const textColor = isDark ? '#f0f0f0' : '#10121a';
-  const border = isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(10,10,15,0.08)';
-  const primary = isDark ? '#00ff87' : '#00b862';
+  // Toast colours used to be hand-picked per theme in JS (including a stale
+  // '#00ff87' left over from before the instrument system, which had already
+  // drifted from the current dark-theme primary #4fbe80). CSS custom
+  // properties work perfectly well inside an inline style object - the
+  // browser resolves var() the same way regardless of whether it came from a
+  // stylesheet rule or a style attribute - so this now just points at the
+  // theme's own variables and never needs to be kept in sync by hand again.
 
   return (
     <Toaster
@@ -33,34 +34,33 @@ export default function ToastProvider() {
       toastOptions={{
         duration: 3500,
         style: {
-          background,
-          color: textColor,
-          border,
+          background: 'var(--eco-glass-bg)',
+          color: 'var(--eco-text)',
+          border: '1px solid var(--eco-glass-border)',
           borderRadius: '12px',
           padding: '12px 16px',
           fontSize: '0.9rem',
           fontFamily: 'Inter, sans-serif',
           backdropFilter: 'blur(14px)',
-          boxShadow: isDark
-            ? '0 8px 32px rgba(0,0,0,0.45)'
-            : '0 8px 28px rgba(16,18,26,0.12)',
+          WebkitBackdropFilter: 'blur(14px)',
+          boxShadow: 'var(--eco-shadow)',
           maxWidth: '380px',
         },
 
         success: {
           duration: 3000,
           // iconTheme colours the tick mark drawn by the library
-          iconTheme: { primary, secondary: isDark ? '#0a0a0f' : '#ffffff' },
+          iconTheme: { primary: 'var(--eco-primary)', secondary: 'var(--eco-card)' },
         },
 
         error: {
           // Errors stay longer because they usually need reading properly
           duration: 5000,
-          iconTheme: { primary: '#ef4444', secondary: '#ffffff' },
+          iconTheme: { primary: 'var(--eco-danger)', secondary: '#ffffff' },
         },
 
         loading: {
-          iconTheme: { primary, secondary: isDark ? '#0a0a0f' : '#ffffff' },
+          iconTheme: { primary: 'var(--readout)', secondary: 'var(--eco-card)' },
         },
 
         // Respect the reduced-motion setting by removing the slide-in animation

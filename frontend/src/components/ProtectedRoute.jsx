@@ -68,6 +68,9 @@ export default function ProtectedRoute({ children, adminOnly = false, userOnly =
       setRetrying(false);
     };
 
+    // Total unreachability, not a page-level hiccup - the same "no signal"
+    // channel treatment as Dashboard and Calculator's own failed reads, just
+    // full-screen since nothing behind it can render without a profile.
     return (
       <div
         className="container"
@@ -78,17 +81,20 @@ export default function ProtectedRoute({ children, adminOnly = false, userOnly =
           justifyContent: 'center',
         }}
       >
-        <div className="eco-card" style={{ maxWidth: 480, textAlign: 'center' }}>
-          <CloudOff size={42} style={{ color: 'var(--eco-orange)' }} />
+        <div style={{ maxWidth: 480, textAlign: 'center', paddingTop: '1.1rem', borderTop: '2px solid var(--eco-danger)' }}>
+          <CloudOff size={26} style={{ color: 'var(--eco-danger)', margin: '0 auto 0.9rem', display: 'block' }} />
 
-          <h2 style={{ fontSize: '1.3rem', marginTop: '1rem', marginBottom: '0.6rem' }}>
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.6rem' }}>
+            No signal
+          </span>
+          <h2 className="eco-display" style={{ fontSize: 'clamp(1.5rem, 3.4vw, 2rem)', margin: '0 0 0.7rem' }}>
             Cannot reach the server
           </h2>
 
-          <p className="eco-text-muted" style={{ marginBottom: '0.4rem' }}>
+          <p className="eco-text-muted" style={{ margin: '0 0 0.4rem' }}>
             You are signed in, but your profile could not be loaded.
           </p>
-          <p className="eco-text-muted" style={{ fontSize: '0.85rem', marginBottom: '1.6rem' }}>
+          <p className="eco-text-muted" style={{ fontSize: '0.87rem', margin: '0 0 1.8rem' }}>
             {profileError}
           </p>
 
@@ -121,7 +127,7 @@ export default function ProtectedRoute({ children, adminOnly = false, userOnly =
           {import.meta.env.DEV && (
             <p
               className="eco-text-muted"
-              style={{ fontSize: '0.8rem', marginTop: '1.4rem', marginBottom: 0 }}
+              style={{ fontSize: '0.8rem', marginTop: '1.6rem', marginBottom: 0 }}
             >
               Is the Flask backend running? Start it with{' '}
               <code style={{ color: 'var(--eco-primary)' }}>python app.py</code> in the
