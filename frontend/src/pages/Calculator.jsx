@@ -283,12 +283,17 @@ export default function Calculator() {
   if (factorsError) {
     return (
       <div className="container" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
-        <div className="eco-card" style={{ textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
-          <AlertCircle size={40} style={{ color: 'var(--eco-orange)' }} />
-          <h2 style={{ fontSize: '1.25rem', marginTop: '1rem', marginBottom: '0.5rem' }}>
+        {/* A channel under a danger rule, matching the Dashboard's own failed
+            read. The instrument reporting that it cannot take a reading. */}
+        <div style={{ maxWidth: 560, paddingTop: '1.1rem', borderTop: '2px solid var(--eco-danger)' }}>
+          <AlertCircle size={22} style={{ color: 'var(--eco-danger)', display: 'block', marginBottom: '0.9rem' }} />
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.6rem' }}>
+            No factors
+          </span>
+          <h2 className="eco-display" style={{ fontSize: 'clamp(1.6rem, 3.6vw, 2.2rem)', margin: '0 0 0.7rem' }}>
             Could not load emission factors
           </h2>
-          <p className="eco-text-muted" style={{ fontSize: '0.9rem' }}>
+          <p className="eco-text-muted" style={{ fontSize: '0.92rem', margin: 0 }}>
             {factorsError}
           </p>
         </div>
@@ -301,7 +306,7 @@ export default function Calculator() {
       <PageBanner
         photo="calcNature"
         alt="Sunlight falling through a green forest"
-        color="#00c96b"
+        color="var(--org-onetree)"
         eyebrow="Measure your impact"
         title="Carbon"
         titleAccent="Calculator"
@@ -383,9 +388,20 @@ export default function Calculator() {
         }}
       >
         {/* ---------- form ---------- */}
-        <div className="eco-card eco-card-accent">
-          <h2 style={{ fontSize: '1.05rem', marginBottom: '0.2rem' }}>{meta.label}</h2>
-          <p className="eco-text-muted" style={{ fontSize: '0.84rem', marginBottom: '1.4rem' }}>
+        {/* The form keeps a card: it is the control surface of the page, and a
+            control surface earns an edge. What it loses is .eco-card-accent,
+            whose 3px left strip was a fixed primary-to-teal gradient - a strip
+            of brand colour down a panel whose whole job is to be about ONE
+            category at a time. The category is stated in the marker instead. */}
+        <div className="eco-card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.7rem' }}>
+            <span
+              aria-hidden="true"
+              style={{ width: 7, height: 7, borderRadius: 2, background: meta.color, flexShrink: 0 }}
+            />
+            <span className="eco-marker">{meta.label}</span>
+          </div>
+          <p className="eco-text-muted" style={{ fontSize: '0.86rem', marginBottom: '1.5rem' }}>
             {meta.description}
           </p>
 
@@ -455,15 +471,16 @@ export default function Calculator() {
                         whileTap={prefersReducedMotion ? {} : { scale: 0.94 }}
                         disabled={submitting}
                         style={{
-                          padding: '0.3rem 0.7rem',
-                          borderRadius: 999,
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
+                          padding: '0.32rem 0.7rem',
+                          borderRadius: 'var(--eco-radius-sm)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.76rem',
+                          fontWeight: 500,
                           cursor: 'pointer',
-                          border: `1px solid ${active ? meta.color : 'var(--eco-border)'}`,
+                          border: `1px solid ${active ? meta.color : 'var(--rule)'}`,
                           background: active ? `color-mix(in srgb, ${meta.color} 12%, transparent)` : 'transparent',
-                          color: active ? meta.color : 'var(--eco-text-muted)',
-                          transition: 'all 0.16s ease',
+                          color: active ? 'var(--eco-text)' : 'var(--eco-text-muted)',
+                          transition: 'background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease',
                         }}
                       >
                         {amount} {selectedFactor.unit}
@@ -520,10 +537,19 @@ export default function Calculator() {
 
             {selectedFactor?.source && (
               <p
-                className="eco-text-muted"
-                style={{ fontSize: '0.76rem', marginTop: '0.9rem', marginBottom: 0 }}
+                className="eco-marker"
+                style={{
+                  fontSize: '0.62rem',
+                  marginTop: '1rem',
+                  marginBottom: 0,
+                  paddingTop: '0.7rem',
+                  borderTop: '1px solid var(--rule)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
               >
-                <Info size={12} style={{ verticalAlign: -2, marginRight: 4 }} />
+                <Info size={12} />
                 Factor source: {selectedFactor.source}
               </p>
             )}
@@ -533,32 +559,32 @@ export default function Calculator() {
         {/* ---------- live preview ---------- */}
         {/* The panel takes on the current category's colour, so switching
             category is felt rather than just read. */}
+        {/* This is the readout of the whole application - the one number the
+            page exists to produce, updating as the user types. It was a tinted
+            card whose fill and border took the category's colour, with the
+            figure set as gradient Space Grotesk.
+            Both broke the same rule: the measurement was wearing the colour of
+            the thing being measured. It is mono amber under an amber rule now,
+            exactly like the estimate on the public Estimate page, and the
+            category is carried by the swatch beside the marker instead. */}
         <motion.div
-          className="eco-card"
-          animate={{
-            borderColor: `color-mix(in srgb, ${meta.color} 27%, transparent)`,
-            backgroundColor: `color-mix(in srgb, ${meta.color} 4%, transparent)`,
-          }}
-          transition={{ duration: 0.35 }}
           style={{
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
-            position: 'relative',
-            overflow: 'hidden',
+            paddingTop: '1.1rem',
+            borderTop: '2px solid var(--readout)',
           }}
         >
-          <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-            <span
-              className="eco-text-muted"
-              style={{
-                fontSize: '0.76rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.07em',
-                fontWeight: 600,
-              }}
-            >
-              Live preview
+          <div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem' }}>
+              <motion.span
+                aria-hidden="true"
+                animate={{ backgroundColor: meta.color }}
+                transition={{ duration: 0.35 }}
+                style={{ width: 7, height: 7, borderRadius: 2, flexShrink: 0 }}
+              />
+              <span className="eco-marker">Live preview</span>
             </span>
 
             {/* The number updates on every keystroke, before anything is saved.
@@ -570,26 +596,34 @@ export default function Calculator() {
               initial={prefersReducedMotion ? false : { scale: 0.94, opacity: 0.55 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 420, damping: 24 }}
-              className="eco-gradient-text"
+              className="eco-readout"
               style={{
-                fontFamily: 'Space Grotesk, sans-serif',
-                fontSize: 'clamp(2.4rem, 7vw, 3.6rem)',
-                fontWeight: 700,
-                lineHeight: 1.1,
-                margin: '0.6rem 0 0.2rem',
+                fontSize: 'clamp(2.6rem, 7.5vw, 4rem)',
+                fontWeight: 500,
+                lineHeight: 1,
+                margin: '0.8rem 0 0.35rem',
                 whiteSpace: 'nowrap',
               }}
             >
               {formatNumber(previewEmission, previewEmission < 1 && previewEmission > 0 ? 3 : 2)}
             </motion.div>
-            <div className="eco-text-muted" style={{ fontSize: '0.9rem' }}>
+            <div className="eco-marker" style={{ display: 'block' }}>
               kg CO₂
             </div>
 
             {previewEmission > 0 ? (
               <>
-                <div style={{ marginTop: '1.1rem' }}>
-                  <span className={`eco-badge ${previewSeverity.className}`}>
+                {/* The severity was a glass pill. It is a graded marker now: the
+                    band is a judgement about the reading, so it takes the
+                    judgement's colour and none of the pill's chrome. */}
+                <div
+                  style={{
+                    marginTop: '1.3rem',
+                    paddingTop: '0.7rem',
+                    borderTop: `1px solid ${previewSeverity.color}`,
+                  }}
+                >
+                  <span className="eco-marker" style={{ color: previewSeverity.color }}>
                     {previewSeverity.label}
                   </span>
                 </div>
@@ -598,17 +632,17 @@ export default function Calculator() {
                     "3.5 kg" means nothing to most people; "2% of your month"
                     does. Capped at 100% so one large entry cannot draw a bar
                     off the end of the card. */}
-                <div style={{ marginTop: '1.2rem', textAlign: 'left' }}>
+                <div style={{ marginTop: '1.4rem' }}>
                   <div
                     style={{
                       display: 'flex',
+                      alignItems: 'baseline',
                       justifyContent: 'space-between',
-                      fontSize: '0.74rem',
-                      marginBottom: '0.35rem',
+                      marginBottom: '0.45rem',
                     }}
                   >
-                    <span className="eco-text-muted">of a climate-safe month</span>
-                    <span className="eco-tabular" style={{ fontWeight: 700, color: meta.color }}>
+                    <span className="eco-marker">of a climate-safe month</span>
+                    <span className="eco-readout" style={{ fontSize: '0.85rem', fontWeight: 600 }}>
                       {/* A decimal below 10%, because a short trip really is a
                           fraction of a per cent and a bare "0%" reads as an
                           error rather than as "genuinely tiny". */}
@@ -619,31 +653,42 @@ export default function Calculator() {
                       %
                     </span>
                   </div>
-                  <div
-                    style={{
-                      height: 8,
-                      borderRadius: 999,
-                      background: 'var(--eco-border)',
-                      overflow: 'hidden',
-                    }}
-                  >
+                  <div style={{ height: 8, background: 'var(--rule)', overflow: 'hidden' }}>
                     <motion.div
                       animate={{
                         width: `${Math.min((previewEmission / MONTHLY_BUDGET_KG) * 100, 100)}%`,
                       }}
                       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                      style={{ height: '100%', borderRadius: 999, background: meta.color }}
+                      style={{ height: '100%', background: 'var(--readout)' }}
                     />
                   </div>
-                  <p className="eco-text-muted" style={{ fontSize: '0.72rem', margin: '0.35rem 0 0' }}>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.68rem',
+                      color: 'var(--eco-text-muted)',
+                      opacity: 0.75,
+                      margin: '0.45rem 0 0',
+                    }}
+                  >
                     A 2-tonne year works out at {formatNumber(MONTHLY_BUDGET_KG, 0)} kg a month.
                   </p>
                 </div>
 
+                {/* The working, shown. This is the arithmetic behind the figure
+                    above it, so it is set in mono like a line of a calculation
+                    rather than as body prose. */}
                 {selectedFactor && (
                   <p
-                    className="eco-text-muted"
-                    style={{ fontSize: '0.82rem', marginTop: '1rem', marginBottom: 0 }}
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.76rem',
+                      color: 'var(--eco-text-muted)',
+                      marginTop: '1.2rem',
+                      paddingTop: '0.7rem',
+                      borderTop: '1px solid var(--rule)',
+                      marginBottom: 0,
+                    }}
                   >
                     {formatNumber(parseFloat(quantity) || 0, 2)} {selectedFactor.unit} ×{' '}
                     {selectedFactor.factorValue} kg CO₂/{selectedFactor.unit}
@@ -653,7 +698,7 @@ export default function Calculator() {
             ) : (
               <p
                 className="eco-text-muted"
-                style={{ fontSize: '0.86rem', marginTop: '1.1rem', marginBottom: 0 }}
+                style={{ fontSize: '0.88rem', marginTop: '1.3rem', marginBottom: 0, lineHeight: 1.6 }}
               >
                 Enter a quantity to see the emissions update as you type.
               </p>
@@ -683,18 +728,20 @@ export default function Calculator() {
               }}
             >
               {/* Saved confirmation with the comparison ring */}
-              <div className="eco-card" style={{ textAlign: 'center' }}>
+              <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
                 <div
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.45rem',
+                    gap: '0.5rem',
                     color: 'var(--eco-primary)',
-                    marginBottom: '1rem',
+                    marginBottom: '1.2rem',
                   }}
                 >
-                  <CheckCircle2 size={19} />
-                  <strong style={{ fontSize: '0.95rem' }}>Saved</strong>
+                  <CheckCircle2 size={17} />
+                  <span className="eco-marker" style={{ color: 'var(--eco-primary)' }}>
+                    Saved to your record
+                  </span>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -717,28 +764,42 @@ export default function Calculator() {
                   />
                 </div>
 
-                <div style={{ marginTop: '1.2rem' }}>
-                  <div
-                    style={{
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      fontSize: '1.7rem',
-                      fontWeight: 700,
-                    }}
-                  >
+                <div style={{ marginTop: '1.4rem' }}>
+                  {/* The saved figure is the same measured quantity the preview
+                      showed a moment ago, so it is set the same way. It was
+                      bold Space Grotesk in the page's text colour, which made
+                      the number that was actually recorded look less like a
+                      reading than the provisional one above it. */}
+                  <div className="eco-readout" style={{ fontSize: '1.9rem', fontWeight: 500, lineHeight: 1 }}>
                     {formatEmission(result.emissionKgco2)}
                   </div>
-                  <span
-                    className={`eco-badge ${getSeverity(result.emissionKgco2).className}`}
-                    style={{ marginTop: '0.7rem' }}
+                  <div
+                    style={{
+                      marginTop: '0.9rem',
+                      paddingTop: '0.6rem',
+                      borderTop: `1px solid ${getSeverity(result.emissionKgco2).color}`,
+                      display: 'inline-block',
+                    }}
                   >
-                    {getSeverity(result.emissionKgco2).label}
-                  </span>
+                    <span
+                      className="eco-marker"
+                      style={{ color: getSeverity(result.emissionKgco2).color }}
+                    >
+                      {getSeverity(result.emissionKgco2).label}
+                    </span>
+                  </div>
                 </div>
 
                 {result.dailyAverage > 0 && (
                   <p
-                    className="eco-text-muted"
-                    style={{ fontSize: '0.8rem', marginTop: '1rem', marginBottom: 0 }}
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.7rem',
+                      color: 'var(--eco-text-muted)',
+                      opacity: 0.8,
+                      marginTop: '1.1rem',
+                      marginBottom: 0,
+                    }}
                   >
                     Your average is {formatEmission(result.dailyAverage)} per day
                     over the last 30 days.
@@ -759,21 +820,26 @@ export default function Calculator() {
       </AnimatePresence>
 
       {/* ============ THIS MONTH'S ENTRIES ============ */}
-      <Reveal once className="eco-card" style={{ display: 'block' }}>
+      <Reveal
+        once
+        style={{ display: 'block', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}
+      >
         <div
           style={{
             display: 'flex',
             alignItems: 'baseline',
             justifyContent: 'space-between',
-            marginBottom: '1.1rem',
+            marginBottom: '1.3rem',
             flexWrap: 'wrap',
             gap: '0.5rem',
           }}
         >
-          <h2 style={{ fontSize: '1.05rem', margin: 0 }}>This month&rsquo;s entries</h2>
+          <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: 0 }}>
+            This month&rsquo;s entries
+          </h2>
           {recentRecords.length > 0 && (
-            <span className="eco-text-muted" style={{ fontSize: '0.82rem' }}>
-              {recentRecords.length} entr{recentRecords.length === 1 ? 'y' : 'ies'}
+            <span className="eco-readout" style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+              {String(recentRecords.length).padStart(2, '0')}
             </span>
           )}
         </div>
@@ -822,7 +888,12 @@ export default function Calculator() {
                       <td className="eco-text-muted">
                         {formatNumber(record.quantity, 1)} {record.unit}
                       </td>
-                      <td style={{ fontWeight: 600 }}>{formatEmission(record.emissionKgco2)}</td>
+                      {/* The one measured value in the row, so it is the one
+                          amber cell - it was bold body text, indistinguishable
+                          from the quantity beside it. */}
+                      <td className="eco-readout" style={{ fontWeight: 500 }}>
+                        {formatEmission(record.emissionKgco2)}
+                      </td>
                       <td className="eco-text-muted">{formatRelativeDate(record.recordedDate)}</td>
                       <td style={{ textAlign: 'right' }}>
                         <button

@@ -141,8 +141,11 @@ export function getSeverity(emission) {
   if (value <= SEVERITY_MEDIUM_MAX) {
     return {
       level: 'medium',
-      label: 'Moderate impact',
-      color: 'var(--eco-orange)',
+      // The instrument amber rather than --eco-orange. On the paper ground
+      // --eco-orange (#c9851d) measures 3.29:1, under the 4.5:1 floor, and this
+      // label is set at small sizes where the large-text allowance does not
+      // apply. --readout is measured at 4.76:1 in the same place.
+      color: 'var(--readout)',
       className: 'eco-badge-medium',
     };
   }

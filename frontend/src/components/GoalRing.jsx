@@ -26,8 +26,13 @@ import { useTheme } from '../context/ThemeContext';
  */
 export function bandColor(percent) {
   if (percent < 25) return 'var(--eco-danger)';
-  if (percent < 50) return 'var(--eco-orange)';
-  if (percent < 75) return '#eab308';
+  // Was --eco-orange then a hardcoded #eab308. Both were picked as ring
+  // strokes on a near-black page, and bandColor is also used for TEXT (the
+  // figure in the middle of the ring, and the band label on the Goals page),
+  // where on the paper ground they measure 3.29:1 and 1.94:1 - the second is
+  // barely visible. These two are measured at 4.76:1 and 4.88:1 there.
+  if (percent < 50) return 'var(--readout)';
+  if (percent < 75) return 'var(--cat-electricity)';
   return 'var(--eco-primary)';
 }
 
@@ -96,7 +101,7 @@ export default function GoalRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="var(--eco-border)"
+          stroke="var(--rule)"
           strokeWidth={strokeWidth}
         />
 
@@ -119,10 +124,10 @@ export default function GoalRing({
             delay: prefersReducedMotion ? 0 : delay,
             ease: [0.22, 1, 0.36, 1],
           }}
-          style={{
-            // A soft glow in the ring's own colour, which makes it read as lit
-            filter: `drop-shadow(0 0 6px color-mix(in srgb, ${resolvedColor} 33%, transparent))`,
-          }}
+          // The drop-shadow glow that used to sit here is gone. An instrument
+          // does not glow, and on paper a coloured bloom around the arc reads
+          // as a printing smudge rather than as light. It also cost a filter
+          // pass on an element that animates.
         />
       </svg>
 
@@ -142,14 +147,13 @@ export default function GoalRing({
         {children || (
           <>
             {label !== undefined && (
+              // The figure in the middle is a measured value, so it is mono
+              // amber - it used to take the ring's own band colour, which meant
+              // the reading wore the colour of the judgement about it. The arc
+              // still carries the band, which is where that belongs.
               <div
-                style={{
-                  fontFamily: 'Space Grotesk, sans-serif',
-                  fontWeight: 700,
-                  fontSize: size * 0.19,
-                  lineHeight: 1.1,
-                  color: resolvedColor,
-                }}
+                className="eco-readout"
+                style={{ fontWeight: 500, fontSize: size * 0.2, lineHeight: 1 }}
               >
                 {label}
               </div>
