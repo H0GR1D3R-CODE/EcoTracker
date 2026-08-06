@@ -770,8 +770,10 @@ export default function Register() {
                       style={{
                         width: 16,
                         height: 16,
-                        border: '2px solid rgba(0,0,0,0.25)',
-                        borderTopColor: '#04140c',
+                        // Matches the label beside it. Near-black on the
+                        // primary button's dark gradient was invisible.
+                        border: '2px solid rgba(255,255,255,0.35)',
+                        borderTopColor: '#ffffff',
                         borderRadius: '50%',
                         animation: 'eco-spin 0.8s linear infinite',
                       }}
