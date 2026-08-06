@@ -16,6 +16,24 @@
 // It is still an estimate: it asks four questions and covers four of the seven
 // categories the Calculator tracks (no fuel, waste or water), so a real logged
 // month is usually HIGHER, not lower. The page says so rather than flattering.
+//
+// ---------------------------------------------------------------------------
+// THIS PAGE IN THE INSTRUMENT SYSTEM
+//
+// Estimate is the lead magnet: for most visitors it is the second page they
+// ever see, straight off the landing page. It was still wearing the old
+// dark-designed treatment - an aurora wash behind a centred hero, a badge pill,
+// photo headers scrimmed to 88% black so white type would sit on them, a glow
+// orb behind the result, and the headline figure set as gradient Space Grotesk.
+// Against the restyled Home that seam was the first thing a visitor met.
+//
+// It now follows the same three rules as Home:
+//   * a measured value is mono and amber, never the colour of the thing it
+//     measures - and on this page the estimate IS the product, so it is the
+//     single largest piece of amber on the site
+//   * a rule, not a card, separates things; each question is a channel
+//   * photographs are captioned, never scrimmed
+// ---------------------------------------------------------------------------
 
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -24,16 +42,13 @@ import {
   ArrowRight,
   Car,
   Check,
-  Gauge,
   Info,
   Leaf,
   ShoppingBag,
-  Sparkles,
   UtensilsCrossed,
   Zap,
 } from 'lucide-react';
 
-import AuroraBackground from '../components/AuroraBackground';
 import Photo from '../components/Photo';
 import { PHOTOS } from '../utils/photos';
 import { useTheme } from '../context/ThemeContext';
@@ -74,12 +89,18 @@ const MEALS = DAYS * 3; // three meals a day
 /** Round to whole kg - false precision would only imply accuracy we lack. */
 const kg = (value) => Math.round(value);
 
+// The category accents are variables, not hexes. They were hardcoded here
+// (#4fbe80, #a4739e, #e0a23f, #d9694e) - the dark-theme values - so on the
+// light ground every selected option was a saturated block of colour chosen
+// against a background it was no longer sitting on. transport's #4fbe80
+// measures 2.10:1 on paper. The variables carry a measured value per theme.
 const QUESTIONS = [
   {
     key: 'transport',
     label: 'How do you usually get around?',
     icon: Car,
-    color: '#4fbe80',
+    color: 'var(--cat-transport)',
+    source: 'DEFRA 2023',
     options: [
       {
         id: 'car',
@@ -111,7 +132,8 @@ const QUESTIONS = [
     key: 'diet',
     label: 'What does a typical day of food look like?',
     icon: UtensilsCrossed,
-    color: '#a4739e',
+    color: 'var(--cat-diet)',
+    source: 'Our World in Data',
     options: [
       {
         id: 'meat',
@@ -143,7 +165,8 @@ const QUESTIONS = [
     key: 'home',
     label: 'How much electricity does your home use?',
     icon: Zap,
-    color: '#e0a23f',
+    color: 'var(--cat-electricity)',
+    source: 'CEA India 2023',
     options: [
       {
         id: 'high',
@@ -169,7 +192,8 @@ const QUESTIONS = [
     key: 'shopping',
     label: 'How often do you buy new things?',
     icon: ShoppingBag,
-    color: '#d9694e',
+    color: 'var(--cat-consumption)',
+    source: 'Lifecycle averages',
     options: [
       {
         id: 'often',
@@ -199,7 +223,6 @@ export default function Estimate() {
 
   const answeredCount = Object.keys(answers).length;
   const allAnswered = answeredCount === QUESTIONS.length;
-  const progressPct = (answeredCount / QUESTIONS.length) * 100;
 
   // Running total + per-category breakdown of whatever has been answered.
   const { total, breakdown } = useMemo(() => {
@@ -234,298 +257,419 @@ export default function Estimate() {
   const overBudget = total > MONTHLY_BUDGET;
   const maxPart = Math.max(...breakdown.map((part) => part.kg), 1);
 
-  return (
-    <div style={{ paddingBottom: '4rem' }}>
-      {/* hero */}
-      <section
-        style={{
-          position: 'relative',
-          overflow: 'hidden',
-          padding: 'clamp(2.5rem, 7vw, 4.5rem) 0 clamp(1.5rem, 4vw, 2.5rem)',
-        }}
-      >
-        <AuroraBackground opacity={0.3} />
-        <div
-          className="container"
-          style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 720, margin: '0 auto' }}
-        >
-          <span className="eco-badge" style={{ marginBottom: '1.3rem' }}>
-            <Gauge size={14} style={{ color: 'var(--eco-primary)' }} />
-            30-second estimate · no sign-up
-          </span>
-          <h1 style={{ fontSize: 'clamp(2.4rem, 7vw, 4rem)', lineHeight: 1.03, margin: '0 0 1.1rem' }}>
-            What&rsquo;s your <span className="eco-gradient-text">footprint?</span>
-          </h1>
-          <p className="eco-text-muted" style={{ fontSize: '1.1rem', lineHeight: 1.6, margin: '0 auto', maxWidth: 560 }}>
-            Answer four quick questions and watch your rough monthly footprint appear.
-            No account needed — just tap.
-          </p>
+  // The scale the budget bar is drawn against. It has to hold BOTH the reading
+  // and the climate-safe mark with room to spare, or the mark ends up welded to
+  // the right-hand edge and stops reading as a line the value crosses.
+  const scaleMax = Math.max(total, MONTHLY_BUDGET) * 1.18;
+  const pos = (value) => `${(value / scaleMax) * 100}%`;
 
-          {/* progress, so the four questions feel finite */}
-          <div style={{ maxWidth: 320, margin: '1.8rem auto 0' }}>
-            <div
+  return (
+    <div style={{ paddingBottom: '5rem' }}>
+      {/* ================= HERO ================= */}
+      {/* The AuroraBackground that used to wash this section is gone, with the
+          badge pill and the centred column. All three were dark-page devices:
+          coloured light bleeding across a near-black ground, and a hero
+          arrangement that every SaaS landing page ships. Ranged left, the
+          headline hangs off the same spine as the calibration rail. */}
+      <section style={{ padding: 'clamp(3rem, 8vw, 5rem) 0 clamp(1.5rem, 4vw, 2.5rem)' }}>
+        <div className="container">
+          <div style={{ maxWidth: 940 }}>
+            {/* Instrument notation instead of a pill. The one number that
+                frames the whole page: the monthly budget the answer gets
+                measured against. Stating it up front means the result is a
+                reading on a scale the visitor already knows, not a verdict
+                sprung on them at the end. */}
+            <motion.div
+              initial={prefersReducedMotion ? false : { opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
               style={{
                 display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '0.74rem',
-                marginBottom: '0.4rem',
+                alignItems: 'center',
+                gap: '0.85rem',
+                flexWrap: 'wrap',
+                marginBottom: '2rem',
               }}
-              className="eco-text-muted"
             >
-              <span>{answeredCount} of {QUESTIONS.length} answered</span>
-              <span>{Math.round(progressPct)}%</span>
-            </div>
-            <div style={{ height: 6, borderRadius: 999, background: 'var(--eco-border)', overflow: 'hidden' }}>
-              <motion.div
-                animate={{ width: `${progressPct}%` }}
-                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              <span className="eco-marker">Climate-safe budget</span>
+              <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
+                {MONTHLY_BUDGET} KG / MONTH
+              </span>
+              <span className="eco-marker" style={{ opacity: 0.6 }}>per person, 1.5 °C</span>
+              <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
+            </motion.div>
+
+            <motion.h1
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+              className="eco-display"
+              style={{ fontSize: 'clamp(2.6rem, 8vw, 5.2rem)', margin: '0 0 1.4rem' }}
+            >
+              What&rsquo;s your <span className="eco-gradient-text">footprint?</span>
+            </motion.h1>
+
+            <motion.p
+              initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.16, ease: [0.22, 1, 0.36, 1] }}
+              className="eco-text-muted"
+              style={{ fontSize: 'clamp(1rem, 2.2vw, 1.15rem)', maxWidth: '54ch', margin: 0 }}
+            >
+              Four questions, thirty seconds, no account. Every answer states the
+              assumption behind it and applies the same published factor the
+              Calculator uses — so the number that appears is one you can check.
+            </motion.p>
+
+            {/* Progress as four segments, not a percentage bar.
+                A gradient pill filling to 25% says almost nothing; four discrete
+                marks say "there are four of these, you have done one" at a
+                glance, which is the only thing a visitor wants to know here. */}
+            <div style={{ marginTop: '2.6rem', maxWidth: 380 }}>
+              <div
                 style={{
-                  height: '100%',
-                  borderRadius: 999,
-                  background: 'linear-gradient(90deg, var(--eco-primary), var(--eco-purple))',
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  marginBottom: '0.6rem',
                 }}
-              />
+              >
+                <span className="eco-marker">Answered</span>
+                <span className="eco-readout" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                  {String(answeredCount).padStart(2, '0')} / {String(QUESTIONS.length).padStart(2, '0')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {QUESTIONS.map((question, index) => (
+                  <div
+                    key={question.key}
+                    style={{
+                      flex: 1,
+                      height: 3,
+                      background:
+                        index < answeredCount ? 'var(--readout)' : 'var(--rule-strong)',
+                      transition: 'background-color 0.3s ease',
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <div
-        className="container"
-        style={{
-          maxWidth: 1040,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '1.5rem',
-          alignItems: 'start',
-        }}
-      >
-        {/* ---------- questions ---------- */}
-        <div style={{ display: 'grid', gap: '1.2rem' }}>
-          {QUESTIONS.map((question, index) => {
-            const Icon = question.icon;
-            const answered = Boolean(answers[question.key]);
-            return (
-              <motion.div
-                key={question.key}
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ duration: 0.45, delay: index * 0.05 }}
-                className="eco-card eco-photo-zoom"
-                style={{
-                  padding: 0,
-                  overflow: 'hidden',
-                  // answering a card marks it, so progress is visible in place
-                  borderColor: answered ? `color-mix(in srgb, ${question.color} 40%, transparent)` : undefined,
-                  transition: 'border-color 0.3s ease',
-                }}
-              >
-                {/* photo header with the question over it */}
-                <div style={{ position: 'relative', height: 104, overflow: 'hidden' }}>
-                  <Photo
-                    id={PHOTOS[QUESTION_PHOTOS[question.key]]}
-                    alt={question.label}
-                    width={820}
-                    color={question.color}
-                    className="eco-photo-cover"
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background:
-                        'linear-gradient(100deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.2) 100%)',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.7rem',
-                      padding: '0 1.2rem',
-                    }}
-                  >
-                    <motion.div
-                      animate={
-                        prefersReducedMotion || !answered ? {} : { scale: [1, 1.15, 1] }
-                      }
-                      transition={{ duration: 0.35 }}
-                      style={{
-                        width: 38,
-                        height: 38,
-                        borderRadius: 11,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: question.color,
-                        color: '#04140c',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {answered ? <Check size={19} /> : <Icon size={19} />}
-                    </motion.div>
-                    <h2 style={{ fontSize: '1.02rem', margin: 0, color: '#fff', lineHeight: 1.25 }}>
-                      {question.label}
-                    </h2>
-                  </div>
-                </div>
-
-                <div
+      <div className="container">
+        <div className="eco-estimate-grid">
+          {/* ---------- questions ---------- */}
+          <div style={{ display: 'grid', gap: '3rem' }}>
+            {QUESTIONS.map((question, index) => {
+              const Icon = question.icon;
+              const answered = Boolean(answers[question.key]);
+              return (
+                <motion.div
+                  key={question.key}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.15 }}
+                  transition={{ duration: 0.45, delay: index * 0.05 }}
+                  // A channel, not a card. The top rule takes the category's
+                  // colour once the question is answered, so the page registers
+                  // its own state along the same hairlines it is built from -
+                  // no badge, no tick in a corner, no card border lighting up.
                   style={{
-                    padding: '1.1rem 1.2rem 1.3rem',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                    gap: '0.6rem',
+                    paddingTop: '1.05rem',
+                    borderTop: `1px solid ${answered ? question.color : 'var(--rule-strong)'}`,
+                    transition: 'border-color 0.35s ease',
                   }}
                 >
-                  {question.options.map((option) => {
-                    const active = answers[question.key] === option.id;
-                    return (
-                      <motion.button
-                        key={option.id}
-                        type="button"
-                        onClick={() =>
-                          setAnswers((previous) => ({ ...previous, [question.key]: option.id }))
-                        }
-                        whileHover={prefersReducedMotion ? {} : { y: -2 }}
-                        whileTap={prefersReducedMotion ? {} : { scale: 0.97 }}
-                        style={{
-                          textAlign: 'left',
-                          padding: '0.7rem 0.85rem',
-                          borderRadius: 'var(--eco-radius-sm)',
-                          cursor: 'pointer',
-                          fontSize: '0.86rem',
-                          fontWeight: active ? 600 : 500,
-                          color: active ? '#fff' : 'var(--eco-text)',
-                          border: active ? `1px solid ${question.color}` : '1px solid var(--eco-border)',
-                          background: active ? question.color : 'transparent',
-                          display: 'block',
-                          transition: 'background 0.18s ease, border-color 0.18s ease, color 0.18s ease',
-                        }}
-                      >
-                        <span
+                  {/* The plate. Captioned by the question below it rather than
+                      carrying the question on top of an 88%-black scrim - the
+                      scrim existed only to make white type legible over a
+                      photograph, which meant darkening every image on the page
+                      to solve a problem that goes away when the words move. */}
+                  <div
+                    className="eco-photo-zoom"
+                    style={{
+                      position: 'relative',
+                      overflow: 'hidden',
+                      borderRadius: 'var(--eco-radius-sm)',
+                      aspectRatio: '16 / 5',
+                      marginBottom: '1.1rem',
+                    }}
+                  >
+                    <Photo
+                      id={PHOTOS[QUESTION_PHOTOS[question.key]]}
+                      alt=""
+                      width={900}
+                      color={question.color}
+                      className="eco-photo-cover"
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.6rem',
+                      marginBottom: '0.75rem',
+                    }}
+                  >
+                    <span
+                      className="eco-readout"
+                      style={{ fontSize: '0.85rem', fontWeight: 600 }}
+                    >
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span className="eco-marker" style={{ fontSize: '0.64rem' }}>
+                        {question.source}
+                      </span>
+                      {answered ? (
+                        <Check size={17} style={{ color: question.color, flexShrink: 0 }} />
+                      ) : (
+                        <Icon size={17} style={{ color: question.color, flexShrink: 0 }} />
+                      )}
+                    </span>
+                  </div>
+
+                  <h2
+                    className="eco-display"
+                    style={{ fontSize: 'clamp(1.35rem, 2.6vw, 1.7rem)', margin: '0 0 1.2rem' }}
+                  >
+                    {question.label}
+                  </h2>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))',
+                      gap: '0.7rem',
+                    }}
+                  >
+                    {question.options.map((option) => {
+                      const active = answers[question.key] === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() =>
+                            setAnswers((previous) => ({ ...previous, [question.key]: option.id }))
+                          }
+                          aria-pressed={active}
+                          // Without this the button's name is composed from its
+                          // contents in visual order, so a screen reader
+                          // announces "106, kg / mo, Mostly by car" - the
+                          // number before the thing it is choosing between.
+                          aria-label={`${option.label} — ${option.detail}, ${option.kg} kg CO2 per month`}
+                          // Selected no longer means "flood the button with the
+                          // category colour and set the label in white". That
+                          // reversed the type colour on a saturated ground,
+                          // which is exactly the combination that fails contrast
+                          // once the accent darkens for the light theme. The
+                          // tint stays under 14% and the label keeps the page's
+                          // own text colour, so it is legible in both themes and
+                          // the selection still reads instantly.
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '0.4rem',
+                            textAlign: 'left',
+                            padding: '0.8rem 0.9rem',
+                            borderRadius: 'var(--eco-radius-sm)',
+                            cursor: 'pointer',
+                            color: 'var(--eco-text)',
+                            border: `1px solid ${active ? question.color : 'var(--rule)'}`,
+                            background: active
+                              ? `color-mix(in srgb, ${question.color} 12%, transparent)`
+                              : 'transparent',
+                            transition:
+                              'background-color 0.2s ease, border-color 0.2s ease',
                           }}
                         >
-                          {option.label}
-                          {active && <Check size={15} style={{ flexShrink: 0 }} />}
-                        </span>
+                          {/* The reading first. Four options side by side are
+                              really four numbers being compared, so the numbers
+                              lead and the labels explain them - the same order
+                              the category channels use on Home. */}
+                          <span
+                            style={{
+                              display: 'flex',
+                              alignItems: 'baseline',
+                              justifyContent: 'space-between',
+                              gap: '0.4rem',
+                            }}
+                          >
+                            <span className="eco-readout" style={{ fontSize: '1.15rem', fontWeight: 500 }}>
+                              {option.kg}
+                            </span>
+                            <span className="eco-marker" style={{ fontSize: '0.6rem' }}>
+                              kg / mo
+                            </span>
+                          </span>
 
-                        {/* the assumption behind the number, so the estimate is
-                            checkable rather than something to be taken on faith */}
-                        <span
-                          style={{
-                            display: 'block',
-                            fontSize: '0.72rem',
-                            marginTop: '0.25rem',
-                            lineHeight: 1.4,
-                            opacity: active ? 0.85 : 0.6,
-                            color: active ? '#fff' : 'var(--eco-text-muted)',
-                          }}
-                        >
-                          {option.detail} · {option.kg} kg
-                        </span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                          <span
+                            className="eco-display"
+                            style={{
+                              display: 'block',
+                              fontSize: '0.92rem',
+                              fontWeight: 600,
+                              margin: '0.6rem 0 0.2rem',
+                              letterSpacing: '-0.02em',
+                            }}
+                          >
+                            {option.label}
+                          </span>
 
-        {/* ---------- live result ---------- */}
-        <div style={{ position: 'sticky', top: 90 }}>
-          <div className="eco-card" style={{ textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+                          {/* the assumption behind the number, so the estimate is
+                              checkable rather than something to be taken on faith */}
+                          <span
+                            className="eco-text-muted"
+                            style={{
+                              display: 'block',
+                              fontSize: '0.72rem',
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            {option.detail}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* ---------- live result ---------- */}
+          <div style={{ position: 'sticky', top: 90 }}>
+            {/* The readout panel. No card, no glow orb behind it: the orb was
+                the last piece of dark-page lighting on this page, and a green
+                radial bloom on paper reads as a smudge rather than as light.
+                A double rule top and bottom marks this off as the instrument's
+                own panel - the way a gauge is bezelled into a dashboard. */}
             <div
-              className="eco-glow-orb eco-glow-orb-green"
-              style={{ width: 240, height: 240, top: '-45%', left: '50%', transform: 'translateX(-50%)' }}
-            />
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <span
-                className="eco-text-muted"
-                style={{ fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}
-              >
-                Your estimate
-              </span>
+              style={{
+                borderTop: '2px solid var(--readout)',
+                paddingTop: '1.1rem',
+              }}
+            >
+              <span className="eco-marker">Your estimate</span>
 
               <div
                 ref={totalRef}
-                className="eco-gradient-text"
+                className="eco-readout"
                 style={{
-                  fontFamily: 'Space Grotesk, sans-serif',
-                  fontWeight: 700,
-                  fontSize: 'clamp(2.6rem, 8vw, 3.6rem)',
-                  lineHeight: 1,
-                  margin: '0.7rem 0 0.2rem',
+                  fontSize: 'clamp(3.2rem, 9vw, 4.6rem)',
+                  fontWeight: 500,
+                  lineHeight: 0.95,
+                  margin: '0.7rem 0 0.35rem',
                 }}
               >
                 {totalShown}
               </div>
-              <div className="eco-text-muted" style={{ fontSize: '0.9rem', marginBottom: '1.2rem' }}>
-                kg CO₂ / month {!allAnswered && '(so far)'}
+              <div className="eco-marker" style={{ display: 'block' }}>
+                kg CO₂ / month{!allAnswered && ' · so far'}
               </div>
 
-              {/* budget bar - only once every question is in. Showing "63% of a
-                  climate-safe footprint" after one answer reads as reassurance
-                  when it is really just an incomplete sum. */}
+              {/* The budget as a scale with the climate-safe line marked on it,
+                  rather than a percentage of a bar that fills to 100% and stops.
+                  A footprint can exceed the budget - that is the whole point of
+                  having one - so the scale has to be able to show it, and the
+                  part beyond the line is drawn as an overrange rather than
+                  silently clipped at the end of the track. */}
               {allAnswered && (
                 <motion.div
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
+                  style={{ marginTop: '1.6rem' }}
                 >
                   <div
                     style={{
                       display: 'flex',
+                      alignItems: 'baseline',
                       justifyContent: 'space-between',
-                      fontSize: '0.74rem',
-                      marginBottom: '0.4rem',
+                      marginBottom: '0.55rem',
                     }}
                   >
-                    <span className="eco-text-muted">vs a climate-safe footprint</span>
-                    <span style={{ fontWeight: 700, color: overBudget ? 'var(--eco-orange)' : 'var(--eco-primary)' }}>
+                    <span className="eco-marker">of the climate-safe budget</span>
+                    <span className="eco-readout" style={{ fontSize: '0.92rem', fontWeight: 600 }}>
                       {budgetPct}%
                     </span>
                   </div>
+
                   <div
                     style={{
-                      height: 10,
-                      borderRadius: 999,
-                      background: 'var(--eco-border)',
+                      position: 'relative',
+                      height: 12,
+                      background: 'var(--rule)',
+                      borderRadius: 2,
                       overflow: 'hidden',
-                      marginBottom: '0.5rem',
                     }}
                   >
+                    {/* the reading, up to the line */}
                     <motion.div
-                      animate={{ width: `${Math.min(budgetPct, 100)}%` }}
+                      animate={{ width: pos(Math.min(total, MONTHLY_BUDGET)) }}
                       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
                       style={{
-                        height: '100%',
-                        borderRadius: 999,
-                        background: overBudget
-                          ? 'linear-gradient(90deg, var(--eco-orange), var(--eco-danger))'
-                          : 'linear-gradient(90deg, var(--eco-primary), var(--eco-purple))',
+                        position: 'absolute',
+                        inset: '0 auto 0 0',
+                        background: 'var(--readout)',
+                      }}
+                    />
+                    {/* the overrange, beyond it */}
+                    {overBudget && (
+                      <motion.div
+                        animate={{ width: pos(total - MONTHLY_BUDGET) }}
+                        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          bottom: 0,
+                          left: pos(MONTHLY_BUDGET),
+                          background: 'var(--eco-danger)',
+                        }}
+                      />
+                    )}
+                    {/* the climate-safe line itself. Green, because it is the
+                        thing at stake rather than a quantity being reported. */}
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        bottom: 0,
+                        left: pos(MONTHLY_BUDGET),
+                        width: 2,
+                        background: 'var(--eco-primary)',
                       }}
                     />
                   </div>
-                  <p className="eco-text-muted" style={{ fontSize: '0.78rem', margin: '0 0 1.2rem' }}>
-                    The 1.5&nbsp;°C target is about {MONTHLY_BUDGET} kg a month per person.
-                  </p>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginTop: '0.45rem',
+                    }}
+                  >
+                    <span className="eco-marker" style={{ fontSize: '0.62rem' }}>
+                      0
+                    </span>
+                    <span
+                      className="eco-marker"
+                      style={{ fontSize: '0.62rem', color: 'var(--eco-primary)' }}
+                    >
+                      {MONTHLY_BUDGET} climate-safe
+                    </span>
+                  </div>
                 </motion.div>
               )}
 
               {/* breakdown */}
               {breakdown.length > 0 && (
-                <div style={{ display: 'grid', gap: '0.6rem', marginBottom: '1.3rem', textAlign: 'left' }}>
+                <div style={{ display: 'grid', gap: '0.85rem', margin: '1.8rem 0 0' }}>
+                  <span className="eco-marker" style={{ fontSize: '0.64rem' }}>
+                    Where it comes from
+                  </span>
                   {breakdown.map((part) => (
                     <motion.div
                       key={part.key}
@@ -536,32 +680,35 @@ export default function Estimate() {
                       <div
                         style={{
                           display: 'flex',
-                          alignItems: 'center',
+                          alignItems: 'baseline',
                           justifyContent: 'space-between',
-                          fontSize: '0.74rem',
-                          marginBottom: '0.2rem',
+                          gap: '0.6rem',
+                          fontSize: '0.8rem',
+                          marginBottom: '0.3rem',
                         }}
                       >
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
                           <span
-                            style={{ width: 8, height: 8, borderRadius: 2, background: part.color, flexShrink: 0 }}
+                            aria-hidden="true"
+                            style={{
+                              width: 7,
+                              height: 7,
+                              borderRadius: 2,
+                              background: part.color,
+                              flexShrink: 0,
+                            }}
                           />
                           {part.choice}
                         </span>
-                        <span className="eco-tabular eco-text-muted">{part.kg} kg</span>
+                        <span className="eco-readout" style={{ fontSize: '0.82rem', fontWeight: 500 }}>
+                          {part.kg}
+                        </span>
                       </div>
-                      <div
-                        style={{
-                          height: 6,
-                          borderRadius: 999,
-                          background: 'var(--eco-border)',
-                          overflow: 'hidden',
-                        }}
-                      >
+                      <div style={{ height: 4, background: 'var(--rule)' }}>
                         <motion.div
                           animate={{ width: `${(part.kg / maxPart) * 100}%` }}
                           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                          style={{ height: '100%', borderRadius: 999, background: part.color }}
+                          style={{ height: '100%', background: part.color }}
                         />
                       </div>
                     </motion.div>
@@ -575,13 +722,18 @@ export default function Estimate() {
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
+                  style={{ marginTop: '1.8rem' }}
                 >
                   <p style={{ fontSize: '0.9rem', lineHeight: 1.6, margin: '0 0 1rem' }}>
                     {overBudget
                       ? 'Above the line — but this is just an estimate. Track it precisely and watch it drop.'
                       : 'Nicely done. Track it precisely to keep it there and go further.'}
                   </p>
-                  <Link to="/register" className="eco-btn eco-btn-primary eco-btn-pulse" style={{ width: '100%' }}>
+                  <Link
+                    to="/register"
+                    className="eco-btn eco-btn-primary eco-btn-pulse"
+                    style={{ width: '100%' }}
+                  >
                     Track it for real — free
                     <ArrowRight size={17} />
                   </Link>
@@ -589,58 +741,49 @@ export default function Estimate() {
               ) : (
                 <p
                   className="eco-text-muted"
-                  style={{
-                    fontSize: '0.86rem',
-                    margin: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.4rem',
-                  }}
+                  style={{ fontSize: '0.86rem', margin: '1.6rem 0 0', lineHeight: 1.6 }}
                 >
-                  <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
-                  Answer all four to see the full picture
+                  Answer all four and the scale appears, with your reading against
+                  the climate-safe line.
                 </p>
               )}
             </div>
-          </div>
 
-          {/* what this does and does not count */}
-          <div
-            style={{
-              marginTop: '0.9rem',
-              padding: '0.8rem 0.95rem',
-              borderRadius: 'var(--eco-radius-sm)',
-              border: '1px solid var(--eco-border)',
-              display: 'flex',
-              gap: '0.6rem',
-              alignItems: 'flex-start',
-            }}
-          >
-            <Info size={14} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
-            <p className="eco-text-muted" style={{ fontSize: '0.75rem', lineHeight: 1.6, margin: 0 }}>
-              Every figure here comes from the same published factors the Calculator
-              uses — DEFRA 2023, CEA India 2023 and Our World in Data — applied to the
-              assumption shown under each answer. It covers four of the seven
-              categories EcoTrack tracks, leaving out fuel, waste and water, so a real
-              tracked month usually comes out <strong>higher</strong> than this.
+            {/* what this does and does not count */}
+            <div
+              style={{
+                marginTop: '1.6rem',
+                paddingTop: '0.9rem',
+                borderTop: '1px solid var(--rule)',
+                display: 'flex',
+                gap: '0.6rem',
+                alignItems: 'flex-start',
+              }}
+            >
+              <Info size={14} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 3 }} />
+              <p className="eco-text-muted" style={{ fontSize: '0.75rem', lineHeight: 1.6, margin: 0 }}>
+                Every figure here comes from the same published factors the Calculator
+                uses — DEFRA 2023, CEA India 2023 and Our World in Data — applied to the
+                assumption shown under each answer. It covers four of the seven
+                categories EcoTrack tracks, leaving out fuel, waste and water, so a real
+                tracked month usually comes out <strong>higher</strong> than this.
+              </p>
+            </div>
+
+            <p
+              className="eco-text-muted"
+              style={{
+                fontSize: '0.72rem',
+                marginTop: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}
+            >
+              <Leaf size={12} />
+              A rough estimate — your real footprint depends on the details.
             </p>
           </div>
-
-          <p
-            className="eco-text-muted"
-            style={{
-              fontSize: '0.72rem',
-              textAlign: 'center',
-              marginTop: '0.7rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.35rem',
-            }}
-          >
-            <Leaf size={12} />
-            A rough estimate — your real footprint depends on the details.
-          </p>
         </div>
       </div>
     </div>
