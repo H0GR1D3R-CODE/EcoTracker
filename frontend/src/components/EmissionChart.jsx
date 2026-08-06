@@ -53,6 +53,28 @@ function readCssVariable(name, fallback) {
 }
 
 /**
+ * Resolve a colour that might be a raw `var(--x)` reference into the actual
+ * value the browser has computed for it.
+ *
+ * CATEGORY_META's colours (utils/emissionHelpers.js) are `'var(--cat-transport)'`
+ * strings rather than hexes, precisely so a plain DOM style like
+ * `color: meta.color` swaps themes for free. That works everywhere EXCEPT a
+ * canvas: Chart.js hands whatever string it is given straight to
+ * `ctx.fillStyle`, and the 2D canvas API has no idea what a CSS custom
+ * property is. An unresolved `var(...)` is an invalid fillStyle, and an
+ * invalid fillStyle silently becomes opaque black - which is exactly why the
+ * category doughnut rendered as one solid black disc instead of coloured
+ * segments. Every consumer of CATEGORY_META colours inside a Chart.js dataset
+ * has to run its colours through this first.
+ */
+function resolveColor(value, fallback = '#8888aa') {
+  if (typeof value !== 'string') return value;
+  const match = value.match(/^var\((--[\w-]+)\)$/);
+  if (!match) return value; // already a literal colour (hex, rgb, etc.)
+  return readCssVariable(match[1], fallback);
+}
+
+/**
  * Build the vertical gradient that fades beneath a line.
  *
  * This has to be a function rather than a fixed colour because the gradient
@@ -195,7 +217,9 @@ export function CategoryDoughnutChart({ labels = [], data = [], colors = [], hei
       datasets: [
         {
           data,
-          backgroundColor: colors,
+          // Resolved, not passed straight through - see resolveColor's own
+          // comment for why an unresolved var(--cat-x) rendered as black.
+          backgroundColor: colors.map((color) => resolveColor(color)),
           // A border in the page background colour separates the segments
           borderColor: readCssVariable('--eco-bg', '#0b0f0a'),
           borderWidth: 3,
@@ -204,6 +228,9 @@ export function CategoryDoughnutChart({ labels = [], data = [], colors = [], hei
         },
       ],
     }),
+    // theme is a dependency even though it is never read directly: it is what
+    // changes while colors (an array of var() strings) stays referentially
+    // identical, and resolveColor's output depends on which theme is active
     [labels, data, colors, theme]
   );
 
