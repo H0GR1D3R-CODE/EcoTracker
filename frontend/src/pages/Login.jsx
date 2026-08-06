@@ -7,9 +7,9 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AlertCircle, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail, Send } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -17,10 +17,16 @@ import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function Login() {
-  const { login, user, loading, isAdmin } = useAuth();
+  const { login, resetPassword, user, loading, isAdmin } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 'signin' is the form everyone sees first. 'reset' swaps the card's
+  // content for the forgot-password flow without leaving the page - the
+  // person is already looking at the right place, so there is no reason to
+  // send them to a separate route for it.
+  const [mode, setMode] = useState('signin');
 
   const [form, setForm] = useState({ email: '', password: '' });
   // "touched" tracks which fields the user has actually visited, so we do not
@@ -28,6 +34,12 @@ export default function Login() {
   const [touched, setTouched] = useState({ email: false, password: false });
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // --- forgot password ---
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetTouched, setResetTouched] = useState(false);
+  const [resetSending, setResetSending] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   // Where to go after a successful login. ProtectedRoute puts the page the user
   // originally wanted into location.state, so they land there rather than
@@ -97,6 +109,39 @@ export default function Login() {
   const fieldClass = (field) => {
     if (!touched[field]) return '';
     return errors[field] ? 'is-invalid' : 'is-valid';
+  };
+
+  // --- forgot password ---
+  const resetEmailError = !resetEmail
+    ? 'Email is required.'
+    : !EMAIL_PATTERN.test(resetEmail.trim())
+      ? EMAIL_ERROR
+      : null;
+
+  const openResetMode = () => {
+    // Carry over whatever was already typed into the sign-in email field -
+    // someone clicking "Forgot password?" almost always just typed the email
+    // they are stuck on
+    setResetEmail(form.email);
+    setResetTouched(false);
+    setResetSent(false);
+    setMode('reset');
+  };
+
+  const handleResetSubmit = async (event) => {
+    event.preventDefault();
+    setResetTouched(true);
+    if (resetEmailError || resetSending) return;
+
+    setResetSending(true);
+    try {
+      await resetPassword(resetEmail.trim());
+      setResetSent(true);
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setResetSending(false);
+    }
   };
 
   return (
@@ -178,8 +223,131 @@ export default function Login() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: prefersReducedMotion ? 0 : 0.5, delay: 0.08, ease: [0.4, 0, 0.2, 1] }}
           className="eco-card"
-          style={{ width: '100%', padding: '2rem', zIndex: 1 }}
+          style={{ width: '100%', padding: '2rem', zIndex: 1, overflow: 'hidden' }}
         >
+        <AnimatePresence mode="wait" initial={false}>
+        {mode === 'reset' ? (
+          <motion.div
+            key="reset"
+            initial={prefersReducedMotion ? false : { opacity: 0, x: 16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={prefersReducedMotion ? {} : { opacity: 0, x: -16 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <button
+              type="button"
+              onClick={() => setMode('signin')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                marginBottom: '1.3rem',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: 500,
+                color: 'var(--eco-text-muted)',
+              }}
+            >
+              <ArrowLeft size={15} />
+              Back to sign in
+            </button>
+
+            {resetSent ? (
+              // Deliberately the same confirmation regardless of whether the
+              // address had an account - see resetPassword's own comment in
+              // AuthContext for why that is not an oversight.
+              <div style={{ paddingTop: '1.1rem', borderTop: '2px solid var(--readout)' }}>
+                <span className="eco-marker" style={{ display: 'block', marginBottom: '0.7rem' }}>
+                  Check your inbox
+                </span>
+                <h2 className="eco-display" style={{ fontSize: '1.5rem', margin: '0 0 0.8rem' }}>
+                  Reset link sent
+                </h2>
+                <p className="eco-text-muted" style={{ margin: 0, lineHeight: 1.65 }}>
+                  If an EcoTrack account exists for <strong style={{ color: 'var(--eco-text)' }}>{resetEmail.trim()}</strong>,
+                  an email with a link to choose a new password is on its way. It can take a
+                  minute or two, and it is worth a look in spam.
+                </p>
+              </div>
+            ) : (
+              <>
+                <h2 className="eco-display" style={{ fontSize: '1.5rem', margin: '0 0 0.6rem' }}>
+                  Reset your password
+                </h2>
+                <p className="eco-text-muted" style={{ margin: '0 0 1.5rem', fontSize: '0.92rem', lineHeight: 1.6 }}>
+                  Enter the email on your account and we&rsquo;ll send a link to choose a new
+                  password.
+                </p>
+
+                <form className="eco-form" onSubmit={handleResetSubmit} noValidate>
+                  <div className="mb-2">
+                    <div className="form-floating">
+                      <input
+                        type="email"
+                        id="reset-email"
+                        className={`form-control ${resetTouched ? (resetEmailError ? 'is-invalid' : 'is-valid') : ''}`}
+                        placeholder="you@example.com"
+                        value={resetEmail}
+                        onChange={(event) => setResetEmail(event.target.value)}
+                        onBlur={() => setResetTouched(true)}
+                        autoComplete="email"
+                        disabled={resetSending}
+                      />
+                      <label htmlFor="reset-email">
+                        <Mail size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
+                        Email address
+                      </label>
+                    </div>
+                    {resetTouched && resetEmailError && (
+                      <div className="eco-field-error">
+                        <AlertCircle size={13} />
+                        {resetEmailError}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="eco-btn eco-btn-primary"
+                    style={{ width: '100%', marginTop: '1rem', padding: '0.85rem' }}
+                    disabled={resetSending}
+                  >
+                    {resetSending ? (
+                      <>
+                        <span
+                          style={{
+                            width: 16,
+                            height: 16,
+                            border: '2px solid rgba(255,255,255,0.35)',
+                            borderTopColor: '#ffffff',
+                            borderRadius: '50%',
+                            animation: 'eco-spin 0.8s linear infinite',
+                          }}
+                        />
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <Send size={16} />
+                        Send reset link
+                      </>
+                    )}
+                  </button>
+                </form>
+              </>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="signin"
+            initial={prefersReducedMotion ? false : { opacity: 0, x: -16 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={prefersReducedMotion ? {} : { opacity: 0, x: 16 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+          >
         {/* ---------- Google, first ---------- */}
         {/* Above the form on purpose: it is one click against typing an email
             and a password, so burying it under the thing it replaces would be
@@ -293,6 +461,24 @@ export default function Login() {
                 {errors.password}
               </motion.div>
             )}
+
+            <div style={{ textAlign: 'right', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={openResetMode}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  fontSize: '0.83rem',
+                  fontWeight: 500,
+                  color: 'var(--eco-text-muted)',
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
           </div>
 
           <button
@@ -337,6 +523,9 @@ export default function Login() {
             Create an account
           </Link>
         </p>
+          </motion.div>
+        )}
+        </AnimatePresence>
         </motion.div>
       </div>
     </div>
