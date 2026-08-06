@@ -1,10 +1,20 @@
 // EcoTrack/frontend/src/components/StatCard.jsx
-// One statistic on the dashboard: a label, a number that counts up when it
-// scrolls into view, and an optional trend arrow comparing it to last month.
+// One reading on the instrument panel: a label, a number that counts up when it
+// scrolls into view, and an optional trend comparing it to last month.
 //
 // A note on the trend colours, because it is the opposite of most dashboards:
 // emissions going UP is bad news, so an increase is shown in red and a decrease
 // in green. A sales dashboard would do the reverse.
+//
+// WHAT CHANGED
+// This was a lifted card with a tinted rounded tile behind its icon and the
+// figure set in bold Space Grotesk. It is a channel now - a reading hanging off
+// its own hairline, exactly like the four constants on Home and the estimate on
+// the Estimate page - and the figure is mono amber, because every measured
+// value in this product is.
+//
+// The name is kept for the sake of its callers; what it renders is no longer a
+// card. Renaming it would touch two pages for no gain.
 
 import { motion } from 'framer-motion';
 import { Minus, Sparkles, TrendingDown, TrendingUp } from 'lucide-react';
@@ -19,7 +29,7 @@ import { useTheme } from '../context/ThemeContext';
  * @param {string}  unit                shown after the number, e.g. "kg"
  * @param {string}  trend               'up' | 'down' | 'same' | 'new'
  * @param {number}  change              percentage change, or null
- * @param {string}  accent              CSS colour for the icon tile
+ * @param {string}  accent              CSS colour for the icon
  * @param {string}  hint                small print under the number
  * @param {number}  decimals            decimal places
  * @param {number}  delay               entrance delay in seconds
@@ -52,74 +62,56 @@ export default function StatCard({
       initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
-      className="eco-card eco-card-hover"
-      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        paddingTop: '0.95rem',
+        borderTop: '1px solid var(--rule-strong)',
+      }}
     >
       <div
         style={{
           display: 'flex',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           justifyContent: 'space-between',
           gap: '0.75rem',
+          marginBottom: '0.9rem',
         }}
       >
-        <span
-          className="eco-text-muted"
-          style={{
-            fontSize: '0.78rem',
-            textTransform: 'uppercase',
-            letterSpacing: '0.06em',
-            fontWeight: 600,
-          }}
-        >
+        <span className="eco-marker" style={{ letterSpacing: '0.1em' }}>
           {label}
         </span>
 
-        {Icon && (
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 11,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              // Appending a hex alpha value tints the accent colour to ~10%
-              background: `color-mix(in srgb, ${accent} 10%, transparent)`,
-              color: accent,
-            }}
-          >
-            <Icon size={19} />
-          </div>
-        )}
+        {/* The 38px tinted tile is gone. It was chrome around a 19px glyph, and
+            on a channel the icon can simply be the icon. */}
+        {Icon && <Icon size={18} style={{ color: accent, flexShrink: 0 }} />}
       </div>
 
       {/* The number. The ref goes here so the count starts when this scrolls in. */}
       <div
         ref={counterRef}
+        className="eco-readout"
         style={{
-          fontFamily: 'Space Grotesk, sans-serif',
-          fontSize: 'clamp(1.55rem, 3vw, 2.1rem)',
-          fontWeight: 700,
-          lineHeight: 1.15,
-          marginTop: '0.9rem',
+          fontSize: 'clamp(1.6rem, 3vw, 2.2rem)',
+          fontWeight: 500,
+          lineHeight: 1,
           whiteSpace: 'nowrap',
         }}
       >
         {formatted}
         {unit && (
           <span
-            className="eco-text-muted"
-            style={{ fontSize: '0.55em', fontWeight: 600, marginLeft: '0.25rem' }}
+            className="eco-marker"
+            style={{ fontSize: '0.42em', marginLeft: '0.35rem', letterSpacing: '0.08em' }}
           >
             {unit}
           </span>
         )}
       </div>
 
-      {/* Trend line, pushed to the bottom so every card in a row lines up */}
-      <div style={{ marginTop: 'auto', paddingTop: '0.6rem' }}>
+      {/* Trend line, pushed to the bottom so every reading in a row lines up */}
+      <div style={{ marginTop: 'auto', paddingTop: '0.7rem' }}>
         {trendConfig ? (
           <div
             style={{
@@ -130,7 +122,7 @@ export default function StatCard({
               color: trendConfig.color,
             }}
           >
-            <trendConfig.Icon size={14} />
+            <trendConfig.Icon size={14} style={{ flexShrink: 0 }} />
             {/* Math.abs because the arrow already shows the direction */}
             {change !== null && change !== undefined && (
               <strong>{Math.abs(change).toFixed(1)}%</strong>
@@ -139,7 +131,15 @@ export default function StatCard({
           </div>
         ) : (
           hint && (
-            <div className="eco-text-muted" style={{ fontSize: '0.8rem' }}>
+            <div
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.7rem',
+                lineHeight: 1.5,
+                color: 'var(--eco-text-muted)',
+                opacity: 0.75,
+              }}
+            >
               {hint}
             </div>
           )

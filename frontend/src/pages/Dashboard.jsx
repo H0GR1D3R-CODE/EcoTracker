@@ -62,13 +62,19 @@ import { formatCategory, formatEmission, formatNumber } from '../utils/formatter
 // cited in the report and defended in the viva - not a number we made up.
 // ---------------------------------------------------------------------------
 
+// The accents are the theme-aware category variables, not the hexes that used
+// to be baked in here. Two of those were measured failures on the light ground:
+// transport's #00ff87 came out at 1.21:1, which is very close to invisible, and
+// #f59e0b at 2.15:1. They also no longer matched the colour each category
+// carries everywhere else in the app, which is the point of tying them to the
+// category at all.
 const GLOBAL_SOURCES = [
   {
     photo: 'powerPlant4',
     alt: 'An electricity transmission pylon in a field',
     title: 'Energy & electricity',
     share: '~25%',
-    color: '#f59e0b',
+    color: 'var(--cat-electricity)',
     body: 'Producing electricity and heat is the single largest source of global emissions, because so much of it still burns coal and gas.',
     tie: 'Your Electricity category',
     source: 'IPCC / EPA',
@@ -78,7 +84,7 @@ const GLOBAL_SOURCES = [
     alt: 'Cars on a road',
     title: 'Transport',
     share: '~24%',
-    color: '#00ff87',
+    color: 'var(--cat-transport)',
     body: 'Cars, trucks, ships and planes together, and the fastest-growing source of emissions in most countries.',
     tie: 'Your Transport category',
     source: 'IEA',
@@ -88,7 +94,7 @@ const GLOBAL_SOURCES = [
     alt: 'A large industrial factory',
     title: 'Industry',
     share: '~21%',
-    color: '#7c3aed',
+    color: 'var(--org-goldstandard)',
     body: 'Making steel, cement, chemicals and goods. Much of a product’s carbon is spent before it ever reaches you.',
     tie: 'Your Consumption category',
     source: 'EPA',
@@ -98,7 +104,7 @@ const GLOBAL_SOURCES = [
     alt: 'Green forest on a mountainside',
     title: 'Land use & waste',
     share: '~18%',
-    color: '#0ea5e9',
+    color: 'var(--cat-water)',
     body: 'Deforestation, farming and rotting landfill. This slice both emits carbon and destroys the forests that would absorb it.',
     tie: 'Your Diet & Waste categories',
     source: 'Our World in Data',
@@ -194,10 +200,13 @@ function buildInsights(summary) {
   return insights;
 }
 
+// The tone is carried by the rule an insight hangs off, not by a tinted panel
+// behind it. Warning is the instrument amber rather than --eco-orange, which
+// measured under the 4.5:1 floor on the paper ground.
 const TONE_STYLES = {
-  good: { color: 'var(--eco-primary)', background: 'rgba(var(--eco-primary-rgb), 0.08)' },
-  warning: { color: 'var(--eco-orange)', background: 'rgba(245, 158, 11, 0.08)' },
-  neutral: { color: 'var(--eco-text-muted)', background: 'rgba(var(--eco-primary-rgb), 0.04)' },
+  good: { color: 'var(--eco-primary)', rule: 'rgba(var(--eco-primary-rgb), 0.55)' },
+  warning: { color: 'var(--readout)', rule: 'rgba(var(--readout-rgb), 0.55)' },
+  neutral: { color: 'var(--eco-text-muted)', rule: 'var(--rule-strong)' },
 };
 
 // ---------------------------------------------------------------------------
@@ -222,12 +231,18 @@ export default function Dashboard() {
   if (error && !summary) {
     return (
       <div className="container" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
-        <div className="eco-card" style={{ textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
-          <AlertTriangle size={40} style={{ color: 'var(--eco-orange)' }} />
-          <h2 style={{ fontSize: '1.25rem', marginTop: '1rem', marginBottom: '0.5rem' }}>
+        {/* A failed read is still a state the instrument reports, so it is a
+            channel like every other - under a danger-coloured rule rather than
+            centred in a card. */}
+        <div style={{ maxWidth: 560, paddingTop: '1.1rem', borderTop: '2px solid var(--eco-danger)' }}>
+          <AlertTriangle size={22} style={{ color: 'var(--eco-danger)', display: 'block', marginBottom: '0.9rem' }} />
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.6rem' }}>
+            No signal
+          </span>
+          <h2 className="eco-display" style={{ fontSize: 'clamp(1.6rem, 3.6vw, 2.2rem)', margin: '0 0 0.7rem' }}>
             Could not load your dashboard
           </h2>
-          <p className="eco-text-muted" style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.92rem' }}>
             {error}
           </p>
           <button type="button" className="eco-btn eco-btn-primary" onClick={reload}>
@@ -251,15 +266,17 @@ export default function Dashboard() {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))',
-            gap: '1rem',
-            marginBottom: '1.5rem',
+            // Matches the gap the real readings use, so nothing shifts sideways
+            // when the data arrives
+            gap: '1.8rem',
+            marginBottom: '2.5rem',
           }}
         >
           {[0, 1, 2, 3].map((index) => (
             <SkeletonStatCard key={index} />
           ))}
         </div>
-        <div style={{ display: 'grid', gap: '1.5rem' }}>
+        <div style={{ display: 'grid', gap: '2.5rem' }}>
           <SkeletonChart height={280} />
           <SkeletonChart height={280} />
         </div>
@@ -292,7 +309,7 @@ export default function Dashboard() {
       <PageBanner
         photo="earth"
         alt="The Earth seen from space"
-        color="#0ea5e9"
+        color="var(--cat-water)"
         title="Welcome back,"
         titleAccent={firstName}
         subtitle={
@@ -304,12 +321,12 @@ export default function Dashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
             {lastUpdated && (
               <span
+                className="eco-marker"
                 style={{
-                  fontSize: '0.76rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.3rem',
-                  color: 'rgba(255,255,255,0.75)',
+                  gap: '0.35rem',
+                  fontSize: '0.66rem',
                 }}
               >
                 {/* The icon spins only while a refresh is actually in flight */}
@@ -339,14 +356,22 @@ export default function Dashboard() {
         <motion.div
           initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="eco-card"
-          style={{ textAlign: 'center', padding: '3rem 1.5rem', marginBottom: '1.5rem' }}
+          // The instrument reporting that it has nothing to report: an amber
+          // rule, the same one the Estimate readout panel hangs off.
+          style={{
+            paddingTop: '1.1rem',
+            borderTop: '2px solid var(--readout)',
+            marginBottom: '2.5rem',
+          }}
         >
-          <Leaf size={44} style={{ color: 'var(--eco-primary)', opacity: 0.65 }} />
-          <h2 style={{ fontSize: '1.3rem', marginTop: '1.1rem', marginBottom: '0.6rem' }}>
+          <Leaf size={22} style={{ color: 'var(--eco-primary)', display: 'block', marginBottom: '0.9rem' }} />
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.6rem' }}>
+            No readings
+          </span>
+          <h2 className="eco-display" style={{ fontSize: 'clamp(1.6rem, 3.6vw, 2.2rem)', margin: '0 0 0.7rem' }}>
             Nothing logged yet
           </h2>
-          <p className="eco-text-muted" style={{ maxWidth: 440, margin: '0 auto 1.6rem' }}>
+          <p className="eco-text-muted" style={{ maxWidth: '54ch', margin: '0 0 1.6rem' }}>
             Your first entry takes about thirty seconds. Log one car journey or one
             electricity bill and every chart below fills in.
           </p>
@@ -362,8 +387,11 @@ export default function Dashboard() {
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))',
-          gap: '1rem',
-          marginBottom: '1.5rem',
+          // Wider gaps than a card grid needs. With no card edges to separate
+          // them, the whitespace is what groups each reading with its label -
+          // the same spacing the hero readings use on Home.
+          gap: '1.8rem',
+          marginBottom: '2.5rem',
         }}
       >
         <StatCard
@@ -373,7 +401,7 @@ export default function Dashboard() {
           unit="kg CO₂"
           trend={summary?.trend}
           change={summary?.percentageChange}
-          accent="#00ff87"
+          accent="var(--cat-transport)"
           delay={0}
         />
         <StatCard
@@ -381,7 +409,7 @@ export default function Dashboard() {
           label="This year"
           value={summary?.thisYear || 0}
           unit="kg CO₂"
-          accent="#7c3aed"
+          accent="var(--org-goldstandard)"
           hint={`${formatNumber(summary?.totalRecords || 0, 0)} entries logged in total`}
           delay={0.06}
         />
@@ -390,7 +418,7 @@ export default function Dashboard() {
           label="Best category"
           value={summary?.bestCategory?.thisMonth || 0}
           unit="kg CO₂"
-          accent="#0ea5e9"
+          accent="var(--cat-water)"
           decimals={1}
           hint={
             summary?.bestCategory
@@ -406,14 +434,19 @@ export default function Dashboard() {
           label="Active goals"
           value={summary?.activeGoals || 0}
           decimals={0}
-          accent="#f59e0b"
+          accent="var(--cat-electricity)"
           hint={summary?.activeGoals ? 'In progress right now' : 'No goals set yet'}
           delay={0.18}
         />
       </div>
 
       {/* ============ 3. TREND LINE ============ */}
-      <Reveal className="eco-card" style={{ marginBottom: '1.5rem', display: 'block' }}>
+      {/* Every panel on this page loses its card. A chart is already a bounded
+          object with its own axes; putting it inside a lifted, bordered,
+          shadowed box drew a second frame around a thing that was already
+          framed. A rule and a heading is enough to say where one panel ends and
+          the next begins. */}
+      <Reveal style={{ marginBottom: '2.5rem', display: 'block', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
         <div
           style={{
             display: 'flex',
@@ -421,16 +454,18 @@ export default function Dashboard() {
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '0.5rem',
-            marginBottom: '1.2rem',
+            marginBottom: '1.4rem',
           }}
         >
           <div>
-            <h2 style={{ fontSize: '1.08rem', marginBottom: '0.2rem' }}>Six-month trend</h2>
-            <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.82rem' }}>
+            <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>
+              Six-month trend
+            </h2>
+            <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
               Total emissions per month, oldest to newest
             </p>
           </div>
-          <span className="eco-badge eco-badge-low">kg CO₂ per month</span>
+          <span className="eco-marker">kg CO₂ per month</span>
         </div>
 
         <TrendLineChart
@@ -445,14 +480,16 @@ export default function Dashboard() {
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '1.5rem',
+          gap: 'clamp(2rem, 4vw, 3rem)',
+          marginBottom: '2.5rem',
         }}
       >
         {/* Doughnut with a custom legend underneath */}
-        <div className="eco-card">
-          <h2 style={{ fontSize: '1.08rem', marginBottom: '0.2rem' }}>Where it comes from</h2>
-          <p className="eco-text-muted" style={{ margin: '0 0 1.2rem', fontSize: '0.82rem' }}>
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>
+            Where it comes from
+          </h2>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.4rem', fontSize: '0.85rem' }}>
             This month, split by category
           </p>
 
@@ -495,9 +532,12 @@ export default function Dashboard() {
                         }}
                       />
                       <span style={{ fontSize: '0.82rem', flex: 1, minWidth: 0 }}>{label}</span>
+                      {/* The share is a measured quantity, so it is a readout -
+                          it was muted grey text, which read as a caption rather
+                          than as the number it is. */}
                       <span
-                        className="eco-text-muted"
-                        style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}
+                        className="eco-readout"
+                        style={{ fontSize: '0.8rem', fontWeight: 500, whiteSpace: 'nowrap' }}
                       >
                         {share.toFixed(0)}%
                       </span>
@@ -526,7 +566,7 @@ export default function Dashboard() {
       </div>
 
       {/* ============ 6. THIS MONTH VS LAST ============ */}
-      <Reveal className="eco-card" style={{ marginBottom: '1.5rem', display: 'block' }}>
+      <Reveal style={{ marginBottom: '2.5rem', display: 'block', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
         <div
           style={{
             display: 'flex',
@@ -534,14 +574,14 @@ export default function Dashboard() {
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '0.5rem',
-            marginBottom: '1.2rem',
+            marginBottom: '1.4rem',
           }}
         >
           <div>
-            <h2 style={{ fontSize: '1.08rem', marginBottom: '0.2rem' }}>
+            <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>
               This month against last
             </h2>
-            <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.82rem' }}>
+            <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
               Category by category — shorter bars are better
             </p>
           </div>
@@ -582,20 +622,22 @@ export default function Dashboard() {
 
       {/* ============ 7. INSIGHTS ============ */}
       {insights.length > 0 && (
-        <div className="eco-card" style={{ marginBottom: '1.5rem' }}>
+        <div style={{ marginBottom: '2.5rem', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
-              marginBottom: '1.2rem',
+              marginBottom: '1.4rem',
             }}
           >
-            <Lightbulb size={19} style={{ color: 'var(--eco-orange)' }} />
-            <h2 style={{ fontSize: '1.08rem', margin: 0 }}>What the numbers are telling you</h2>
+            <Lightbulb size={18} style={{ color: 'var(--readout)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: 0 }}>
+              What the numbers are telling you
+            </h2>
           </div>
 
-          <div style={{ display: 'grid', gap: '0.8rem' }}>
+          <div style={{ display: 'grid', gap: '1.2rem' }}>
             {insights.map((insight, index) => {
               const Icon = insight.icon;
               const tone = TONE_STYLES[insight.tone] || TONE_STYLES.neutral;
@@ -607,18 +649,21 @@ export default function Dashboard() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: false, amount: 0.4 }}
                   transition={{ duration: 0.45, delay: index * 0.08 }}
+                  // Each observation was a tinted, bordered, rounded box - a
+                  // notification component. An insight is a line of reasoning
+                  // about a reading, so it hangs off a rule in its own tone:
+                  // amber where something needs attention, green where
+                  // something improved, a plain hairline where it is neutral.
                   style={{
                     display: 'flex',
                     gap: '0.85rem',
-                    padding: '0.95rem 1.1rem',
-                    borderRadius: 'var(--eco-radius-sm)',
-                    background: tone.background,
-                    border: '1px solid var(--eco-border)',
+                    paddingTop: '0.85rem',
+                    borderTop: `1px solid ${tone.rule}`,
                   }}
                 >
-                  <Icon size={19} style={{ color: tone.color, flexShrink: 0, marginTop: 2 }} />
+                  <Icon size={18} style={{ color: tone.color, flexShrink: 0, marginTop: 2 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.92rem', marginBottom: '0.2rem' }}>
+                    <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.98rem', marginBottom: '0.25rem' }}>
                       {insight.title}
                     </div>
                     <div
@@ -656,12 +701,12 @@ export default function Dashboard() {
       {/* Zooms out from the user's own number to where the world's emissions
           come from, with an illustration and a cited figure for each. Every
           card links to the EcoTrack category the user can actually act on. */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ marginBottom: '1.2rem' }}>
-          <h2 style={{ fontSize: '1.15rem', marginBottom: '0.25rem' }}>
+      <div style={{ marginBottom: '2.5rem' }}>
+        <div style={{ marginBottom: '1.6rem', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>
             The bigger picture
           </h2>
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.86rem' }}>
+          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
             Where the world&rsquo;s carbon comes from — and the category of yours that maps to it
           </p>
         </div>
@@ -670,7 +715,7 @@ export default function Dashboard() {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '1.2rem',
+            gap: '1.4rem',
           }}
         >
           {GLOBAL_SOURCES.map((item, index) => (
@@ -680,11 +725,18 @@ export default function Dashboard() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, amount: 0.2 }}
               transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="eco-card eco-card-hover eco-photo-zoom"
-              style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+              style={{ display: 'flex', flexDirection: 'column' }}
             >
-              {/* photo band */}
-              <div style={{ height: 118, overflow: 'hidden' }}>
+              {/* the plate, captioned by what follows it */}
+              <div
+                className="eco-photo-zoom"
+                style={{
+                  height: 118,
+                  overflow: 'hidden',
+                  borderRadius: 'var(--eco-radius-sm)',
+                  marginBottom: '1.1rem',
+                }}
+              >
                 <Photo
                   id={PHOTOS[item.photo]}
                   alt={item.alt}
@@ -695,35 +747,36 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* text */}
-              <div style={{ padding: '0.9rem 1.2rem 1.3rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
+              {/* the reading first, then what it is a reading of */}
+              <div style={{ paddingTop: '0.95rem', borderTop: '1px solid var(--rule-strong)', display: 'flex', flexDirection: 'column', flex: 1 }}>
                 <div
                   style={{
                     display: 'flex',
-                    alignItems: 'baseline',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '0.5rem',
-                    marginBottom: '0.5rem',
+                    marginBottom: '0.8rem',
                   }}
                 >
-                  <h3 style={{ fontSize: '1rem', margin: 0 }}>{item.title}</h3>
-                  <span
-                    className="eco-tabular"
-                    style={{
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      fontWeight: 700,
-                      fontSize: '1.15rem',
-                      color: item.color,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  {/* The share was bold Space Grotesk tinted the category's own
+                      colour - a measurement wearing the colour of the thing it
+                      measures, which is the one rule the palette rests on. */}
+                  <span className="eco-readout" style={{ fontSize: '1.2rem', fontWeight: 500 }}>
                     {item.share}
                   </span>
+                  <span
+                    aria-hidden="true"
+                    style={{ width: 7, height: 7, borderRadius: 2, background: item.color, flexShrink: 0 }}
+                  />
                 </div>
+
+                <h3 className="eco-display" style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0 0 0.45rem' }}>
+                  {item.title}
+                </h3>
 
                 <p
                   className="eco-text-muted"
-                  style={{ fontSize: '0.82rem', lineHeight: 1.6, margin: '0 0 0.9rem' }}
+                  style={{ fontSize: '0.84rem', lineHeight: 1.6, margin: '0 0 1rem' }}
                 >
                   {item.body}
                 </p>
@@ -736,13 +789,13 @@ export default function Dashboard() {
                     justifyContent: 'space-between',
                     gap: '0.5rem',
                     paddingTop: '0.7rem',
-                    borderTop: '1px solid var(--eco-border)',
+                    borderTop: '1px solid var(--rule)',
                   }}
                 >
-                  <span style={{ fontSize: '0.76rem', fontWeight: 600, color: item.color }}>
+                  <span className="eco-marker" style={{ fontSize: '0.62rem' }}>
                     {item.tie}
                   </span>
-                  <span className="eco-text-muted" style={{ fontSize: '0.68rem' }}>
+                  <span className="eco-marker" style={{ fontSize: '0.62rem', opacity: 0.7 }}>
                     {item.source}
                   </span>
                 </div>
@@ -753,34 +806,17 @@ export default function Dashboard() {
       </div>
 
       {/* ============ 9. SDG 13 CONTEXT ============ */}
-      <Reveal className="eco-card" style={{ position: 'relative', overflow: 'hidden', display: 'block' }}>
-        <div
-          className="eco-glow-orb eco-glow-orb-green"
-          style={{ width: 300, height: 300, top: '-60%', right: '-10%' }}
-        />
-
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: '1.1rem' }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              background: 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
-              color: '#04140c',
-            }}
-          >
-            <Cloud size={22} />
-          </div>
+      {/* The last glow orb in the signed-in app, and the gradient disc behind
+          the icon, both go the same way as everywhere else. */}
+      <Reveal style={{ display: 'block', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+        <div style={{ display: 'flex', gap: '1.1rem' }}>
+          <Cloud size={20} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 4 }} />
 
           <div>
-            <h2 style={{ fontSize: '1.05rem', marginBottom: '0.4rem' }}>
+            <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.5rem' }}>
               Your number in context — <span className="eco-gradient-text">SDG 13</span>
             </h2>
-            <p className="eco-text-muted" style={{ fontSize: '0.88rem', margin: 0, maxWidth: 640 }}>
+            <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0, maxWidth: '64ch', lineHeight: 1.7 }}>
               To hold warming to 1.5 °C, the average person needs a footprint of
               roughly <strong style={{ color: 'var(--eco-text)' }}>2,000 kg CO₂ per year</strong>,
               or about 167 kg a month. Your current month sits at{' '}
@@ -808,36 +844,23 @@ export default function Dashboard() {
           organisations - see the donate page - and EcoTrack keeps nothing. */}
       <Reveal>
         <div
-          className="eco-card"
           style={{
-            marginTop: '1.5rem',
+            marginTop: '2.5rem',
+            paddingTop: '1.05rem',
+            borderTop: '1px solid var(--rule-strong)',
             display: 'flex',
             alignItems: 'center',
             gap: '1.2rem',
             flexWrap: 'wrap',
           }}
         >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 13,
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(var(--eco-primary-rgb), 0.14)',
-              color: 'var(--eco-primary)',
-            }}
-          >
-            <Heart size={22} />
-          </div>
+          <Heart size={20} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
 
           <div style={{ flex: '1 1 260px', minWidth: 0 }}>
-            <h2 style={{ fontSize: '1.05rem', marginBottom: '0.3rem' }}>
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.35rem' }}>
               Cutting your own footprint is one lever
             </h2>
-            <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, margin: 0 }}>
+            <p className="eco-text-muted" style={{ fontSize: '0.88rem', lineHeight: 1.6, margin: 0 }}>
               The other is funding the people already doing it. Anything you give
               through EcoTrack goes straight on to climate organisations — we keep
               nothing.
