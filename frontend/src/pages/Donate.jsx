@@ -331,79 +331,42 @@ export default function Donate() {
 
     return (
       <div style={{ paddingBottom: '0' }}>
-        {/* ---------- celebration: full-bleed, over the thing being funded ---------- */}
-        <section
-          className="eco-no-print"
-          style={{
-            position: 'relative',
-            minHeight: 'clamp(430px, 62vh, 580px)',
-            display: 'flex',
-            alignItems: 'center',
-            overflow: 'hidden',
-            // room for the receipt card to ride up over the bottom edge
-            paddingBottom: '4.5rem',
-          }}
-        >
+        {/* ---------- the plate, then the confirmation ---------- */}
+        {/* This was a full-bleed photograph taken down to 96% black at its
+            bottom edge so white type could sit on it, with the amount set in
+            mint Space Grotesk. Same treatment as everywhere else now: the
+            photograph is left alone and the words go underneath it. */}
+        <section className="eco-no-print" style={{ position: 'relative', overflow: 'hidden', height: 'clamp(240px, 34vh, 380px)' }}>
           <img
             src={photoUrl(PHOTOS.ancientTree, 1600)}
             alt="Sunlight bursting through the canopy of a huge old tree with sprawling roots"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
           />
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background:
-                'linear-gradient(180deg, rgba(6,12,7,0.78) 0%, rgba(6,12,7,0.58) 40%, rgba(6,12,7,0.96) 100%)',
-            }}
-          />
+        </section>
 
-          <div className="container" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-            {/* tick, with a ring that expands out of it once on arrival */}
-            <div style={{ position: 'relative', width: 104, height: 104, margin: '0 auto 1.5rem' }}>
-              {!prefersReducedMotion && (
-                <motion.span
-                  initial={{ scale: 0.7, opacity: 0.65 }}
-                  animate={{ scale: 2.1, opacity: 0 }}
-                  transition={{ duration: 1.5, ease: 'easeOut', repeat: 2, repeatDelay: 0.35 }}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    borderRadius: '50%',
-                    border: '2px solid rgba(126,226,168,0.9)',
-                  }}
-                />
-              )}
-              <motion.div
-                initial={prefersReducedMotion ? false : { scale: 0, rotate: -30 }}
-                animate={{ scale: 1, rotate: 0 }}
+        <div className="container" style={{ maxWidth: 660 }}>
+          <div
+            className="eco-no-print"
+            style={{ marginTop: '1.6rem', paddingTop: '1.1rem', borderTop: '2px solid var(--readout)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.1rem' }}>
+              <motion.span
+                initial={prefersReducedMotion ? false : { scale: 0 }}
+                animate={{ scale: 1 }}
                 transition={{ type: 'spring', stiffness: 190, damping: 13 }}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'rgba(10,26,16,0.72)',
-                  border: '1px solid rgba(126,226,168,0.55)',
-                  backdropFilter: 'blur(4px)',
-                }}
+                style={{ display: 'inline-flex', color: 'var(--eco-primary)' }}
               >
-                <CheckCircle2 size={54} style={{ color: '#7ee2a8' }} />
-              </motion.div>
+                <CheckCircle2 size={22} />
+              </motion.span>
+              <span className="eco-marker">Verified · donation received</span>
             </div>
 
             <motion.h1
               initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              style={{
-                fontSize: 'clamp(2.4rem, 7vw, 4rem)',
-                lineHeight: 1.03,
-                marginBottom: '0.5rem',
-                color: '#fff',
-              }}
+              className="eco-display"
+              style={{ fontSize: 'clamp(2.2rem, 6vw, 3.6rem)', margin: '0 0 1.2rem' }}
             >
               Thank you, <span className="eco-gradient-text">truly</span>
             </motion.h1>
@@ -411,42 +374,35 @@ export default function Donate() {
             {/* the amount counts up rather than just appearing */}
             <motion.div
               ref={amountRef}
-              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.24, type: 'spring', stiffness: 180, damping: 15 }}
+              initial={prefersReducedMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.24 }}
+              className="eco-readout"
               style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontWeight: 700,
-                fontSize: 'clamp(2.6rem, 9vw, 4.4rem)',
+                fontSize: 'clamp(2.6rem, 9vw, 4.2rem)',
+                fontWeight: 500,
                 lineHeight: 1,
-                color: '#7ee2a8',
-                margin: '0.4rem 0 1rem',
-                letterSpacing: '-0.03em',
+                margin: '0 0 0.4rem',
               }}
             >
               ₹{amountShown}
             </motion.div>
+            <div className="eco-marker" style={{ display: 'block', marginBottom: '1.3rem' }}>
+              forwarded in full, less the processing fee
+            </div>
 
             <motion.p
               initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.34 }}
-              style={{
-                fontSize: 'clamp(0.97rem, 2.2vw, 1.1rem)',
-                lineHeight: 1.65,
-                color: 'rgba(255,255,255,0.82)',
-                maxWidth: 520,
-                margin: '0 auto',
-              }}
+              className="eco-text-muted"
+              style={{ fontSize: '1rem', lineHeight: 1.7, maxWidth: '54ch', margin: '0 0 2.4rem' }}
             >
               Verified and on its way to the organisations below. Whether it was
               small or large, it is more than most people ever give — and it goes
               to the work, not to us.
             </motion.p>
           </div>
-        </section>
-
-        <div className="container" style={{ maxWidth: 660, marginTop: '-4rem', position: 'relative', zIndex: 2 }}>
 
         {/* ---------- the receipt (the only thing that prints) ---------- */}
         <motion.div
@@ -469,14 +425,11 @@ export default function Donate() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
               <Leaf size={19} style={{ color: 'var(--eco-primary)' }} />
-              <strong style={{ fontFamily: "'Space Grotesk', sans-serif", letterSpacing: '-0.02em' }}>
+              <strong className="eco-display" style={{ fontSize: '1rem' }}>
                 EcoTrack
               </strong>
             </div>
-            <span
-              className="eco-text-muted"
-              style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.09em' }}
-            >
+            <span className="eco-marker" style={{ fontSize: '0.66rem' }}>
               Donation receipt
             </span>
           </div>
@@ -544,18 +497,15 @@ export default function Donate() {
         {/* Exactly two columns, never auto-fit: there are four partners, and an
             auto-fit track lands on three at some widths, orphaning the fourth on
             a row of its own. Two always divides evenly. */}
-        <div className="eco-no-print" style={{ marginTop: '2.8rem' }}>
-          <h2 style={{ fontSize: '1.15rem', textAlign: 'center', marginBottom: '0.4rem' }}>
+        <div className="eco-no-print" style={{ marginTop: '3rem' }}>
+          <div className="eco-marker" style={{ display: 'block', marginBottom: '0.5rem' }}>
             Where this goes
-          </h2>
-          <p
-            className="eco-text-muted"
-            style={{ fontSize: '0.84rem', textAlign: 'center', margin: '0 0 1.3rem' }}
-          >
+          </div>
+          <p className="eco-text-muted" style={{ fontSize: '0.88rem', margin: '0 0 1.5rem' }}>
             Forwarded to these four, less Razorpay&apos;s processing fee.
           </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.2rem' }}>
             {PARTNERS.map((partner, index) => {
               const Icon = partner.icon;
               return (
@@ -567,15 +517,18 @@ export default function Donate() {
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.45 + index * 0.08, duration: 0.45 }}
-                  whileHover={prefersReducedMotion ? {} : { y: -4 }}
-                  className="eco-card eco-card-hover"
-                  style={{ padding: '1rem', display: 'block' }}
+                  style={{
+                    display: 'block',
+                    paddingTop: '0.85rem',
+                    borderTop: '1px solid var(--rule-strong)',
+                    color: 'var(--eco-text)',
+                  }}
                 >
-                  <Icon size={19} style={{ color: 'var(--eco-primary)', marginBottom: '0.55rem' }} />
-                  <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.15rem' }}>
+                  <Icon size={18} style={{ color: 'var(--eco-primary)', display: 'block', marginBottom: '0.7rem' }} />
+                  <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.92rem' }}>
                     {partner.name}
                   </div>
-                  <div className="eco-text-muted" style={{ fontSize: '0.76rem' }}>
+                  <div className="eco-marker" style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.62rem' }}>
                     {partner.focus}
                   </div>
                 </motion.a>
@@ -586,55 +539,37 @@ export default function Donate() {
         </div>
 
         {/* ---------- closing band: what the money turns into ---------- */}
-        <section
-          className="eco-no-print"
-          style={{
-            position: 'relative',
-            marginTop: 'clamp(3rem, 8vw, 5rem)',
-            minHeight: 340,
-            display: 'flex',
-            alignItems: 'center',
-            overflow: 'hidden',
-          }}
-        >
-          <img
-            src={photoUrl(PHOTOS.seedlings, 1400)}
-            alt="Rows of young seedlings sprouting from dark soil in a propagation tray"
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background:
-                'linear-gradient(180deg, rgba(6,12,7,0.94) 0%, rgba(6,12,7,0.6) 50%, rgba(6,12,7,0.9) 100%)',
-            }}
-          />
+        <section className="eco-no-print" style={{ marginTop: 'clamp(3rem, 8vw, 5rem)' }}>
+          <div style={{ height: 'clamp(220px, 30vh, 320px)', overflow: 'hidden' }}>
+            <img
+              src={photoUrl(PHOTOS.seedlings, 1400)}
+              alt="Rows of young seedlings sprouting from dark soil in a propagation tray"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          </div>
 
-          <div
-            className="container"
-            style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 620 }}
-          >
-            <motion.h2
+          <div className="container">
+            <motion.div
               initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.4 }}
               transition={{ duration: 0.55 }}
-              style={{ fontSize: 'clamp(1.5rem, 4vw, 2.3rem)', color: '#fff', marginBottom: '0.8rem' }}
+              style={{
+                maxWidth: 620,
+                marginTop: '1.2rem',
+                paddingTop: '0.9rem',
+                borderTop: '1px solid var(--rule-strong)',
+              }}
             >
-              Every old tree started exactly like this
-            </motion.h2>
-            <motion.p
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={{ duration: 0.55, delay: 0.1 }}
-              style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.98rem', lineHeight: 1.7, margin: 0 }}
-            >
-              Nothing about climate change is solved in one payment. But forests
-              are still the cheapest carbon capture we have, and they only exist
-              because somebody funded the first year of them. Today that was you.
-            </motion.p>
+              <h2 className="eco-display" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', margin: '0 0 0.8rem' }}>
+                Every old tree started exactly like this
+              </h2>
+              <p className="eco-text-muted" style={{ fontSize: '0.98rem', lineHeight: 1.7, margin: 0 }}>
+                Nothing about climate change is solved in one payment. But forests
+                are still the cheapest carbon capture we have, and they only exist
+                because somebody funded the first year of them. Today that was you.
+              </p>
+            </motion.div>
           </div>
         </section>
       </div>
@@ -646,77 +581,57 @@ export default function Donate() {
   // =========================================================================
   return (
     <div style={{ paddingBottom: '4rem' }}>
-      {/* ---------- hero: full-bleed photograph of what is at stake ---------- */}
-      <section
-        style={{
-          position: 'relative',
-          minHeight: 'clamp(340px, 52vh, 500px)',
-          display: 'flex',
-          alignItems: 'center',
-          overflow: 'hidden',
-          marginBottom: '2.5rem',
-        }}
-      >
+      {/* ---------- hero: the plate, then what it is for ---------- */}
+      {/* The photograph carried the whole hero on top of it under a wash that
+          reached 92% black at the bottom edge - the same scrim removed from
+          Home, Learn and Gallery. The plate stands on its own and the headline
+          ranges left underneath it, off the calibration rail's spine. */}
+      <section style={{ overflow: 'hidden', height: 'clamp(260px, 38vh, 420px)' }}>
         <img
           src={photoUrl(PHOTOS.forestWater, 1600)}
           alt="Aerial view of dense forest meeting bright turquoise water"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-          }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
-        {/* Dark wash so the type stays readable over any part of the photo */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(180deg, rgba(6,10,6,0.72) 0%, rgba(6,10,6,0.6) 45%, rgba(6,10,6,0.92) 100%)',
-          }}
-        />
+      </section>
 
-        <div className="container" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-          <span
-            className="eco-badge"
-            style={{ marginBottom: '1.1rem', borderColor: 'rgba(255,255,255,0.25)', color: '#fff' }}
+      <div className="container" style={{ marginTop: '1.6rem', marginBottom: 'clamp(2.5rem, 6vw, 3.5rem)' }}>
+        <div style={{ maxWidth: 940 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.85rem',
+              flexWrap: 'wrap',
+              marginBottom: '1.8rem',
+            }}
           >
-            <HeartHandshake size={14} style={{ color: '#7ee2a8' }} />
-            Give to the cause
-          </span>
+            <HeartHandshake size={16} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
+            <span className="eco-marker">EcoTrack keeps</span>
+            <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
+              ₹0
+            </span>
+            <span className="eco-marker" style={{ opacity: 0.6 }}>of what you give</span>
+            <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
+          </div>
 
           <h1
-            style={{
-              fontSize: 'clamp(2.4rem, 7vw, 4.2rem)',
-              lineHeight: 1.03,
-              marginBottom: '1rem',
-              color: '#fff',
-              maxWidth: 780,
-              marginLeft: 'auto',
-              marginRight: 'auto',
-            }}
+            className="eco-display"
+            style={{ fontSize: 'clamp(2.4rem, 7vw, 4.6rem)', margin: '0 0 1.3rem' }}
           >
             It doesn&apos;t stay with us.{' '}
             <span className="eco-gradient-text">It goes to the forests.</span>
           </h1>
 
           <p
-            style={{
-              fontSize: 'clamp(1rem, 2.2vw, 1.18rem)',
-              lineHeight: 1.6,
-              color: 'rgba(255,255,255,0.82)',
-              maxWidth: 600,
-              margin: '0 auto',
-            }}
+            className="eco-text-muted"
+            style={{ fontSize: 'clamp(1rem, 2.2vw, 1.15rem)', lineHeight: 1.7, maxWidth: '54ch', margin: 0 }}
           >
             EcoTrack keeps nothing from what you give here. Every donation is
             forwarded to established climate organisations that plant trees,
             protect rainforest and cut greenhouse gases at scale.
           </p>
         </div>
-      </section>
+      </div>
 
       <div className="container" style={{ maxWidth: 1000 }}>
         {/* one quiet line - while test keys are in use, the page must not let
@@ -782,10 +697,19 @@ export default function Donate() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="eco-card"
-            style={{ padding: 0, overflow: 'hidden' }}
+            // The prose loses its card; the form beside it keeps one, because a
+            // form is a control surface and this is an argument.
+            style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}
           >
-            <div className="eco-photo-zoom" style={{ height: 175, overflow: 'hidden' }}>
+            <div
+              className="eco-photo-zoom"
+              style={{
+                overflow: 'hidden',
+                borderRadius: 'var(--eco-radius-sm)',
+                aspectRatio: '16 / 9',
+                marginBottom: '1.2rem',
+              }}
+            >
               <Photo
                 id={PHOTOS.planetB}
                 alt="A crowd at a climate march holding a sign reading There Is No Planet B"
@@ -795,35 +719,29 @@ export default function Donate() {
               />
             </div>
 
-            <div style={{ padding: '1.4rem' }}>
-              <h2 style={{ fontSize: '1.2rem', marginBottom: '0.55rem' }}>
-                Measuring is not enough
-              </h2>
-              <p className="eco-text-muted" style={{ fontSize: '0.88rem', lineHeight: 1.65, marginBottom: '1.2rem' }}>
-                EcoTrack can show you your footprint, and shrinking it matters. But
-                the atmosphere does not care about intentions — it responds to
-                carbon that stops being emitted and carbon that gets pulled back
-                down. That takes forests standing and money reaching the people
-                doing the work.
-              </p>
+            <h2 className="eco-display" style={{ fontSize: '1.35rem', margin: '0 0 0.6rem' }}>
+              Measuring is not enough
+            </h2>
+            <p className="eco-text-muted" style={{ fontSize: '0.92rem', lineHeight: 1.7, marginBottom: '1.6rem' }}>
+              EcoTrack can show you your footprint, and shrinking it matters. But
+              the atmosphere does not care about intentions — it responds to
+              carbon that stops being emitted and carbon that gets pulled back
+              down. That takes forests standing and money reaching the people
+              doing the work.
+            </p>
 
-              <div
-                style={{
-                  padding: '0.85rem 1rem',
-                  borderRadius: 'var(--eco-radius-sm)',
-                  background: 'rgba(var(--eco-primary-rgb), 0.08)',
-                  border: '1px solid rgba(var(--eco-primary-rgb), 0.22)',
-                }}
-              >
-                <div style={{ fontWeight: 600, fontSize: '0.88rem', marginBottom: '0.3rem' }}>
-                  Where your money actually goes
-                </div>
-                <p className="eco-text-muted" style={{ fontSize: '0.82rem', lineHeight: 1.6, margin: 0 }}>
-                  Forwarded in full to the four organisations below. Razorpay&apos;s
-                  processing fee (roughly 2%) is the only deduction, and EcoTrack
-                  takes nothing for itself.
-                </p>
+            {/* Was a tinted, bordered, rounded callout - a green box on a green
+                tint. It is the single most important claim on the page, so it
+                is set as a pull quote on a rule instead. */}
+            <div style={{ paddingLeft: '0.9rem', borderLeft: '2px solid var(--eco-primary)' }}>
+              <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '0.3rem' }}>
+                Where your money actually goes
               </div>
+              <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.65, margin: 0 }}>
+                Forwarded in full to the four organisations below. Razorpay&apos;s
+                processing fee (roughly 2%) is the only deduction, and EcoTrack
+                takes nothing for itself.
+              </p>
             </div>
           </motion.aside>
 
@@ -837,7 +755,9 @@ export default function Donate() {
             onSubmit={handleDonate}
             noValidate
           >
-            <h2 style={{ fontSize: '1.2rem', marginBottom: '1.1rem' }}>Choose an amount</h2>
+            <h2 className="eco-display" style={{ fontSize: '1.3rem', margin: '0 0 1.2rem' }}>
+              Choose an amount
+            </h2>
 
             {/* preset amounts, each showing what it becomes */}
             <div style={{ display: 'grid', gap: '0.6rem', marginBottom: '1.2rem' }}>
@@ -859,24 +779,27 @@ export default function Donate() {
                       textAlign: 'left',
                       border: active
                         ? '1px solid rgba(var(--eco-primary-rgb), 0.65)'
-                        : '1px solid var(--eco-border)',
+                        : '1px solid var(--rule)',
                       background: active ? 'rgba(var(--eco-primary-rgb), 0.1)' : 'transparent',
                       color: 'var(--eco-text)',
-                      transition: 'all 0.18s ease',
+                      transition: 'background-color 0.18s ease, border-color 0.18s ease',
                     }}
                   >
+                    {/* An amount is a quantity, so it is a mono amber readout -
+                        it was bold Space Grotesk that turned green when
+                        selected, which put the figure in the colour of the
+                        thing it pays for. */}
                     <span
+                      className="eco-readout"
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '0.15rem',
-                        fontFamily: "'Space Grotesk', sans-serif",
-                        fontWeight: 700,
-                        fontSize: '1.08rem',
-                        color: active ? 'var(--eco-primary)' : 'var(--eco-text)',
+                        gap: '0.1rem',
+                        fontWeight: 500,
+                        fontSize: '1.1rem',
                       }}
                     >
-                      <IndianRupee size={15} />
+                      <IndianRupee size={14} />
                       {preset.rupees}
                     </span>
                     <span className="eco-text-muted" style={{ fontSize: '0.8rem' }}>
@@ -993,9 +916,15 @@ export default function Donate() {
         </div>
 
         {/* ---------- the partners ---------- */}
-        <div style={{ marginTop: 'clamp(2.5rem, 6vw, 4rem)' }}>
-          <div style={{ textAlign: 'center', maxWidth: 620, margin: '0 auto 1.9rem' }}>
-            <h2 style={{ fontSize: 'clamp(1.5rem, 3.4vw, 2.1rem)', marginBottom: '0.7rem' }}>
+        <div style={{ marginTop: 'clamp(3rem, 7vw, 4.5rem)' }}>
+          <div style={{ maxWidth: 620, marginBottom: '2.2rem' }}>
+            <div className="eco-marker" style={{ display: 'block', marginBottom: '1.1rem' }}>
+              Four organisations
+            </div>
+            <h2
+              className="eco-display"
+              style={{ fontSize: 'clamp(1.7rem, 4vw, 2.6rem)', margin: '0 0 0.9rem' }}
+            >
               Who <span className="eco-gradient-text">receives</span> it
             </h2>
             <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.65 }}>
@@ -1005,7 +934,7 @@ export default function Donate() {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))', gap: '1.1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(215px, 1fr))', gap: '1.3rem' }}>
             {PARTNERS.map((partner, index) => {
               const Icon = partner.icon;
               return (
@@ -1018,39 +947,29 @@ export default function Donate() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.5, delay: index * 0.07 }}
-                  whileHover={prefersReducedMotion ? {} : { y: -5 }}
-                  className="eco-card eco-card-hover"
-                  style={{ display: 'flex', flexDirection: 'column' }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    paddingTop: '1.05rem',
+                    borderTop: '1px solid var(--rule-strong)',
+                    color: 'var(--eco-text)',
+                  }}
                 >
                   <div
                     style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'rgba(var(--eco-primary-rgb), 0.14)',
-                      color: 'var(--eco-primary)',
+                      gap: '0.55rem',
                       marginBottom: '0.9rem',
                     }}
                   >
-                    <Icon size={20} />
+                    <Icon size={19} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
+                    <span className="eco-marker">{partner.focus}</span>
                   </div>
-                  <span
-                    style={{
-                      fontSize: '0.66rem',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      color: 'var(--eco-primary)',
-                      marginBottom: '0.3rem',
-                    }}
-                  >
-                    {partner.focus}
-                  </span>
-                  <h3 style={{ fontSize: '1rem', marginBottom: '0.4rem' }}>{partner.name}</h3>
-                  <p className="eco-text-muted" style={{ fontSize: '0.83rem', lineHeight: 1.55, margin: '0 0 0.9rem' }}>
+                  <h3 className="eco-display" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 0.45rem' }}>
+                    {partner.name}
+                  </h3>
+                  <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, margin: '0 0 0.9rem' }}>
                     {partner.body}
                   </p>
                   <span
@@ -1074,11 +993,12 @@ export default function Donate() {
           <p
             className="eco-text-muted"
             style={{
-              textAlign: 'center',
               fontSize: '0.78rem',
               lineHeight: 1.6,
               maxWidth: 640,
-              margin: '1.5rem auto 0',
+              margin: '1.8rem 0 0',
+              paddingTop: '0.9rem',
+              borderTop: '1px solid var(--rule)',
             }}
           >
             Tree figures are indicative, based on One Tree Planted&apos;s published
@@ -1088,34 +1008,36 @@ export default function Donate() {
         </div>
 
         {/* ---------- what it protects ---------- */}
+        {/* Third scrimmed photograph on this page, and the last to go. It was a
+            90%-black wash from the left so a white headline could sit over a
+            misty lake; the plate and the words now sit side by side instead of
+            one on top of the other. */}
         <div
           style={{
-            marginTop: 'clamp(2.5rem, 6vw, 4rem)',
-            borderRadius: 'var(--eco-radius)',
-            overflow: 'hidden',
-            position: 'relative',
-            minHeight: 260,
-            display: 'flex',
+            marginTop: 'clamp(3rem, 7vw, 4.5rem)',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 'clamp(1.5rem, 4vw, 3rem)',
             alignItems: 'center',
           }}
         >
-          <img
-            src={photoUrl(PHOTOS.forestLake, 1400)}
-            alt="Still lake surrounded by tall pine forest with mist over the mountains"
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          />
           <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(90deg, rgba(6,10,6,0.9) 0%, rgba(6,10,6,0.55) 100%)',
-            }}
-          />
-          <div style={{ position: 'relative', zIndex: 1, padding: 'clamp(1.6rem, 5vw, 2.8rem)', maxWidth: 560 }}>
-            <h2 style={{ fontSize: 'clamp(1.4rem, 3.4vw, 2rem)', color: '#fff', marginBottom: '0.7rem' }}>
+            className="eco-photo-zoom"
+            style={{ overflow: 'hidden', borderRadius: 'var(--eco-radius-sm)', aspectRatio: '4 / 3' }}
+          >
+            <img
+              src={photoUrl(PHOTOS.forestLake, 1400)}
+              alt="Still lake surrounded by tall pine forest with mist over the mountains"
+              className="eco-photo-cover"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          </div>
+
+          <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+            <h2 className="eco-display" style={{ fontSize: 'clamp(1.5rem, 3.6vw, 2.2rem)', margin: '0 0 0.8rem' }}>
               Forests are the cheapest carbon capture we have
             </h2>
-            <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.95rem', lineHeight: 1.65, margin: 0 }}>
+            <p className="eco-text-muted" style={{ fontSize: '0.95rem', lineHeight: 1.7, margin: 0 }}>
               No machine removes carbon as cheaply as a tree that is already
               growing. Keeping existing forest standing, and putting new trees in
               the ground, remains one of the most effective things money can do
@@ -1125,11 +1047,17 @@ export default function Donate() {
         </div>
 
         {/* ---------- how the payment stays safe ---------- */}
-        <div style={{ marginTop: 'clamp(2.5rem, 6vw, 4rem)' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(1.5rem, 3.4vw, 2.1rem)', marginBottom: '1.8rem' }}>
+        <div style={{ marginTop: 'clamp(3rem, 7vw, 4.5rem)' }}>
+          <div className="eco-marker" style={{ display: 'block', marginBottom: '1.1rem' }}>
+            Three steps, server-verified
+          </div>
+          <h2
+            className="eco-display"
+            style={{ fontSize: 'clamp(1.7rem, 4vw, 2.6rem)', margin: '0 0 2rem' }}
+          >
             How a donation stays <span className="eco-gradient-text">safe</span>
           </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.3rem' }}>
             {[
               {
                 icon: Server,
@@ -1158,38 +1086,30 @@ export default function Donate() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.4 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  whileHover={prefersReducedMotion ? {} : { y: -5 }}
-                  className="eco-card eco-card-hover"
+                  // Numbered, and the order is the security argument: the order
+                  // is opened server-side, the card is typed into Razorpay, the
+                  // signature is checked. Each step only means anything after
+                  // the one before it.
+                  style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '0.8rem' }}>
-                    <div
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 12,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'linear-gradient(135deg, rgba(8,168,105,0.18), rgba(14,121,207,0.18))',
-                        color: 'var(--eco-primary)',
-                      }}
-                    >
-                      <Icon size={19} />
-                    </div>
-                    <span
-                      style={{
-                        fontFamily: 'Space Grotesk, sans-serif',
-                        fontWeight: 700,
-                        fontSize: '1.6rem',
-                        color: 'var(--eco-primary)',
-                        opacity: 0.35,
-                      }}
-                    >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.6rem',
+                      marginBottom: '1.1rem',
+                    }}
+                  >
+                    <span className="eco-readout" style={{ fontSize: '0.9rem', fontWeight: 600 }}>
                       {card.step}
                     </span>
+                    <Icon size={19} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
                   </div>
-                  <h3 style={{ fontSize: '1.05rem', marginBottom: '0.4rem' }}>{card.title}</h3>
-                  <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.55, margin: 0 }}>
+                  <h3 className="eco-display" style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                    {card.title}
+                  </h3>
+                  <p className="eco-text-muted" style={{ fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
                     {card.body}
                   </p>
                 </motion.div>
