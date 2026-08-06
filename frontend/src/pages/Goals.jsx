@@ -88,59 +88,59 @@ function GoalTimeline({ createdAt, targetDate, daysRemaining }) {
   const overdue = daysRemaining !== null && daysRemaining < 0;
 
   return (
-    <div style={{ marginTop: '1.1rem' }}>
-      <div
-        style={{
-          position: 'relative',
-          height: 4,
-          borderRadius: 4,
-          background: 'var(--eco-border)',
-        }}
-      >
+    <div style={{ marginTop: '1.3rem' }}>
+      <div style={{ position: 'relative', height: 3, background: 'var(--rule)' }}>
         <div
           style={{
             position: 'absolute',
             inset: 0,
             width: `${elapsedPercent}%`,
-            borderRadius: 4,
-            background: overdue
-              ? 'var(--eco-danger)'
-              : 'linear-gradient(90deg, var(--eco-primary), var(--eco-purple))',
+            background: overdue ? 'var(--eco-danger)' : 'var(--eco-primary)',
           }}
         />
 
-        {/* "You are here" marker */}
+        {/* "You are here" marker. Was a filled dot; a tick reads more like an
+            instrument's own needle marking a scale, matching the calibration
+            rail's short amber stroke. */}
         <div
           style={{
             position: 'absolute',
-            top: -4,
+            top: -3,
             left: `${elapsedPercent}%`,
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
-            marginLeft: -6,
-            background: overdue ? 'var(--eco-danger)' : 'var(--eco-primary)',
-            border: '2px solid var(--eco-card)',
+            width: 2,
+            height: 9,
+            marginLeft: -1,
+            background: overdue ? 'var(--eco-danger)' : 'var(--readout)',
           }}
         />
       </div>
 
       <div
-        className="eco-text-muted"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          fontSize: '0.72rem',
-          marginTop: '0.5rem',
+          fontSize: '0.7rem',
+          marginTop: '0.55rem',
         }}
       >
-        <span>Started {formatDate(createdAt, 'dd MMM')}</span>
-        <span style={{ color: overdue ? 'var(--eco-danger)' : undefined }}>
+        <span
+          style={{ fontFamily: 'var(--font-mono)', color: 'var(--eco-text-muted)', opacity: 0.75 }}
+        >
+          {formatDate(createdAt, 'dd MMM')}
+        </span>
+        <span
+          className={overdue ? undefined : 'eco-marker'}
+          style={overdue ? { color: 'var(--eco-danger)', fontWeight: 600 } : undefined}
+        >
           {overdue
             ? `${Math.abs(daysRemaining)} days overdue`
             : `${daysRemaining} days left`}
         </span>
-        <span>{formatDate(targetDate, 'dd MMM yyyy')}</span>
+        <span
+          style={{ fontFamily: 'var(--font-mono)', color: 'var(--eco-text-muted)', opacity: 0.75 }}
+        >
+          {formatDate(targetDate, 'dd MMM yyyy')}
+        </span>
       </div>
     </div>
   );
@@ -330,7 +330,7 @@ export default function Goals() {
       <PageBanner
         photo="goalsVista"
         alt="A wind farm across a green field"
-        color="#7c3aed"
+        color="var(--org-goldstandard)"
         icon={Target}
         eyebrow="Reduction targets"
         title="Your"
@@ -350,11 +350,18 @@ export default function Goals() {
       />
 
       {error && (
-        <div className="eco-card" style={{ marginBottom: '1.5rem', borderColor: 'var(--eco-danger)' }}>
-          <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center' }}>
-            <AlertCircle size={19} style={{ color: 'var(--eco-danger)' }} />
-            <span style={{ fontSize: '0.9rem' }}>{error}</span>
-          </div>
+        <div
+          style={{
+            marginBottom: '2rem',
+            paddingTop: '0.9rem',
+            borderTop: '2px solid var(--eco-danger)',
+            display: 'flex',
+            gap: '0.6rem',
+            alignItems: 'center',
+          }}
+        >
+          <AlertCircle size={17} style={{ color: 'var(--eco-danger)', flexShrink: 0 }} />
+          <span style={{ fontSize: '0.9rem' }}>{error}</span>
         </div>
       )}
 
@@ -368,8 +375,14 @@ export default function Goals() {
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             style={{ overflow: 'hidden', marginBottom: '1.5rem' }}
           >
-            <div className="eco-card eco-card-accent">
-              <h2 style={{ fontSize: '1.05rem', marginBottom: '1.3rem' }}>Set a new target</h2>
+            {/* The form keeps its card - it is the control surface of the page -
+                but loses .eco-card-accent, whose fixed gradient strip had
+                nothing to do with a form that sets one category's target at
+                a time. */}
+            <div className="eco-card">
+              <h2 className="eco-display" style={{ fontSize: '1.2rem', marginBottom: '1.4rem' }}>
+                Set a new target
+              </h2>
 
               {availableCategories.length === 0 ? (
                 <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>
@@ -523,12 +536,15 @@ export default function Goals() {
 
       {/* ============ EMPTY STATE ============ */}
       {goals.length === 0 && !showForm && (
-        <div className="eco-card" style={{ textAlign: 'center', padding: '3rem 1.5rem' }}>
-          <Target size={44} style={{ color: 'var(--eco-primary)', opacity: 0.6 }} />
-          <h2 style={{ fontSize: '1.3rem', marginTop: '1.1rem', marginBottom: '0.6rem' }}>
+        <div style={{ paddingTop: '1.1rem', borderTop: '2px solid var(--readout)', marginBottom: '2.5rem' }}>
+          <Target size={22} style={{ color: 'var(--eco-primary)', display: 'block', marginBottom: '0.9rem' }} />
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.6rem' }}>
+            No targets set
+          </span>
+          <h2 className="eco-display" style={{ fontSize: 'clamp(1.6rem, 3.6vw, 2.2rem)', margin: '0 0 0.7rem' }}>
             No goals yet
           </h2>
-          <p className="eco-text-muted" style={{ maxWidth: 460, margin: '0 auto 1.6rem' }}>
+          <p className="eco-text-muted" style={{ maxWidth: '54ch', margin: '0 0 1.6rem' }}>
             Pick the category you emit most in and commit to cutting it. A target on
             one behaviour beats a vague intention to do better.
           </p>
@@ -545,7 +561,7 @@ export default function Goals() {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '1.5rem',
+            gap: '2rem',
             marginBottom: finishedGoals.length > 0 ? '2.5rem' : 0,
           }}
         >
@@ -559,7 +575,7 @@ export default function Goals() {
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, delay: index * 0.07 }}
-                className="eco-card"
+                style={{ paddingTop: '1.05rem', borderTop: `1px solid ${categoryMeta.color}` }}
               >
                 {/* --- header --- */}
                 <div
@@ -568,14 +584,14 @@ export default function Goals() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '0.7rem',
-                    marginBottom: '1.2rem',
+                    marginBottom: '1.3rem',
                   }}
                 >
                   <div>
-                    <h3 style={{ fontSize: '1.1rem', marginBottom: '0.15rem' }}>
+                    <h3 className="eco-display" style={{ fontSize: '1.2rem', margin: '0 0 0.2rem' }}>
                       {formatCategory(goal.category)}
                     </h3>
-                    <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.82rem' }}>
+                    <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.84rem' }}>
                       Cut {goal.targetReductionPercent}% from{' '}
                       {formatEmission(goal.baselineEmission)}
                     </p>
@@ -618,56 +634,53 @@ export default function Goals() {
                   />
 
                   <div style={{ flex: 1, minWidth: 130 }}>
-                    <div style={{ marginBottom: '0.7rem' }}>
-                      <div className="eco-text-muted" style={{ fontSize: '0.75rem' }}>
+                    {/* Both figures are readouts - they are the same kind of
+                        quantity, so they read the same way. The first was set
+                        in the category's own colour, which is the one thing a
+                        measurement here should never wear. */}
+                    <div style={{ marginBottom: '0.8rem' }}>
+                      <span className="eco-marker" style={{ display: 'block', marginBottom: '0.2rem' }}>
                         This month
-                      </div>
-                      <div
-                        style={{
-                          fontFamily: 'Space Grotesk, sans-serif',
-                          fontWeight: 700,
-                          fontSize: '1.15rem',
-                          color: categoryMeta.color,
-                        }}
-                      >
+                      </span>
+                      <span className="eco-readout" style={{ fontSize: '1.1rem', fontWeight: 500 }}>
                         {formatEmission(goal.currentEmission)}
-                      </div>
+                      </span>
                     </div>
 
                     <div>
-                      <div className="eco-text-muted" style={{ fontSize: '0.75rem' }}>
+                      <span className="eco-marker" style={{ display: 'block', marginBottom: '0.2rem' }}>
                         Target
-                      </div>
-                      <div style={{ fontWeight: 600, fontSize: '1.02rem' }}>
+                      </span>
+                      <span className="eco-readout" style={{ fontSize: '1.02rem', fontWeight: 500, opacity: 0.85 }}>
                         {formatEmission(goal.targetEmission)}
-                      </div>
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* --- how far short, or how far ahead --- */}
+                {/* Was a tinted, rounded panel; now a pull quote in the state's
+                    own colour, matching the tone treatment on the Dashboard's
+                    insights. */}
                 <div
                   style={{
-                    marginTop: '1.1rem',
-                    padding: '0.7rem 0.9rem',
-                    borderRadius: 'var(--eco-radius-sm)',
-                    background: goal.isAchieved
-                      ? 'rgba(var(--eco-primary-rgb), 0.08)'
-                      : 'rgba(245, 158, 11, 0.07)',
-                    fontSize: '0.84rem',
+                    marginTop: '1.3rem',
+                    paddingLeft: '0.85rem',
+                    borderLeft: `2px solid ${goal.isAchieved ? 'var(--eco-primary)' : 'var(--readout)'}`,
+                    fontSize: '0.86rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
+                    gap: '0.55rem',
                   }}
                 >
                   {goal.isAchieved ? (
                     <>
-                      <Check size={15} style={{ color: 'var(--eco-primary)' }} />
+                      <Check size={15} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
                       <span>You are under target — ready to close this goal.</span>
                     </>
                   ) : (
                     <>
-                      <TrendingDown size={15} style={{ color: 'var(--eco-orange)' }} />
+                      <TrendingDown size={15} style={{ color: 'var(--readout)', flexShrink: 0 }} />
                       <span>
                         {formatNumber(goal.currentEmission - goal.targetEmission, 1)} kg still
                         to cut this month.
@@ -707,45 +720,37 @@ export default function Goals() {
 
       {/* ============ FINISHED GOALS ============ */}
       {finishedGoals.length > 0 && (
-        <div>
-          <h2 style={{ fontSize: '1.15rem', marginBottom: '1.1rem' }}>Completed</h2>
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <h2 className="eco-display" style={{ fontSize: '1.25rem', marginBottom: '1.4rem' }}>
+            Completed
+          </h2>
 
-          <div style={{ display: 'grid', gap: '0.8rem' }}>
+          <div style={{ display: 'grid', gap: '0' }}>
             {finishedGoals.map((goal) => (
               <div
                 key={goal.id}
-                className="eco-card"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '1rem',
                   flexWrap: 'wrap',
-                  padding: '1rem 1.2rem',
+                  padding: '0.9rem 0',
+                  borderBottom: '1px solid var(--rule)',
                 }}
               >
-                <div
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    background:
-                      goal.status === 'achieved'
-                        ? 'rgba(var(--eco-primary-rgb), 0.14)'
-                        : 'rgba(239, 68, 68, 0.12)',
-                    color:
-                      goal.status === 'achieved' ? 'var(--eco-primary)' : 'var(--eco-danger)',
-                  }}
-                >
-                  {goal.status === 'achieved' ? <Check size={19} /> : <X size={19} />}
-                </div>
+                {/* The 38px tinted rounded tile behind the tick/cross is gone -
+                    chrome around a 19px glyph, doubled up on every row here. */}
+                {goal.status === 'achieved' ? (
+                  <Check size={18} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
+                ) : (
+                  <X size={18} style={{ color: 'var(--eco-danger)', flexShrink: 0 }} />
+                )}
 
                 <div style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ fontWeight: 600 }}>{formatCategory(goal.category)}</div>
-                  <div className="eco-text-muted" style={{ fontSize: '0.82rem' }}>
+                  <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.98rem' }}>
+                    {formatCategory(goal.category)}
+                  </div>
+                  <div className="eco-text-muted" style={{ fontSize: '0.82rem', marginTop: '0.15rem' }}>
                     {goal.targetReductionPercent}% reduction ·{' '}
                     {goal.status === 'achieved' ? 'Achieved' : 'Missed'} ·{' '}
                     <CalendarClock size={11} style={{ verticalAlign: -1 }} />{' '}
