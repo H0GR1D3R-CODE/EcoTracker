@@ -41,8 +41,11 @@ from routes import (
 
 reports_bp = Blueprint("reports", __name__, url_prefix="/api/reports")
 
-# The kinds of report the Reports page can ask for
-VALID_REPORT_TYPES = ["monthly", "yearly", "custom"]
+# The kinds of report the Reports page can ask for. This is a label saved
+# alongside the period for display and filtering only - _build_report_data
+# calculates purely from periodStart/periodEnd, so adding a new preset here
+# never needs a change to how a report is actually built.
+VALID_REPORT_TYPES = ["daily", "weekly", "monthly", "yearly", "custom"]
 
 # A sanity limit so nobody generates a report across a thousand years
 MAX_PERIOD_DAYS = 366 * 5
