@@ -790,54 +790,57 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.3 }}
                 transition={{ duration: 0.5, delay: index * 0.07, ease: [0.22, 1, 0.36, 1] }}
-                className="eco-card eco-photo-card"
-                style={{
-                  position: 'relative',
-                  overflow: 'hidden',
-                  padding: 0,
-                  minHeight: 220,
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                }}
+                className="eco-photo-card"
               >
-                <Photo
-                  id={PHOTOS[item.photo]}
-                  alt={item.label}
-                  width={600}
-                  color={item.color}
-                  className="eco-photo-cover"
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-                />
+                {/* The plate. No card chrome and no scrim: the label used to be
+                    white type sitting on a rgba(0,0,0,0.8) gradient, which is a
+                    dark-page device - on paper it reads as a bruise across the
+                    bottom of every photograph, and it was darkening the image
+                    purely to make text legible on top of it.
+                    Caption below instead, the way a plate is captioned in a
+                    book. The photograph is left alone and the contrast problem
+                    disappears rather than being covered up. */}
                 <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent 65%)',
-                  }}
-                />
-                <span
+                  className="eco-photo-zoom"
                   style={{
                     position: 'relative',
-                    zIndex: 1,
-                    padding: '1rem 1.1rem',
-                    color: '#fff',
-                    fontWeight: 700,
-                    fontFamily: 'Space Grotesk, sans-serif',
-                    fontSize: '1.02rem',
+                    overflow: 'hidden',
+                    borderRadius: 'var(--eco-radius-sm)',
+                    aspectRatio: '4 / 5',
+                  }}
+                >
+                  <Photo
+                    id={PHOTOS[item.photo]}
+                    alt={item.label}
+                    width={600}
+                    color={item.color}
+                    className="eco-photo-cover"
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.55rem',
+                    marginTop: '0.85rem',
+                    paddingTop: '0.7rem',
+                    borderTop: '1px solid var(--rule)',
                   }}
                 >
                   <span
+                    aria-hidden="true"
                     style={{
-                      display: 'block',
-                      width: 26,
-                      height: 3,
+                      width: 7,
+                      height: 7,
+                      flexShrink: 0,
                       borderRadius: 2,
                       background: item.color,
-                      marginBottom: '0.5rem',
                     }}
                   />
-                  {item.label}
-                </span>
+                  <span className="eco-marker">{item.label}</span>
+                </div>
               </motion.div>
             ))}
           </div>
