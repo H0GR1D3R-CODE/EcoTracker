@@ -15,6 +15,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 const ThemeContext = createContext(null);
 
 const STORAGE_KEY = 'ecotrack-theme';
+const MOTION_STORAGE_KEY = 'ecotrack-reduce-motion';
 
 /**
  * Read the saved theme, falling back to light.
@@ -30,16 +31,47 @@ function getInitialTheme() {
   return 'light';
 }
 
+/**
+ * Read the saved manual reduce-motion override, defaulting to off.
+ * Wrapped in try/catch for the same reason getInitialTheme is.
+ */
+function getInitialManualReduceMotion() {
+  try {
+    return localStorage.getItem(MOTION_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(getInitialTheme);
 
-  // Whether the user has asked their operating system to reduce animation.
-  // Every animated component checks this before moving anything - it is an
-  // accessibility requirement, not a nice-to-have.
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(() => {
+  // Whether the operating system asks for reduced animation. This alone used
+  // to be the whole story, which left reduced motion unreachable to anyone
+  // who did not know their OS had a setting for it - a real barrier, since
+  // that setting is buried a few menus deep on every platform.
+  const [osReducedMotion, setOsReducedMotion] = useState(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return false;
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   });
+
+  // A manual override a person can set from Profile, independent of the OS.
+  // It can only ever ADD reduced motion, never remove it - there is no
+  // override for "my OS says reduce motion, but I want it anyway", because
+  // overriding someone's own accessibility setting against their OS is not
+  // this app's call to make.
+  const [manualReduceMotion, setManualReduceMotion] = useState(getInitialManualReduceMotion);
+
+  const prefersReducedMotion = osReducedMotion || manualReduceMotion;
+
+  const setReduceMotionPreference = (value) => {
+    setManualReduceMotion(value);
+    try {
+      localStorage.setItem(MOTION_STORAGE_KEY, String(value));
+    } catch {
+      // Saving failed - the preference still holds for this session
+    }
+  };
 
   // Apply the theme by setting data-theme on <html>. Every CSS variable in
   // index.css keys off that attribute, so one line restyles the whole app.
@@ -62,12 +94,12 @@ export function ThemeProvider({ children }) {
     }
   }, [theme]);
 
-  // Watch for the user changing their motion setting while the app is open
+  // Watch for the user changing their OS motion setting while the app is open
   useEffect(() => {
     if (!window.matchMedia) return undefined;
 
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const handleChange = (event) => setPrefersReducedMotion(event.matches);
+    const handleChange = (event) => setOsReducedMotion(event.matches);
 
     query.addEventListener('change', handleChange);
     // Removing the listener when the component unmounts prevents a memory leak
@@ -86,8 +118,14 @@ export function ThemeProvider({ children }) {
       isDark: theme === 'dark',
       toggleTheme,
       prefersReducedMotion,
+      // Exposed separately from the combined flag above so Profile can show
+      // and control ONLY the part it is allowed to change - it must never
+      // imply it can turn off a system-level accessibility setting.
+      osReducedMotion,
+      manualReduceMotion,
+      setReduceMotionPreference,
     }),
-    [theme, prefersReducedMotion]
+    [theme, prefersReducedMotion, osReducedMotion, manualReduceMotion]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

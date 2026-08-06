@@ -14,12 +14,16 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  EmailAuthProvider,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  reauthenticateWithCredential,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  updatePassword,
 } from 'firebase/auth';
 
 import { auth } from '../firebase';
@@ -56,6 +60,9 @@ function friendlyAuthError(error) {
       'Google sign-in is not enabled for this project yet.',
     'auth/unauthorized-domain':
       'This domain is not authorised for sign-in in the Firebase console.',
+    'auth/missing-email': 'Enter your email address.',
+    'auth/requires-recent-login':
+      'For your security, please sign out and back in before changing your password.',
   };
 
   return messages[code] || error?.message || 'Authentication failed. Please try again.';
@@ -217,6 +224,67 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
+   * Send a password-reset email for an account that is locked out entirely -
+   * the "forgot password" path, reachable from the login page without being
+   * signed in at all.
+   *
+   * DELIBERATELY does not distinguish "no account with that email" from
+   * "email sent" in what it shows the user: telling a stranger which email
+   * addresses have EcoTrack accounts is an account-enumeration leak, so
+   * auth/user-not-found is treated as success here rather than surfaced as an
+   * error. Anything else (a malformed address, no network, too many attempts)
+   * still surfaces, because those are about the request itself, not about
+   * whether an account exists.
+   */
+  const resetPassword = useCallback(async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      if (error?.code === 'auth/user-not-found') return;
+      throw new Error(friendlyAuthError(error));
+    }
+  }, []);
+
+  /**
+   * Change the password for the currently signed-in account.
+   *
+   * Firebase requires a RECENT sign-in for this - if the session is more than
+   * a few minutes old it throws auth/requires-recent-login instead of making
+   * the change. Re-authenticating with the current password here means the
+   * user never has to sign out and back in first; it also doubles as
+   * confirming they actually know the current password before setting a new
+   * one, which is worth having anyway.
+   *
+   * Only meaningful for an email/password account - a Google-only account has
+   * no password on this side to change, which is why the Profile page only
+   * shows this form when auth.currentUser.providerData includes 'password'.
+   */
+  const changePassword = useCallback(async (currentPassword, newPassword) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser?.email) {
+      throw new Error('You need to be signed in to change your password.');
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+    } catch (error) {
+      // Re-authentication failing almost always means the current password
+      // was typed wrong - say so plainly rather than the generic message.
+      if (error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password') {
+        throw new Error('Your current password is incorrect.');
+      }
+      throw new Error(friendlyAuthError(error));
+    }
+
+    try {
+      await updatePassword(currentUser, newPassword);
+    } catch (error) {
+      throw new Error(friendlyAuthError(error));
+    }
+  }, []);
+
+  /**
    * Sign out. onAuthStateChanged fires straight after and clears the state.
    */
   const logout = useCallback(async () => {
@@ -259,6 +327,8 @@ export function AuthProvider({ children }) {
       logout,
       updateProfile,
       refreshProfile,
+      resetPassword,
+      changePassword,
     }),
     [
       user,
@@ -271,6 +341,8 @@ export function AuthProvider({ children }) {
       logout,
       updateProfile,
       refreshProfile,
+      resetPassword,
+      changePassword,
     ]
   );
 
