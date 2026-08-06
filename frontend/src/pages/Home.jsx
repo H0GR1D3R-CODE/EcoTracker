@@ -762,7 +762,7 @@ export default function Home() {
       {/* ================= THE WORLD YOUR CHOICES TOUCH (photo strip) ================= */}
       <section className="eco-section">
         <div className="container">
-          <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 2.4rem' }}>
+          <div style={{ maxWidth: 640, marginBottom: '2.4rem' }}>
             <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Globe2 size={14} style={{ color: 'var(--eco-primary)' }} />
               Real systems, real impact
@@ -855,44 +855,65 @@ export default function Home() {
       </section>
 
       {/* ================= ESTIMATE TEASER ================= */}
-      <section className="eco-section">
+      {/* Was a rounded card floating in the middle of the page, centred, with
+          the last glow orb on Home sitting behind it. On a page now built from
+          rules and channels that card read as a leftover, and the orb was the
+          final piece of dark-page lighting.
+
+          It is still meant to interrupt - it is the one mid-page invitation -
+          so it keeps a distinct surface. That is now a full-width tinted band
+          with rules top and bottom, which separates it by structure rather than
+          by floating a box above the paper. */}
+      <section
+        className="eco-section"
+        style={{
+          background: 'var(--eco-bg-alt)',
+          borderTop: '1px solid var(--rule)',
+          borderBottom: '1px solid var(--rule)',
+        }}
+      >
         <div className="container">
           <motion.div
-            initial={prefersReducedMotion ? false : { opacity: 0, y: 26 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.3 }}
             transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            className="eco-card"
             style={{
-              position: 'relative',
-              overflow: 'hidden',
-              textAlign: 'center',
-              padding: 'clamp(2rem, 5vw, 3.4rem)',
-              maxWidth: 760,
-              margin: '0 auto',
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              gap: '2rem',
+              flexWrap: 'wrap',
             }}
           >
-            <div
-              className="eco-glow-orb eco-glow-orb-green"
-              style={{ width: 280, height: 280, top: '-55%', left: '50%', transform: 'translateX(-50%)' }}
-            />
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{ maxWidth: 620 }}>
+              <div
+                className="eco-marker"
+                style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}
+              >
                 <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
                 30 seconds · no sign-up
               </div>
-              <h2 className="eco-display" style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}>
+              <h2
+                className="eco-display"
+                style={{ fontSize: 'clamp(2.1rem, 5.4vw, 3.6rem)', marginBottom: '1.1rem' }}
+              >
                 Not sure where you <span className="eco-gradient-text">stand?</span>
               </h2>
-              <p className="eco-text-muted" style={{ maxWidth: 520, margin: '0 auto 1.8rem', fontSize: '1rem' }}>
+              <p className="eco-text-muted" style={{ maxWidth: 520, margin: 0, fontSize: '1rem' }}>
                 Answer four quick questions and watch your rough monthly footprint appear —
                 no account needed.
               </p>
-              <Link to="/estimate" className="eco-btn eco-btn-primary" style={{ padding: '0.9rem 2rem' }}>
-                Estimate your footprint
-                <ArrowRight size={17} />
-              </Link>
             </div>
+
+            <Link
+              to="/estimate"
+              className="eco-btn eco-btn-primary"
+              style={{ padding: '0.9rem 2rem', flexShrink: 0 }}
+            >
+              Estimate your footprint
+              <ArrowRight size={17} />
+            </Link>
           </motion.div>
         </div>
       </section>
@@ -900,7 +921,7 @@ export default function Home() {
       {/* ================= CATEGORIES ================= */}
       <section className="eco-section" id="how-it-works">
         <div className="container">
-          <div style={{ textAlign: 'center', maxWidth: 660, margin: '0 auto 3rem' }}>
+          <div style={{ maxWidth: 660, marginBottom: '3rem' }}>
             <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
               Seven categories
@@ -1022,7 +1043,7 @@ export default function Home() {
       {/* ================= HOW IT WORKS (3 STEPS) ================= */}
       <section className="eco-section">
         <div className="container">
-          <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 3rem' }}>
+          <div style={{ maxWidth: 640, marginBottom: '3rem' }}>
             <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
               Three simple steps
@@ -1051,40 +1072,40 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: false, amount: 0.3 }}
                   transition={{ duration: 0.5, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] }}
-                  className="eco-card eco-card-hover"
-                  style={{ position: 'relative' }}
+                  // Numbered, and here that is correct. These are not three
+                  // parallel features - you log, then you see, then you act, and
+                  // the order carries information. (The design decisions further
+                  // down are deliberately NOT numbered for the opposite reason.)
+                  //
+                  // The number was a 2.2rem Space Grotesk glyph in border-grey,
+                  // sitting in the corner as texture. It now leads the channel in
+                  // mono, as a step index rather than decoration, and the icon
+                  // has lost a gradient disc built from rgba(0,255,135) - neon
+                  // mixed for a black page.
+                  style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}
                 >
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: '1.1rem',
-                      right: '1.3rem',
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      fontWeight: 700,
-                      fontSize: '2.2rem',
-                      color: 'var(--eco-border)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {index + 1}
-                  </span>
                   <div
                     style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 13,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'linear-gradient(135deg, rgba(0,255,135,0.16), rgba(124,58,237,0.16))',
-                      color: 'var(--eco-primary)',
+                      justifyContent: 'space-between',
+                      gap: '0.6rem',
                       marginBottom: '1.1rem',
                     }}
                   >
-                    <Icon size={24} />
+                    <span className="eco-readout" style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <Icon size={20} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
                   </div>
-                  <h3 style={{ fontSize: '1.15rem', marginBottom: '0.5rem' }}>{step.title}</h3>
-                  <p className="eco-text-muted" style={{ fontSize: '0.92rem', margin: 0, lineHeight: 1.6 }}>
+
+                  <h3
+                    className="eco-display"
+                    style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.55rem' }}
+                  >
+                    {step.title}
+                  </h3>
+                  <p className="eco-text-muted" style={{ fontSize: '0.92rem', margin: 0, lineHeight: 1.65 }}>
                     {step.body}
                   </p>
                 </motion.div>
@@ -1253,7 +1274,7 @@ export default function Home() {
       {/* ================= IMPACT SWAPS ================= */}
       <section className="eco-section" style={{ background: 'var(--eco-bg-alt)' }}>
         <div className="container">
-          <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto 3rem' }}>
+          <div style={{ maxWidth: 640, marginBottom: '3rem' }}>
             <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Sparkles size={14} style={{ color: 'var(--eco-primary)' }} />
               Small changes, real savings
@@ -1332,7 +1353,7 @@ export default function Home() {
           hosting bill ever will. */}
       <section className="eco-section">
         <div className="container">
-          <div style={{ textAlign: 'center', maxWidth: 660, margin: '0 auto 2.6rem' }}>
+          <div style={{ maxWidth: 660, marginBottom: '2.6rem' }}>
             <div className="eco-marker" style={{ marginBottom: '1.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
               <Heart size={14} style={{ color: 'var(--eco-primary)' }} />
               Take action
