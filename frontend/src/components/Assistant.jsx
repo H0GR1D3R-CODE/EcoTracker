@@ -4,19 +4,25 @@
 // the assistant feature was approved.
 //
 // The floating EcoTrack Assistant - a chat panel that answers questions about
-// the signed-in user's own footprint.
+// the signed-in user's own footprint, how any part of the app works, and -
+// for an admin - the platform-wide figures and the admin console itself.
 //
 // WHERE THE INTELLIGENCE LIVES
 // Not here. This component is a chat UI and nothing more: it collects a
 // question, posts it to POST /api/assistant/chat, and renders the reply. The
-// Anthropic API key is held only by the Flask server, which reads the user's
-// real Firestore data and puts it in the prompt before calling Claude.
+// Gemini API key is held only by the Flask server (backend/routes/assistant.py),
+// which reads the signed-in user's real Firestore data - and, only when the
+// verified token belongs to an admin, the platform-wide data and a guide to
+// the admin console - and puts it in the prompt before calling Gemini.
 //
-// That split is deliberate. If the browser called Anthropic directly, the API
-// key would be sitting in the JavaScript bundle for anyone to take.
+// That split is deliberate. If the browser called Gemini directly, the API
+// key would be sitting in the JavaScript bundle for anyone to take. The
+// admin split is the same idea applied to authorisation: the server decides
+// who is an admin from the verified token, so there is no client-side flag a
+// regular user could flip to see platform data that was never in the prompt.
 //
 // The conversation lives in this component's state and is passed back to the
-// server on each turn, because the Claude API is stateless - it has no memory
+// server on each turn, because the Gemini API is stateless - it has no memory
 // of previous requests.
 
 import { useEffect, useRef, useState } from 'react';
@@ -35,8 +41,18 @@ const STARTER_QUESTIONS = [
   'What is one change that would help most?',
 ];
 
+// An admin sees two of their own plus two that only make sense with
+// platform-wide data - a hint, right where the panel opens, that the
+// assistant can see more than usual for this account specifically.
+const ADMIN_STARTER_QUESTIONS = [
+  'What is my biggest source of emissions?',
+  'How many users signed up this month?',
+  'How much has been donated in total?',
+  'Where in the console do I find someone’s full activity?',
+];
+
 export default function Assistant() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const { prefersReducedMotion } = useTheme();
 
   const [available, setAvailable] = useState(false);
@@ -123,6 +139,7 @@ export default function Assistant() {
   if (!user || !available) return null;
 
   const firstName = profile?.name?.split(' ')[0] || 'there';
+  const starterQuestions = isAdmin ? ADMIN_STARTER_QUESTIONS : STARTER_QUESTIONS;
 
   return (
     <>
@@ -191,7 +208,9 @@ export default function Assistant() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>EcoTrack Assistant</div>
                 <div className="eco-text-muted" style={{ fontSize: '0.74rem' }}>
-                  Reads your data · cannot change anything
+                  {isAdmin
+                    ? 'Reads your data + platform data · cannot change anything'
+                    : 'Reads your data · cannot change anything'}
                 </div>
               </div>
 
@@ -237,12 +256,13 @@ export default function Assistant() {
                     className="eco-text-muted"
                     style={{ fontSize: '0.86rem', marginBottom: '1.1rem' }}
                   >
-                    Ask me about your footprint, your goals, or how any part of
-                    EcoTrack works. I only see your own data.
+                    {isAdmin
+                      ? 'Ask me about your footprint, your goals, how any part of EcoTrack works, or the platform-wide figures and console - I can see those too, since you are an admin.'
+                      : 'Ask me about your footprint, your goals, or how any part of EcoTrack works. I only see your own data.'}
                   </p>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                    {STARTER_QUESTIONS.map((question) => (
+                    {starterQuestions.map((question) => (
                       <button
                         key={question}
                         type="button"
