@@ -50,6 +50,7 @@ import { useCounter } from '../hooks/useCounter';
 import { useScrollReveal, useStaggerReveal } from '../hooks/useScrollReveal';
 import Photo from '../components/Photo';
 import LiveCarbonCounter from '../components/LiveCarbonCounter';
+import VideoBand from '../components/VideoBand';
 import { PHOTOS } from '../utils/photos';
 
 // A few real photographs shown in the "world your choices touch" strip near the
@@ -1275,6 +1276,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ================= VIDEO BAND ================= */}
+      <VideoBand />
 
       {/* ================= IMPACT SWAPS ================= */}
       <section className="eco-section" style={{ background: 'var(--eco-bg-alt)' }}>
