@@ -14,7 +14,6 @@ import { AlertCircle, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail } from 'lucide-r
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
-import AuthBackground from '../components/AuthBackground';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function Login() {
@@ -113,36 +112,74 @@ export default function Login() {
         overflow: 'hidden',
       }}
     >
-      {/* Drifting orbs, a masked grid and rising motes. Replaces the two static
-          discs that used to sit here - on a page that is mostly empty space,
-          the background is most of what a visitor actually looks at. */}
-      <AuthBackground />
-
-      <motion.div
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 26, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.4, 0, 0.2, 1] }}
-        className="eco-card eco-glass"
-        style={{ width: '100%', maxWidth: 430, padding: '2.4rem 2rem', zIndex: 1 }}
-      >
-        {/* ---------- Header ---------- */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <motion.div
-            animate={prefersReducedMotion ? {} : { y: [0, -7, 0] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-            style={{ display: 'inline-flex', color: 'var(--eco-primary)', marginBottom: '0.6rem' }}
+      <div className="eco-auth-grid">
+        {/* ---------- the copy, at full size ---------- */}
+        {/* This is what the drifting orbs and rising motes were standing in for.
+            The page was a small card on a very large empty area, so the
+            background was most of what a visitor looked at - and on the paper
+            ground those washes read as smudges and the motes as dirt on the
+            screen. The header that was squeezed into the top of the card now
+            has the room to be a headline. */}
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.85rem',
+              flexWrap: 'wrap',
+              marginBottom: '1.8rem',
+            }}
           >
-            <Leaf size={40} />
-          </motion.div>
+            <Leaf size={16} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
+            <span className="eco-marker">EcoTrack</span>
+            <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
+              SIGN IN
+            </span>
+            <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
+          </div>
 
-          <h1 className="eco-gradient-text" style={{ fontSize: '1.9rem', marginBottom: '0.3rem' }}>
-            Welcome back
+          <h1
+            className="eco-display"
+            style={{ fontSize: 'clamp(2.4rem, 6vw, 4rem)', margin: '0 0 1.2rem' }}
+          >
+            Welcome <span className="eco-gradient-text">back</span>
           </h1>
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.92rem' }}>
-            Sign in to continue tracking your footprint
+          <p
+            className="eco-text-muted"
+            style={{ fontSize: '1.05rem', maxWidth: '46ch', margin: '0 0 2.4rem' }}
+          >
+            Sign in to pick your footprint up where you left it — every activity
+            you have logged, the trend behind it, and the goals still running.
           </p>
-        </div>
 
+          <div style={{ display: 'grid', gap: '1rem', maxWidth: 420 }}>
+            {[
+              ['Only you see your data', 'the server checks your identity on every request'],
+              ['Free, with no card', 'there is nothing to pay and no trial to expire'],
+            ].map(([title, note]) => (
+              <div key={title} style={{ paddingTop: '0.8rem', borderTop: '1px solid var(--rule)' }}>
+                <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                  {title}
+                </div>
+                <div className="eco-text-muted" style={{ fontSize: '0.84rem', marginTop: '0.15rem' }}>
+                  {note}
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 26 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.5, delay: 0.08, ease: [0.4, 0, 0.2, 1] }}
+          className="eco-card"
+          style={{ width: '100%', padding: '2rem', zIndex: 1 }}
+        >
         {/* ---------- Google, first ---------- */}
         {/* Above the form on purpose: it is one click against typing an email
             and a password, so burying it under the thing it replaces would be
@@ -297,7 +334,8 @@ export default function Login() {
             Create an account
           </Link>
         </p>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }

@@ -33,7 +33,6 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import SelectField from '../components/SelectField';
 import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
-import AuthBackground from '../components/AuthBackground';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const TOTAL_STEPS = 3;
@@ -276,69 +275,54 @@ export default function Register() {
         overflow: 'hidden',
       }}
     >
-      {/* Drifting orbs, a masked grid and rising motes, replacing the two
-          static discs that used to sit here. */}
-      <AuthBackground />
-
-      <motion.div
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 26, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: [0.4, 0, 0.2, 1] }}
-        className="eco-card eco-glass"
-        style={{ width: '100%', maxWidth: 470, padding: '2.2rem 2rem', zIndex: 1 }}
-      >
-        {/* ---------- Header ---------- */}
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'inline-flex', color: 'var(--eco-primary)', marginBottom: '0.5rem' }}>
-            <Leaf size={34} />
-          </div>
-          <h1 className="eco-gradient-text" style={{ fontSize: '1.7rem', marginBottom: '0.2rem' }}>
-            Create your account
-          </h1>
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>
-            Start measuring your climate impact today
-          </p>
-        </div>
-
-        {/* ---------- Progress bar ---------- */}
-        <div style={{ marginBottom: '1.8rem' }}>
+      <div className="eco-auth-grid">
+        {/* ---------- the copy, at full size ---------- */}
+        {/* The drifting orbs and rising motes are gone from both auth pages.
+            They existed because a single card on a large empty page needs
+            something to look at; the answer is copy worth reading, not ambient
+            motion - and on the paper ground those washes read as smudges. */}
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
+        >
           <div
             style={{
               display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: '0.55rem',
-              fontSize: '0.78rem',
+              alignItems: 'center',
+              gap: '0.85rem',
+              flexWrap: 'wrap',
+              marginBottom: '1.8rem',
             }}
           >
-            <span style={{ fontWeight: 600, color: 'var(--eco-primary)' }}>
-              Step {step} of {TOTAL_STEPS}
+            <Leaf size={16} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
+            <span className="eco-marker">EcoTrack</span>
+            <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
+              NEW ACCOUNT
             </span>
-            <span className="eco-text-muted">{STEP_TITLES[step - 1].title}</span>
+            <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
           </div>
 
-          <div
-            style={{
-              height: 6,
-              borderRadius: 6,
-              background: 'var(--eco-border)',
-              overflow: 'hidden',
-            }}
+          <h1
+            className="eco-display"
+            style={{ fontSize: 'clamp(2.4rem, 6vw, 4rem)', margin: '0 0 1.2rem' }}
           >
-            {/* The fill animates its width whenever the step changes */}
-            <motion.div
-              initial={false}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.45, ease: 'easeInOut' }}
-              style={{
-                height: '100%',
-                borderRadius: 6,
-                background: 'linear-gradient(90deg, var(--eco-primary), var(--eco-purple))',
-              }}
-            />
-          </div>
+            Create your <span className="eco-gradient-text">account</span>
+          </h1>
+          <p
+            className="eco-text-muted"
+            style={{ fontSize: '1.05rem', maxWidth: '46ch', margin: '0 0 2.4rem' }}
+          >
+            Three short steps, then one logged activity — a car trip, an
+            electricity bill, a meal — is enough to bring the whole dashboard to
+            life.
+          </p>
 
-          {/* Step dots, ticked once passed */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.7rem' }}>
+          {/* The step list, out here where there is room for it to say what each
+              step actually asks for. Inside the card it was three 20px discs
+              with no labels, which told the user how many steps there were and
+              nothing else. */}
+          <div style={{ display: 'grid', gap: '0.9rem', maxWidth: 420 }}>
             {STEP_TITLES.map((item, index) => {
               const stepNumber = index + 1;
               const done = stepNumber < step;
@@ -347,28 +331,76 @@ export default function Register() {
               return (
                 <div
                   key={item.title}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem' }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: '0.8rem',
+                    paddingTop: '0.8rem',
+                    // The rule is the state. Amber marks where the instrument
+                    // currently is, which is the same mark the calibration rail
+                    // uses for the needle.
+                    borderTop: `1px solid ${active ? 'var(--readout)' : 'var(--rule)'}`,
+                    opacity: done || active ? 1 : 0.55,
+                    transition: 'border-color 0.3s ease, opacity 0.3s ease',
+                  }}
                 >
-                  <div
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: done || active ? 'var(--eco-primary)' : 'var(--eco-border)',
-                      color: done || active ? '#04140c' : 'var(--eco-text-muted)',
-                      fontWeight: 700,
-                      fontSize: '0.68rem',
-                      transition: 'background-color 0.3s ease',
-                    }}
+                  <span
+                    className="eco-readout"
+                    style={{ fontSize: '0.8rem', fontWeight: 600, flexShrink: 0 }}
                   >
-                    {done ? <Check size={12} /> : stepNumber}
-                  </div>
+                    {done ? <Check size={13} style={{ verticalAlign: -1 }} /> : String(stepNumber).padStart(2, '0')}
+                  </span>
+                  <span>
+                    <span className="eco-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                      {item.title}
+                    </span>
+                    <span
+                      className="eco-text-muted"
+                      style={{ display: 'block', fontSize: '0.84rem', marginTop: '0.1rem' }}
+                    >
+                      {item.subtitle}
+                    </span>
+                  </span>
                 </div>
               );
             })}
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 26 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.5, delay: 0.08, ease: [0.4, 0, 0.2, 1] }}
+          className="eco-card"
+          style={{ width: '100%', padding: '2rem', zIndex: 1 }}
+        >
+        {/* ---------- Progress ---------- */}
+        {/* The gradient pill is now a plain track with an amber fill: the bar is
+            reporting how far through the form you are, which is a measurement,
+            and measurements are amber here. */}
+        <div style={{ marginBottom: '1.8rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              marginBottom: '0.6rem',
+            }}
+          >
+            <span className="eco-marker">{STEP_TITLES[step - 1].title}</span>
+            <span className="eco-readout" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+              {String(step).padStart(2, '0')} / {String(TOTAL_STEPS).padStart(2, '0')}
+            </span>
+          </div>
+
+          <div style={{ height: 3, background: 'var(--rule-strong)', overflow: 'hidden' }}>
+            {/* The fill animates its width whenever the step changes */}
+            <motion.div
+              initial={false}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.45, ease: 'easeInOut' }}
+              style={{ height: '100%', background: 'var(--readout)' }}
+            />
           </div>
         </div>
 
@@ -766,7 +798,8 @@ export default function Register() {
             Sign in
           </Link>
         </p>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }
