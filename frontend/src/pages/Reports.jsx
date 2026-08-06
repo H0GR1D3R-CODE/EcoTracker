@@ -189,9 +189,12 @@ function buildNarrative(report) {
   return paragraphs;
 }
 
+// warning uses the instrument amber rather than --eco-orange, which measures
+// 3.29:1 on the paper ground - under the 4.5:1 floor these paragraphs need at
+// body size.
 const TONE_COLORS = {
   good: 'var(--eco-primary)',
-  warning: 'var(--eco-orange)',
+  warning: 'var(--readout)',
   neutral: 'var(--eco-text-muted)',
 };
 
@@ -370,7 +373,7 @@ export default function Reports() {
       <PageBanner
         photo="reportsPath"
         alt="A winding road through a green forest"
-        color="#0ea5e9"
+        color="var(--cat-water)"
         icon={FileText}
         eyebrow="Your summary"
         title="Carbon"
@@ -470,6 +473,11 @@ export default function Reports() {
       </div>
 
       {/* ============ THE REPORT ============ */}
+      {/* The whole report is treated as ONE document, the way the Donate
+          receipt is: it keeps a single card, because a generated report - like
+          a receipt - is a printed artefact, not a stack of dashboard sections.
+          Internally it is divided by rules rather than by four separate cards
+          stacked on top of each other. */}
       <AnimatePresence mode="wait">
         {report && (
           <motion.div
@@ -479,9 +487,11 @@ export default function Reports() {
             exit={prefersReducedMotion ? {} : { opacity: 0 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             id="eco-report-printable"
+            className="eco-card"
+            style={{ marginBottom: '2rem' }}
           >
             {/* --- header --- */}
-            <div className="eco-card" style={{ marginBottom: '1.5rem' }}>
+            <div>
               <div
                 style={{
                   display: 'flex',
@@ -492,11 +502,11 @@ export default function Reports() {
                 }}
               >
                 <div>
-                  <h2 style={{ fontSize: '1.3rem', marginBottom: '0.3rem' }}>
+                  <h2 className="eco-display" style={{ fontSize: '1.5rem', margin: '0 0 0.4rem' }}>
                     Carbon report — {formatDate(report.periodStart)} to{' '}
                     {formatDate(report.periodEnd)}
                   </h2>
-                  <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.86rem' }}>
+                  <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.88rem' }}>
                     Prepared for {profile?.name} · {report.reportType} · generated{' '}
                     {formatDate(report.generatedAt)}
                   </p>
@@ -513,14 +523,17 @@ export default function Reports() {
               </div>
 
               {/* headline figures */}
+              {/* The four figures a report opens with. Readouts, like every
+                  other measured quantity in the app - they were bold Space
+                  Grotesk in the page's default text colour. */}
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                  gap: '1rem',
-                  marginTop: '1.6rem',
+                  gap: '1.4rem',
+                  marginTop: '1.8rem',
                   paddingTop: '1.4rem',
-                  borderTop: '1px solid var(--eco-border)',
+                  borderTop: '1px solid var(--rule-strong)',
                 }}
               >
                 {[
@@ -530,36 +543,32 @@ export default function Reports() {
                   { label: 'Days covered', value: formatNumber(report.data.daysInPeriod, 0) },
                 ].map((item) => (
                   <div key={item.label}>
-                    <div className="eco-text-muted" style={{ fontSize: '0.74rem' }}>
+                    <span className="eco-marker" style={{ display: 'block' }}>
                       {item.label}
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: 'Space Grotesk, sans-serif',
-                        fontWeight: 700,
-                        fontSize: '1.2rem',
-                        marginTop: '0.2rem',
-                      }}
+                    </span>
+                    <span
+                      className="eco-readout"
+                      style={{ fontSize: '1.15rem', fontWeight: 500, display: 'block', marginTop: '0.35rem' }}
                     >
                       {item.value}
-                    </div>
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* --- narrative summary --- */}
-            <div className="eco-card" style={{ marginBottom: '1.5rem' }}>
+            <div style={{ marginTop: '1.8rem', paddingTop: '1.4rem', borderTop: '1px solid var(--rule-strong)' }}>
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.55rem',
-                  marginBottom: '1.2rem',
+                  marginBottom: '1.3rem',
                 }}
               >
-                <Sparkles size={19} style={{ color: 'var(--eco-primary)' }} />
-                <h3 style={{ fontSize: '1.08rem', margin: 0 }}>Summary</h3>
+                <Sparkles size={17} style={{ color: 'var(--eco-primary)' }} />
+                <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Summary</h3>
               </div>
 
               <div style={{ display: 'grid', gap: '1rem' }}>
@@ -590,7 +599,7 @@ export default function Reports() {
               {assistantOn && (
                 <div
                   className="eco-no-print"
-                  style={{ marginTop: '1.5rem', paddingTop: '1.3rem', borderTop: '1px solid var(--eco-border)' }}
+                  style={{ marginTop: '1.5rem', paddingTop: '1.3rem', borderTop: '1px solid var(--rule)' }}
                 >
                   {!aiSummary && !aiLoading && (
                     <button
@@ -614,16 +623,13 @@ export default function Reports() {
                     </div>
                   )}
 
+                  {/* Pull quote rather than a tinted panel, matching the
+                      Dashboard's insights and the Donate page's callout. */}
                   {aiSummary && (
                     <motion.div
                       initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      style={{
-                        padding: '1.1rem 1.2rem',
-                        borderRadius: 'var(--eco-radius-sm)',
-                        background: 'rgba(var(--eco-primary-rgb), 0.05)',
-                        border: '1px solid rgba(var(--eco-primary-rgb), 0.2)',
-                      }}
+                      style={{ paddingLeft: '0.9rem', borderLeft: '2px solid var(--eco-primary)' }}
                     >
                       <div
                         style={{
@@ -631,15 +637,10 @@ export default function Reports() {
                           alignItems: 'center',
                           gap: '0.45rem',
                           marginBottom: '0.7rem',
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          color: 'var(--eco-primary)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
                         }}
                       >
-                        <Sparkles size={13} />
-                        AI summary
+                        <Sparkles size={13} style={{ color: 'var(--eco-primary)' }} />
+                        <span className="eco-marker">AI summary</span>
                       </div>
                       {/* whiteSpace preserves the paragraph breaks the model
                           returns, without needing a markdown renderer */}
@@ -653,16 +654,20 @@ export default function Reports() {
             </div>
 
             {/* --- breakdown + impact --- */}
+            {/* Each column carries its own top rule rather than the row
+                sharing one, the same pattern the Dashboard uses for its
+                doughnut-and-equivalents row - it reads as two channels side by
+                side, not one header over two panels. */}
             <div
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
-                gap: '1.5rem',
-                marginBottom: '1.5rem',
+                gap: 'clamp(1.6rem, 3vw, 2.5rem)',
+                marginTop: '1.8rem',
               }}
             >
-              <div className="eco-card">
-                <h3 style={{ fontSize: '1.05rem', marginBottom: '1.3rem' }}>
+              <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+                <h3 className="eco-display" style={{ fontSize: '1.15rem', marginBottom: '1.4rem' }}>
                   Breakdown by category
                 </h3>
 
@@ -690,28 +695,17 @@ export default function Reports() {
                             }}
                           >
                             <span>{formatCategory(category)}</span>
-                            <span className="eco-text-muted">
+                            <span className="eco-readout" style={{ fontSize: '0.82rem', fontWeight: 500 }}>
                               {formatEmission(value)} · {formatNumber(share, 0)}%
                             </span>
                           </div>
 
-                          <div
-                            style={{
-                              height: 8,
-                              borderRadius: 8,
-                              background: 'var(--eco-border)',
-                              overflow: 'hidden',
-                            }}
-                          >
+                          <div style={{ height: 6, background: 'var(--rule)', overflow: 'hidden' }}>
                             <motion.div
                               initial={prefersReducedMotion ? false : { width: 0 }}
                               animate={{ width: `${(value / maxCategoryValue) * 100}%` }}
                               transition={{ duration: 0.8, delay: 0.1 + index * 0.07 }}
-                              style={{
-                                height: '100%',
-                                borderRadius: 8,
-                                background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 53%, transparent))`,
-                              }}
+                              style={{ height: '100%', background: color }}
                             />
                           </div>
                         </div>
@@ -732,17 +726,19 @@ export default function Reports() {
 
             {/* --- worst offenders --- */}
             {report.data.topSubTypes?.length > 0 && (
-              <div className="eco-card" style={{ marginBottom: '1.5rem' }}>
+              <div style={{ marginTop: '1.8rem', paddingTop: '1.4rem', borderTop: '1px solid var(--rule-strong)' }}>
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.55rem',
-                    marginBottom: '1.2rem',
+                    marginBottom: '1.3rem',
                   }}
                 >
-                  <TrendingUp size={18} style={{ color: 'var(--eco-orange)' }} />
-                  <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Biggest contributors</h3>
+                  <TrendingUp size={17} style={{ color: 'var(--readout)' }} />
+                  <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
+                    Biggest contributors
+                  </h3>
                 </div>
 
                 <div className="eco-table-wrap">
@@ -767,8 +763,12 @@ export default function Reports() {
                             <td style={{ fontWeight: 500 }}>{formatSubType(item.subType)}</td>
                             <td className="eco-text-muted">{formatCategory(item.category)}</td>
                             <td className="eco-text-muted">{item.count}</td>
-                            <td style={{ fontWeight: 600 }}>{formatEmission(item.emission)}</td>
-                            <td className="eco-text-muted">{formatNumber(share, 0)}%</td>
+                            <td className="eco-readout" style={{ fontWeight: 500 }}>
+                              {formatEmission(item.emission)}
+                            </td>
+                            <td className="eco-readout" style={{ fontWeight: 500, opacity: 0.85 }}>
+                              {formatNumber(share, 0)}%
+                            </td>
                           </tr>
                         );
                       })}
@@ -782,17 +782,21 @@ export default function Reports() {
       </AnimatePresence>
 
       {/* ============ PAST REPORTS ============ */}
-      <div className="eco-card eco-no-print">
+      {/* Not part of the printed document - this is app chrome for finding an
+          old report, so it stays a channel rather than a second document card. */}
+      <div className="eco-no-print" style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.55rem',
-            marginBottom: '1.1rem',
+            marginBottom: '1.2rem',
           }}
         >
-          <CalendarRange size={18} style={{ color: 'var(--eco-text-muted)' }} />
-          <h3 style={{ fontSize: '1.05rem', margin: 0 }}>Previously generated</h3>
+          <CalendarRange size={17} style={{ color: 'var(--eco-text-muted)' }} />
+          <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
+            Previously generated
+          </h3>
         </div>
 
         {loadingHistory ? (
@@ -810,27 +814,26 @@ export default function Reports() {
             No reports yet. Generate one above and it will be saved here.
           </p>
         ) : (
-          <div style={{ display: 'grid', gap: '0.6rem' }}>
-            {history.map((item) => (
+          <div style={{ display: 'grid', gap: 0 }}>
+            {history.map((item, index) => (
               <div
                 key={item.id}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.8rem',
-                  padding: '0.75rem 0.9rem',
-                  borderRadius: 'var(--eco-radius-sm)',
-                  border: '1px solid var(--eco-border)',
+                  padding: '0.85rem 0',
+                  borderTop: index === 0 ? '1px solid var(--rule-strong)' : '1px solid var(--rule)',
                   flexWrap: 'wrap',
                 }}
               >
-                <FileText size={17} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
+                <FileText size={16} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
 
                 <div style={{ flex: 1, minWidth: 150 }}>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>
+                  <div className="eco-display" style={{ fontSize: '0.92rem', fontWeight: 600 }}>
                     {formatDate(item.periodStart)} — {formatDate(item.periodEnd)}
                   </div>
-                  <div className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
+                  <div className="eco-marker" style={{ marginTop: '0.15rem' }}>
                     {item.reportType} · generated {formatDate(item.generatedAt)}
                   </div>
                 </div>
