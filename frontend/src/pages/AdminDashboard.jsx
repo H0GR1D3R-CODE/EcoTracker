@@ -285,7 +285,7 @@ export default function AdminDashboard() {
         id: `give-${donation.id}`,
         at: donation.createdAt,
         icon: HeartHandshake,
-        color: '#3fb0a8',
+        color: 'var(--eco-purple)',
         title:
           donation.amount == null
             ? `${donation.name} donated`
@@ -301,7 +301,7 @@ export default function AdminDashboard() {
         id: `say-${item.id}`,
         at: item.createdAt,
         icon: MessageSquare,
-        color: 'var(--eco-orange)',
+        color: 'var(--readout)',
         title: `${item.name} sent feedback`,
         detail: truncate(item.message, 80),
         uid: null,
@@ -400,7 +400,7 @@ export default function AdminDashboard() {
         ts: report.createdAt || report.periodStart || '',
         when: report.createdAt || report.periodStart,
         icon: FileText,
-        color: '#0ea5e9',
+        color: 'var(--cat-water)',
         title: `Generated a ${report.reportType || ''} report`.replace('  ', ' '),
         detail: `${report.periodStart} → ${report.periodEnd}`,
       });
@@ -464,12 +464,15 @@ export default function AdminDashboard() {
   if (error) {
     return (
       <div className="container" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
-        <div className="eco-card" style={{ textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
-          <AlertTriangle size={40} style={{ color: 'var(--eco-orange)' }} />
-          <h2 style={{ fontSize: '1.25rem', marginTop: '1rem', marginBottom: '0.5rem' }}>
+        <div style={{ maxWidth: 560, paddingTop: '1.1rem', borderTop: '2px solid var(--eco-danger)' }}>
+          <AlertTriangle size={22} style={{ color: 'var(--eco-danger)', display: 'block', marginBottom: '0.9rem' }} />
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.6rem' }}>
+            No signal
+          </span>
+          <h2 className="eco-display" style={{ fontSize: 'clamp(1.6rem, 3.6vw, 2.2rem)', margin: '0 0 0.7rem' }}>
             Could not load the admin dashboard
           </h2>
-          <p className="eco-text-muted" style={{ marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.92rem' }}>
             {error}
           </p>
           <button type="button" className="eco-btn eco-btn-primary" onClick={load}>
@@ -483,194 +486,107 @@ export default function AdminDashboard() {
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
-      {/* ============ HEADER (image banner) ============ */}
+      {/* ============ HEADER ============ */}
+      {/* This was the last hand-rolled banner in the app - a photograph under a
+          scrim reaching 95% black, a violet radial glow, a purple gradient
+          pill and "centre" set in a purple-to-blue gradient. Every one of
+          those is the dark-page device removed from the rest of the product;
+          this page had simply never had the pass applied. It now matches the
+          restyled PageBanner: the plate stands alone, the caption sits under a
+          rule beneath it, and the headline figures are amber readouts instead
+          of white Space Grotesk. */}
       <motion.div
-        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-        style={{
-          position: 'relative',
-          overflow: 'hidden',
-          borderRadius: '20px',
-          border: '1px solid var(--eco-border)',
-          marginBottom: '1.5rem',
-          minHeight: 220,
-          display: 'flex',
-          alignItems: 'flex-end',
-        }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        style={{ marginBottom: '2.2rem' }}
       >
-        {/* the photograph, filling the whole banner */}
-        <Photo
-          id={PHOTOS.adminBanner}
-          alt="Aerial view of a city lit up at night"
-          width={1600}
-          color="#7c3aed"
-          loading="eager"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-        />
-        {/* slow drift so the banner feels alive, not a flat picture */}
-        {!prefersReducedMotion && (
-          <motion.div
-            aria-hidden
-            initial={{ x: 0, y: 0 }}
-            animate={{ x: [0, 14, 0], y: [0, -10, 0] }}
-            transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }}
-            style={{
-              position: 'absolute',
-              inset: '-8%',
-              background:
-                'radial-gradient(60% 60% at 78% 20%, rgba(124,58,237,0.35), transparent 70%)',
-              pointerEvents: 'none',
-            }}
-          />
-        )}
-        {/* dark scrim so white text stays legible over the bright lights */}
         <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'linear-gradient(103deg, rgba(6,10,14,0.95) 0%, rgba(6,10,14,0.82) 42%, rgba(6,10,14,0.52) 100%)',
-          }}
-        />
-
-        {/* everything readable sits on top of the scrim */}
-        <div
+          className="eco-photo-zoom"
           style={{
             position: 'relative',
-            zIndex: 1,
-            width: '100%',
-            padding: 'clamp(1.4rem, 3.2vw, 2.1rem)',
+            overflow: 'hidden',
+            borderRadius: 'var(--eco-radius-sm)',
+            height: 'clamp(140px, 20vh, 210px)',
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '1rem',
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  padding: '0.28rem 0.7rem',
-                  borderRadius: 999,
-                  background: 'rgba(124,58,237,0.18)',
-                  border: '1px solid rgba(124,58,237,0.35)',
-                  marginBottom: '0.7rem',
-                }}
-              >
-                <Shield size={15} style={{ color: '#c4b5fd' }} />
-                <span
-                  style={{
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.12em',
-                    color: '#ddd6fe',
-                  }}
-                >
-                  Admin console
-                </span>
-              </div>
-              <h1
-                style={{
-                  fontSize: 'clamp(1.9rem, 4.5vw, 2.7rem)',
-                  margin: '0 0 0.35rem',
-                  color: '#fff',
-                  lineHeight: 1.05,
-                }}
-              >
-                Command{' '}
-                <span
-                  style={{
-                    background: 'linear-gradient(120deg, #a78bfa, #38bdf8)',
-                    WebkitBackgroundClip: 'text',
-                    backgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                  }}
-                >
-                  centre
-                </span>
-              </h1>
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'rgba(255,255,255,0.72)' }}>
-                Signed in as {profile?.email}
-              </p>
-            </div>
+          <Photo
+            id={PHOTOS.adminBanner}
+            alt="Aerial view of a city lit up at night"
+            width={1600}
+            color="var(--org-goldstandard)"
+            loading="eager"
+            className="eco-photo-cover"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+          />
+        </div>
 
-            <button
-              type="button"
-              onClick={load}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                padding: '0.55rem 1rem',
-                borderRadius: 12,
-                background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.24)',
-                color: '#fff',
-                fontWeight: 600,
-                fontSize: '0.88rem',
-                cursor: 'pointer',
-                backdropFilter: 'blur(6px)',
-                WebkitBackdropFilter: 'blur(6px)',
-              }}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            marginTop: '1.2rem',
+            paddingTop: '0.95rem',
+            borderTop: '1px solid var(--rule-strong)',
+          }}
+        >
+          <div>
+            <span
+              className="eco-marker"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.75rem' }}
             >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
+              <Shield size={13} style={{ color: 'var(--eco-primary)' }} />
+              Admin console
+            </span>
+            <h1 className="eco-display" style={{ fontSize: 'clamp(1.9rem, 4.4vw, 2.9rem)', margin: '0 0 0.45rem' }}>
+              Command <span className="eco-gradient-text">centre</span>
+            </h1>
+            <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.95rem' }}>
+              Signed in as {profile?.email}
+            </p>
           </div>
 
-          {/* headline numbers, right on the banner, so the top of the page is never empty */}
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 'clamp(1.3rem, 5vw, 2.8rem)',
-              marginTop: '1.4rem',
-              paddingTop: '1.15rem',
-              borderTop: '1px solid rgba(255,255,255,0.14)',
-            }}
-          >
-            {[
-              { label: 'Users', value: formatNumber(stats?.totalUsers || 0, 0) },
-              { label: 'Records', value: formatNumber(stats?.totalRecords || 0, 0) },
-              { label: 'Total CO₂', value: formatEmission(stats?.totalEmission || 0) },
-              { label: 'Feedback', value: formatNumber(feedback.length, 0) },
-              { label: 'Raised', value: `₹${(totalPaise / 100).toLocaleString('en-IN')}` },
-            ].map((item) => (
-              <div key={item.label}>
-                <div
-                  style={{
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontWeight: 700,
-                    fontSize: 'clamp(1.2rem, 3vw, 1.5rem)',
-                    color: '#fff',
-                    lineHeight: 1.1,
-                  }}
-                >
-                  {item.value}
-                </div>
-                <div
-                  style={{
-                    fontSize: '0.7rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
-                    color: 'rgba(255,255,255,0.6)',
-                    marginTop: '0.15rem',
-                  }}
-                >
-                  {item.label}
-                </div>
+          <button type="button" onClick={load} className="eco-btn eco-btn-ghost">
+            <RefreshCw size={16} />
+            Refresh
+          </button>
+        </div>
+
+        {/* headline readings, right under the caption, so the top of the page
+            is never empty */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 'clamp(1.5rem, 4vw, 2.6rem)',
+            marginTop: '1.6rem',
+          }}
+        >
+          {[
+            { label: 'Users', value: formatNumber(stats?.totalUsers || 0, 0) },
+            { label: 'Records', value: formatNumber(stats?.totalRecords || 0, 0) },
+            { label: 'Total CO₂', value: formatEmission(stats?.totalEmission || 0) },
+            { label: 'Feedback', value: formatNumber(feedback.length, 0) },
+            { label: 'Raised', value: `₹${(totalPaise / 100).toLocaleString('en-IN')}` },
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{ paddingTop: '0.75rem', borderTop: '1px solid var(--rule-strong)' }}
+            >
+              <div
+                className="eco-readout"
+                style={{ fontSize: 'clamp(1.3rem, 2.6vw, 1.7rem)', fontWeight: 500, lineHeight: 1 }}
+              >
+                {item.value}
               </div>
-            ))}
-          </div>
+              <div className="eco-marker" style={{ marginTop: '0.4rem' }}>
+                {item.label}
+              </div>
+            </div>
+          ))}
         </div>
       </motion.div>
 
@@ -756,7 +672,7 @@ export default function AdminDashboard() {
                         item.dot === 'ok'
                           ? 'var(--eco-primary)'
                           : item.dot === 'warn'
-                            ? 'var(--eco-orange)'
+                            ? 'var(--readout)'
                             : 'var(--eco-danger)',
                     }}
                   />
@@ -806,7 +722,7 @@ export default function AdminDashboard() {
           label="Total users"
           value={stats?.totalUsers || 0}
           decimals={0}
-          accent="#00ff87"
+          accent="var(--cat-transport)"
           hint={`${formatNumber(stats?.newUsersThisMonth || 0, 0)} new this month`}
           delay={0}
         />
@@ -815,7 +731,7 @@ export default function AdminDashboard() {
           label="Total records"
           value={stats?.totalRecords || 0}
           decimals={0}
-          accent="#7c3aed"
+          accent="var(--org-goldstandard)"
           hint={`${formatNumber(stats?.averageRecordsPerUser || 0, 1)} average per user`}
           delay={0.06}
         />
@@ -824,7 +740,7 @@ export default function AdminDashboard() {
           label="Total emissions"
           value={stats?.totalEmission || 0}
           unit="kg CO₂"
-          accent="#0ea5e9"
+          accent="var(--cat-water)"
           hint={`${formatEmission(stats?.emissionThisMonth || 0)} this month`}
           delay={0.12}
         />
@@ -834,7 +750,7 @@ export default function AdminDashboard() {
           value={stats?.goalSuccessRate || 0}
           unit="%"
           decimals={1}
-          accent="#f59e0b"
+          accent="var(--cat-electricity)"
           hint={`${formatNumber(stats?.achievedGoals || 0, 0)} of ${formatNumber(
             stats?.totalGoals || 0,
             0
@@ -853,14 +769,16 @@ export default function AdminDashboard() {
         }}
       >
         {/* Platform-wide category split */}
-        <div className="eco-card">
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}
           >
-            <Leaf size={18} style={{ color: 'var(--eco-primary)' }} />
-            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Emissions across all users</h2>
+            <Leaf size={17} style={{ color: 'var(--eco-primary)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
+              Emissions across all users
+            </h2>
           </div>
-          <p className="eco-text-muted" style={{ margin: '0 0 1.2rem', fontSize: '0.82rem' }}>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.4rem', fontSize: '0.85rem' }}>
             Every logged entry, by category
           </p>
 
@@ -892,7 +810,7 @@ export default function AdminDashboard() {
                       }}
                     />
                     <span style={{ fontSize: '0.82rem', flex: 1, minWidth: 0 }}>{label}</span>
-                    <span className="eco-text-muted" style={{ fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                    <span className="eco-readout" style={{ fontSize: '0.78rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
                       {formatEmission(categoryChart.data[index])}
                     </span>
                   </div>
@@ -907,15 +825,15 @@ export default function AdminDashboard() {
         </div>
 
         {/* At-a-glance figures */}
-        <div className="eco-card">
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
           <div
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.3rem' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.4rem' }}
           >
-            <TrendingUp size={18} style={{ color: 'var(--eco-orange)' }} />
-            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>At a glance</h2>
+            <TrendingUp size={17} style={{ color: 'var(--readout)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>At a glance</h2>
           </div>
 
-          <div style={{ display: 'grid', gap: '0.9rem' }}>
+          <div style={{ display: 'grid', gap: '0' }}>
             {[
               {
                 icon: BarChart3,
@@ -948,22 +866,13 @@ export default function AdminDashboard() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.8rem',
-                    padding: '0.75rem 0.9rem',
-                    borderRadius: 'var(--eco-radius-sm)',
-                    background: 'rgba(var(--eco-primary-rgb), 0.04)',
-                    border: '1px solid var(--eco-border)',
+                    padding: '0.7rem 0',
+                    borderTop: '1px solid var(--rule)',
                   }}
                 >
-                  <RowIcon size={17} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
+                  <RowIcon size={16} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: '0.88rem' }}>{row.label}</span>
-                  <span
-                    style={{
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      fontWeight: 700,
-                      fontSize: '0.95rem',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+                  <span className="eco-readout" style={{ fontWeight: 500, fontSize: '0.95rem', whiteSpace: 'nowrap' }}>
                     {row.value}
                   </span>
                 </div>
@@ -986,12 +895,12 @@ export default function AdminDashboard() {
         style={{ display: 'grid', gap: '1.5rem' }}
       >
         {/* ---- signups per month ---- */}
-        <div className="eco-card">
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-            <TrendingUp size={18} style={{ color: 'var(--eco-text-muted)' }} />
-            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Sign-ups by month</h2>
+            <TrendingUp size={17} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Sign-ups by month</h2>
           </div>
-          <p className="eco-text-muted" style={{ margin: '0 0 1.4rem', fontSize: '0.82rem' }}>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.5rem', fontSize: '0.85rem' }}>
             When people actually found EcoTrack
           </p>
 
@@ -1027,7 +936,7 @@ export default function AdminDashboard() {
                       justifyContent: 'flex-end',
                     }}
                   >
-                    <span className="eco-tabular" style={{ fontSize: '0.8rem', fontWeight: 700 }}>
+                    <span className="eco-readout" style={{ fontSize: '0.8rem', fontWeight: 500 }}>
                       {value}
                     </span>
                     <motion.div
@@ -1041,9 +950,8 @@ export default function AdminDashboard() {
                       style={{
                         width: '100%',
                         maxWidth: 54,
-                        minHeight: 4,
-                        borderRadius: '7px 7px 3px 3px',
-                        background: 'linear-gradient(180deg, var(--eco-primary), rgba(var(--eco-primary-rgb), 0.35))',
+                        minHeight: 3,
+                        background: 'var(--eco-primary)',
                       }}
                     />
                     <span
@@ -1061,12 +969,12 @@ export default function AdminDashboard() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
           {/* ---- most active users ---- */}
-          <div className="eco-card">
+          <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-              <Star size={17} style={{ color: 'var(--eco-text-muted)' }} />
-              <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Most active</h2>
+              <Star size={16} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Most active</h2>
             </div>
-            <p className="eco-text-muted" style={{ margin: '0 0 1.1rem', fontSize: '0.82rem' }}>
+            <p className="eco-text-muted" style={{ margin: '0 0 1.3rem', fontSize: '0.85rem' }}>
               By entries logged — not by emissions, which would rank the least
               green user first
             </p>
@@ -1090,9 +998,8 @@ export default function AdminDashboard() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.75rem',
-                      padding: '0.6rem 0.7rem',
-                      borderRadius: 'var(--eco-radius-sm)',
-                      border: '1px solid var(--eco-border)',
+                      padding: '0.6rem 0',
+                      borderTop: '1px solid var(--rule)',
                       background: 'transparent',
                       cursor: 'pointer',
                       textAlign: 'left',
@@ -1100,12 +1007,11 @@ export default function AdminDashboard() {
                     }}
                   >
                     <span
-                      className="eco-tabular"
+                      className="eco-readout"
                       style={{
-                        fontFamily: "'Space Grotesk', sans-serif",
-                        fontWeight: 700,
+                        fontWeight: 500,
                         fontSize: '0.95rem',
-                        color: index === 0 ? 'var(--eco-orange)' : 'var(--eco-text-muted)',
+                        color: index === 0 ? 'var(--readout)' : 'var(--eco-text-muted)',
                         width: 18,
                         flexShrink: 0,
                       }}
@@ -1147,8 +1053,8 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <span
-                      className="eco-tabular"
-                      style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--eco-primary)', flexShrink: 0 }}
+                      className="eco-readout"
+                      style={{ fontSize: '0.8rem', fontWeight: 500, flexShrink: 0 }}
                     >
                       {user.recordCount}
                     </span>
@@ -1159,12 +1065,12 @@ export default function AdminDashboard() {
           </div>
 
           {/* ---- where users are ---- */}
-          <div className="eco-card">
+          <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-              <MapPin size={17} style={{ color: 'var(--eco-text-muted)' }} />
-              <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Where they are</h2>
+              <MapPin size={16} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Where they are</h2>
             </div>
-            <p className="eco-text-muted" style={{ margin: '0 0 1.1rem', fontSize: '0.82rem' }}>
+            <p className="eco-text-muted" style={{ margin: '0 0 1.3rem', fontSize: '0.85rem' }}>
               Region chosen at sign-up — it also picks their grid factor
             </p>
 
@@ -1182,27 +1088,16 @@ export default function AdminDashboard() {
                       }}
                     >
                       <span>{region}</span>
-                      <span className="eco-text-muted eco-tabular">
+                      <span className="eco-readout" style={{ fontSize: '0.82rem', fontWeight: 500 }}>
                         {count} · {Math.round(share)}%
                       </span>
                     </div>
-                    <div
-                      style={{
-                        height: 8,
-                        borderRadius: 999,
-                        background: 'var(--eco-border)',
-                        overflow: 'hidden',
-                      }}
-                    >
+                    <div style={{ height: 6, background: 'var(--rule)', overflow: 'hidden' }}>
                       <motion.div
                         initial={prefersReducedMotion ? false : { width: 0 }}
                         animate={{ width: `${share}%` }}
                         transition={{ duration: 0.6, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                        style={{
-                          height: '100%',
-                          borderRadius: 999,
-                          background: 'linear-gradient(90deg, var(--eco-primary), var(--eco-purple))',
-                        }}
+                        style={{ height: '100%', background: 'var(--eco-primary)' }}
                       />
                     </div>
                   </div>
@@ -1222,17 +1117,17 @@ export default function AdminDashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32 }}
       >
-        <div className="eco-card">
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
-            <Activity size={18} style={{ color: 'var(--eco-text-muted)' }} />
-            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
+            <Activity size={17} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
               Everything that has happened
-              <span className="eco-text-muted" style={{ fontWeight: 400, marginLeft: '0.4rem' }}>
-                ({activity.length})
+              <span className="eco-readout" style={{ fontSize: '1rem', fontWeight: 500, marginLeft: '0.5rem' }}>
+                {activity.length}
               </span>
             </h2>
           </div>
-          <p className="eco-text-muted" style={{ margin: '0 0 1.5rem', fontSize: '0.82rem' }}>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.85rem' }}>
             Sign-ups, donations and feedback in one timeline, newest first
           </p>
 
@@ -1284,21 +1179,7 @@ export default function AdminDashboard() {
                         }}
                       />
 
-                      <div
-                        style={{
-                          width: 30,
-                          height: 30,
-                          borderRadius: 9,
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          background: 'rgba(var(--eco-primary-rgb), 0.1)',
-                          color: event.color,
-                        }}
-                      >
-                        <EventIcon size={15} />
-                      </div>
+                      <EventIcon size={15} style={{ color: event.color, flexShrink: 0, marginTop: 1 }} />
 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
@@ -1364,7 +1245,7 @@ export default function AdminDashboard() {
       >
 
       {/* ============ USER TABLE ============ */}
-      <div className="eco-card">
+      <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
         <div
           style={{
             display: 'flex',
@@ -1372,15 +1253,15 @@ export default function AdminDashboard() {
             justifyContent: 'space-between',
             gap: '1rem',
             flexWrap: 'wrap',
-            marginBottom: '1.2rem',
+            marginBottom: '1.3rem',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Users size={18} style={{ color: 'var(--eco-text-muted)' }} />
-            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
+            <Users size={17} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
               Users
-              <span className="eco-text-muted" style={{ fontWeight: 400, marginLeft: '0.4rem' }}>
-                ({visibleUsers.length})
+              <span className="eco-readout" style={{ fontSize: '1rem', fontWeight: 500, marginLeft: '0.5rem' }}>
+                {visibleUsers.length}
               </span>
             </h2>
           </div>
@@ -1481,11 +1362,13 @@ export default function AdminDashboard() {
                               {row.name}
                               {row.isAdmin && (
                                 <span
-                                  className="eco-badge"
+                                  className="eco-marker"
                                   style={{
-                                    color: 'var(--eco-purple)',
-                                    padding: '0.1rem 0.45rem',
-                                    fontSize: '0.66rem',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.2rem',
+                                    color: 'var(--org-goldstandard)',
+                                    fontSize: '0.62rem',
                                   }}
                                 >
                                   <Shield size={9} />
@@ -1509,8 +1392,12 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td className="eco-text-muted">{row.region || '—'}</td>
-                      <td>{formatNumber(row.recordCount, 0)}</td>
-                      <td style={{ fontWeight: 600 }}>{formatEmission(row.totalEmission)}</td>
+                      <td className="eco-readout" style={{ fontWeight: 500 }}>
+                        {formatNumber(row.recordCount, 0)}
+                      </td>
+                      <td className="eco-readout" style={{ fontWeight: 500 }}>
+                        {formatEmission(row.totalEmission)}
+                      </td>
                       <td className="eco-text-muted">{formatDate(row.createdAt)}</td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.15rem' }}>
@@ -1592,7 +1479,7 @@ export default function AdminDashboard() {
       >
 
       {/* ============ FEEDBACK ============ */}
-      <div className="eco-card" style={{ marginTop: 0 }}>
+      <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
         <div
           style={{
             display: 'flex',
@@ -1600,15 +1487,15 @@ export default function AdminDashboard() {
             justifyContent: 'space-between',
             gap: '1rem',
             flexWrap: 'wrap',
-            marginBottom: '1.2rem',
+            marginBottom: '1.3rem',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <MessageSquare size={18} style={{ color: 'var(--eco-text-muted)' }} />
-            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
+            <MessageSquare size={17} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
               User feedback
-              <span className="eco-text-muted" style={{ fontWeight: 400, marginLeft: '0.4rem' }}>
-                ({feedback.length})
+              <span className="eco-readout" style={{ fontSize: '1rem', fontWeight: 500, marginLeft: '0.5rem' }}>
+                {feedback.length}
               </span>
             </h2>
           </div>
@@ -1619,13 +1506,13 @@ export default function AdminDashboard() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.4rem',
+                gap: '0.45rem',
                 fontSize: '0.85rem',
               }}
             >
-              <Star size={15} fill="var(--eco-orange)" style={{ color: 'var(--eco-orange)' }} />
-              <strong className="eco-tabular">{averageRating}</strong>
-              <span className="eco-text-muted">average</span>
+              <Star size={15} fill="var(--readout)" style={{ color: 'var(--readout)' }} />
+              <span className="eco-readout" style={{ fontWeight: 500 }}>{averageRating}</span>
+              <span className="eco-marker">average</span>
             </div>
           )}
         </div>
@@ -1636,16 +1523,14 @@ export default function AdminDashboard() {
           </p>
         ) : (
           <div style={{ display: 'grid', gap: '0.8rem' }}>
-            {feedback.map((item) => (
+            {feedback.map((item, index) => (
               <div
                 key={item.id}
                 style={{
                   display: 'flex',
                   gap: '0.9rem',
-                  padding: '1rem 1.1rem',
-                  borderRadius: 'var(--eco-radius-sm)',
-                  border: '1px solid var(--eco-border)',
-                  background: 'rgba(var(--eco-primary-rgb), 0.03)',
+                  padding: '0.9rem 0',
+                  borderTop: index === 0 ? '1px solid var(--rule-strong)' : '1px solid var(--rule)',
                 }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -1677,10 +1562,9 @@ export default function AdminDashboard() {
                           <Star
                             key={star}
                             size={12}
-                            fill={star <= item.rating ? 'var(--eco-orange)' : 'none'}
+                            fill={star <= item.rating ? 'var(--readout)' : 'none'}
                             style={{
-                              color:
-                                star <= item.rating ? 'var(--eco-orange)' : 'var(--eco-text-muted)',
+                              color: star <= item.rating ? 'var(--readout)' : 'var(--eco-text-muted)',
                             }}
                           />
                         ))}
@@ -1754,7 +1638,7 @@ export default function AdminDashboard() {
           collection, so every row here is money that actually arrived. The
           Razorpay dashboard remains the authoritative record; this is EcoTrack's
           own copy, which is why deleting a row refunds nothing. */}
-      <div className="eco-card" style={{ marginTop: '1.5rem' }}>
+      <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
         <div
           style={{
             display: 'flex',
@@ -1762,25 +1646,25 @@ export default function AdminDashboard() {
             justifyContent: 'space-between',
             gap: '1rem',
             flexWrap: 'wrap',
-            marginBottom: '1.2rem',
+            marginBottom: '1.3rem',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <HeartHandshake size={18} style={{ color: 'var(--eco-text-muted)' }} />
-            <h2 style={{ fontSize: '1.05rem', margin: 0 }}>
+            <HeartHandshake size={17} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
               Donations
-              <span className="eco-text-muted" style={{ fontWeight: 400, marginLeft: '0.4rem' }}>
-                ({donations.length})
+              <span className="eco-readout" style={{ fontSize: '1rem', fontWeight: 500, marginLeft: '0.5rem' }}>
+                {donations.length}
               </span>
             </h2>
           </div>
 
           {donations.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
-              <span className="eco-text-muted">Total raised</span>
-              <strong className="eco-tabular" style={{ color: 'var(--eco-primary)' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', fontSize: '0.85rem' }}>
+              <span className="eco-marker">Total raised</span>
+              <span className="eco-readout" style={{ fontWeight: 500 }}>
                 ₹{(totalPaise / 100).toLocaleString('en-IN')}
-              </strong>
+              </span>
             </div>
           )}
         </div>
@@ -1791,30 +1675,23 @@ export default function AdminDashboard() {
           </p>
         ) : (
           <div style={{ display: 'grid', gap: '0.8rem' }}>
-            {donations.map((item) => (
+            {donations.map((item, index) => (
               <div
                 key={item.id}
                 style={{
                   display: 'flex',
                   gap: '0.9rem',
                   alignItems: 'center',
-                  padding: '1rem 1.1rem',
-                  borderRadius: 'var(--eco-radius-sm)',
-                  border: '1px solid var(--eco-border)',
-                  background: 'rgba(var(--eco-primary-rgb), 0.03)',
+                  padding: '0.9rem 0',
+                  borderTop: index === 0 ? '1px solid var(--rule-strong)' : '1px solid var(--rule)',
                 }}
               >
-                {/* the amount, given the most weight - it is what the row is about */}
+                {/* the amount, given the most weight - it is what the row is
+                    about, and it is a measured quantity like every other
+                    figure the app reports */}
                 <div
-                  style={{
-                    fontFamily: "'Space Grotesk', sans-serif",
-                    fontWeight: 700,
-                    fontSize: '1.05rem',
-                    color: 'var(--eco-primary)',
-                    minWidth: 78,
-                    flexShrink: 0,
-                  }}
-                  className="eco-tabular"
+                  className="eco-readout"
+                  style={{ fontWeight: 500, fontSize: '1.05rem', minWidth: 78, flexShrink: 0 }}
                 >
                   {item.amount == null
                     ? '—'
@@ -1936,7 +1813,7 @@ export default function AdminDashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32 }}
       >
-        <div className="eco-card">
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
           <div
             style={{
               display: 'flex',
@@ -1948,8 +1825,8 @@ export default function AdminDashboard() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Activity size={18} style={{ color: 'var(--eco-text-muted)' }} />
-              <h2 style={{ fontSize: '1.05rem', margin: 0 }}>Service status</h2>
+              <Activity size={17} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Service status</h2>
             </div>
 
             <button
@@ -1967,7 +1844,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
-          <p className="eco-text-muted" style={{ margin: '0 0 1.5rem', fontSize: '0.82rem' }}>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.85rem' }}>
             Checked live against the running server — never shows a key, only
             whether one is present
           </p>
@@ -1979,13 +1856,13 @@ export default function AdminDashboard() {
           )}
 
           {system && (
-            <div style={{ display: 'grid', gap: '0.8rem' }}>
+            <div style={{ display: 'grid', gap: '0' }}>
               {system.checks.map((check, index) => {
                 const colour =
                   check.status === 'ok'
                     ? 'var(--eco-primary)'
                     : check.status === 'warn'
-                      ? 'var(--eco-orange)'
+                      ? 'var(--readout)'
                       : 'var(--eco-danger)';
                 return (
                   <motion.div
@@ -1997,10 +1874,8 @@ export default function AdminDashboard() {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.9rem',
-                      padding: '0.95rem 1.1rem',
-                      borderRadius: 'var(--eco-radius-sm)',
-                      border: '1px solid var(--eco-border)',
-                      background: 'rgba(var(--eco-primary-rgb), 0.03)',
+                      padding: '0.85rem 0',
+                      borderTop: index === 0 ? '1px solid var(--rule-strong)' : '1px solid var(--rule)',
                     }}
                   >
                     {/* a live dot: healthy services breathe, problems sit still
@@ -2041,32 +1916,21 @@ export default function AdminDashboard() {
 
                     {check.latencyMs != null && (
                       <span
-                        className="eco-tabular"
+                        className="eco-readout"
                         title="Round trip to Firestore and back"
                         style={{
                           fontSize: '0.76rem',
+                          fontWeight: 500,
                           flexShrink: 0,
                           color:
-                            check.latencyMs > 1500 ? 'var(--eco-orange)' : 'var(--eco-text-muted)',
+                            check.latencyMs > 1500 ? 'var(--readout)' : 'var(--eco-text-muted)',
                         }}
                       >
                         {check.latencyMs} ms
                       </span>
                     )}
 
-                    <span
-                      style={{
-                        fontSize: '0.66rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        padding: '0.18rem 0.5rem',
-                        borderRadius: 999,
-                        flexShrink: 0,
-                        color: colour,
-                        background: 'var(--eco-border)',
-                      }}
-                    >
+                    <span className="eco-marker" style={{ flexShrink: 0, color: colour }}>
                       {check.status}
                     </span>
                   </motion.div>
@@ -2154,7 +2018,7 @@ export default function AdminDashboard() {
 
             {detailError && !detailLoading && (
               <div style={{ textAlign: 'center', padding: '2.5rem 1rem' }}>
-                <AlertTriangle size={34} style={{ color: 'var(--eco-orange)' }} />
+                <AlertTriangle size={34} style={{ color: 'var(--eco-danger)' }} />
                 <p style={{ marginTop: '0.9rem', marginBottom: '1.2rem' }}>{detailError}</p>
                 <button
                   type="button"
@@ -2195,8 +2059,14 @@ export default function AdminDashboard() {
                       <h2 style={{ fontSize: '1.25rem', margin: 0 }}>{detail.profile.name}</h2>
                       {detail.profile.isAdmin && (
                         <span
-                          className="eco-badge"
-                          style={{ color: 'var(--eco-purple)', padding: '0.1rem 0.45rem', fontSize: '0.66rem' }}
+                          className="eco-marker"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.2rem',
+                            color: 'var(--org-goldstandard)',
+                            fontSize: '0.62rem',
+                          }}
                         >
                           <Shield size={9} />
                           Admin
@@ -2259,7 +2129,7 @@ export default function AdminDashboard() {
                         {
                           label: 'Email verified',
                           value: detail.account.emailVerified ? 'Yes' : 'No',
-                          color: detail.account.emailVerified ? 'var(--eco-primary)' : 'var(--eco-orange)',
+                          color: detail.account.emailVerified ? 'var(--eco-primary)' : 'var(--readout)',
                         },
                         {
                           label: 'Sign-in method',
@@ -2331,7 +2201,7 @@ export default function AdminDashboard() {
                           <TileIcon size={13} />
                           {tile.label}
                         </div>
-                        <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '1.1rem' }}>
+                        <div className="eco-readout" style={{ fontWeight: 500, fontSize: '1.1rem' }}>
                           {tile.value}
                         </div>
                         {tile.hint && (
@@ -2414,27 +2284,18 @@ export default function AdminDashboard() {
                               <span style={{ fontSize: '0.8rem', width: 92, flexShrink: 0 }}>
                                 {formatCategory(key)}
                               </span>
-                              <div
-                                style={{
-                                  flex: 1,
-                                  height: 8,
-                                  borderRadius: 999,
-                                  background: 'var(--eco-border)',
-                                  overflow: 'hidden',
-                                }}
-                              >
+                              <div style={{ flex: 1, height: 6, background: 'var(--rule)', overflow: 'hidden' }}>
                                 <div
                                   style={{
                                     width: `${(value / max) * 100}%`,
                                     height: '100%',
-                                    borderRadius: 999,
                                     background: CATEGORY_META[key]?.color || 'var(--eco-primary)',
                                   }}
                                 />
                               </div>
                               <span
-                                className="eco-text-muted eco-tabular"
-                                style={{ fontSize: '0.76rem', width: 84, textAlign: 'right', flexShrink: 0 }}
+                                className="eco-readout"
+                                style={{ fontSize: '0.78rem', fontWeight: 500, width: 84, textAlign: 'right', flexShrink: 0 }}
                               >
                                 {formatEmission(value)}
                               </span>
@@ -2529,15 +2390,7 @@ export default function AdminDashboard() {
                             background: 'rgba(var(--eco-primary-rgb), 0.04)',
                           }}
                         >
-                          <span
-                            className="eco-tabular"
-                            style={{
-                              fontFamily: "'Space Grotesk', sans-serif",
-                              fontWeight: 700,
-                              color: 'var(--eco-primary)',
-                              minWidth: 66,
-                            }}
-                          >
+                          <span className="eco-readout" style={{ fontWeight: 500, minWidth: 66 }}>
                             {donation.amount == null
                               ? '—'
                               : `₹${(donation.amount / 100).toLocaleString('en-IN')}`}
@@ -2611,8 +2464,8 @@ export default function AdminDashboard() {
                                   <Star
                                     key={star}
                                     size={12}
-                                    fill={star <= fb.rating ? 'var(--eco-orange)' : 'none'}
-                                    style={{ color: star <= fb.rating ? 'var(--eco-orange)' : 'var(--eco-text-muted)' }}
+                                    fill={star <= fb.rating ? 'var(--readout)' : 'none'}
+                                    style={{ color: star <= fb.rating ? 'var(--readout)' : 'var(--eco-text-muted)' }}
                                   />
                                 ))}
                               </span>
