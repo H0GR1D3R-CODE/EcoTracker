@@ -31,6 +31,7 @@ from firebase_admin import auth as firebase_auth
 from google.cloud import firestore as gcloud_firestore  # installed with firebase-admin
 
 from config import Config, get_db
+from email_service import send_password_reset_email
 from routes import (
     EMAIL_ERROR,
     api_error,
@@ -275,6 +276,63 @@ def login():
     profile["isAdmin"] = is_admin(uid, email)  # lets React decide whether to show admin links
 
     return api_success(profile, message="Login successful.")
+
+
+# ---------------------------------------------------------------------------
+# POST /api/auth/forgot-password        (PUBLIC - this is for someone locked out)
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    """
+    Send EcoTrack's own branded password-reset email, if that is configured.
+
+    Body: {"email": "someone@example.com"}
+
+    Returns {"sent": true} when the branded email genuinely went out (or,
+    deliberately, when the address does not exist at all - see the note
+    below). Returns {"sent": false} whenever the custom email path is not
+    available right now, for ANY reason: no RESEND_API_KEY configured, or
+    Resend itself rejected the send. Either way the frontend's job is the
+    same - fall back to calling Firebase's sendPasswordResetEmail() directly,
+    which is what AuthContext.resetPassword() does. This route never returns
+    an error status for that fallback case; a plain flag is enough for the
+    caller to act on, and a 200 with sent:false is what makes the fall-through
+    automatic on the frontend rather than something a network error handler
+    has to notice and interpret.
+
+    ACCOUNT ENUMERATION, again - see AuthContext.resetPassword()'s own
+    comment for the fuller reasoning. auth.UserNotFoundError is treated the
+    same as success: nothing is actually sent, but the response cannot be
+    allowed to say so, or asking about a stranger's email address here would
+    reveal whether they have an EcoTrack account at all.
+    """
+    body = request.get_json(silent=True) or {}
+    email = _clean_text(body.get("email")).lower()
+
+    if not email or not is_valid_email(email):
+        return api_error(EMAIL_ERROR, 400, code="invalid_email")
+
+    try:
+        reset_link = firebase_auth.generate_password_reset_link(
+            email,
+            action_code_settings=firebase_auth.ActionCodeSettings(
+                url=f"{Config.PUBLIC_APP_URL}/login",
+                handle_code_in_app=False,
+            ),
+        )
+    except firebase_auth.UserNotFoundError:
+        return api_success({"sent": True})
+    except Exception:
+        # Anything else (a malformed address Firebase itself rejects, a
+        # transient Admin SDK problem) - report unavailable rather than a
+        # hard error, so the frontend quietly falls back to Firebase's own
+        # email instead of showing the user a failure for something that
+        # still has a working path.
+        return api_success({"sent": False})
+
+    sent = send_password_reset_email(email, reset_link)
+    return api_success({"sent": sent})
 
 
 # ---------------------------------------------------------------------------

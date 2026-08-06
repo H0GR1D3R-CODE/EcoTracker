@@ -170,6 +170,12 @@ export const authApi = {
   getProfile: () => api.get('/api/auth/profile').then(unwrap),
 
   updateProfile: (payload) => api.put('/api/auth/profile', payload).then(unwrap),
+
+  // Public route - tries to send EcoTrack's own branded reset email.
+  // Resolves to {sent: false} rather than throwing when that path is simply
+  // unavailable (no RESEND_API_KEY on the server); AuthContext.resetPassword()
+  // treats that as the cue to fall back to Firebase's own email, not an error.
+  forgotPassword: (email) => api.post('/api/auth/forgot-password', { email }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
