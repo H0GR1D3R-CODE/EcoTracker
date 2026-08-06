@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 
 import Photo from '../components/Photo';
-import AuroraBackground from '../components/AuroraBackground';
 import { PHOTOS } from '../utils/photos';
 import { feedbackApi, getErrorMessage } from '../utils/api';
 import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
@@ -139,25 +138,30 @@ export default function Feedback() {
     return (
       <div
         className="container"
-        style={{ paddingTop: '4rem', paddingBottom: '4rem', maxWidth: 520, textAlign: 'center' }}
+        style={{ paddingTop: '5rem', paddingBottom: '5rem', maxWidth: 620 }}
       >
         <motion.div
-          initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="eco-card"
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          // A channel under an amber rule, like the readout panel on Estimate:
+          // this is the instrument confirming it registered something.
+          style={{ paddingTop: '1.1rem', borderTop: '2px solid var(--readout)' }}
         >
           <motion.div
             initial={prefersReducedMotion ? false : { scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.1 }}
-            style={{ display: 'inline-flex' }}
+            style={{ display: 'inline-flex', marginBottom: '1.2rem' }}
           >
-            <CheckCircle2 size={48} style={{ color: 'var(--eco-primary)' }} />
+            <CheckCircle2 size={34} style={{ color: 'var(--eco-primary)' }} />
           </motion.div>
-          <h1 style={{ fontSize: '1.5rem', marginTop: '1rem', marginBottom: '0.6rem' }}>
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.7rem' }}>
+            Received
+          </span>
+          <h1 className="eco-display" style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', margin: '0 0 0.9rem' }}>
             Thank you
           </h1>
-          <p className="eco-text-muted" style={{ marginBottom: '1.5rem' }}>
+          <p className="eco-text-muted" style={{ marginBottom: '1.8rem', maxWidth: '48ch' }}>
             Your feedback has been received. It genuinely helps make EcoTrack better.
           </p>
           <button
@@ -184,30 +188,42 @@ export default function Feedback() {
   // ---------- form ----------
   return (
     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem', maxWidth: 960 }}>
-      {/* hero with animated aurora background */}
-      <div
-        style={{
-          position: 'relative',
-          overflow: 'hidden',
-          textAlign: 'center',
-          marginBottom: '2rem',
-          padding: 'clamp(2rem, 6vw, 3.6rem) 1rem',
-          borderRadius: 'var(--eco-radius)',
-        }}
-      >
-        <AuroraBackground opacity={0.3} />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <span className="eco-badge" style={{ marginBottom: '1rem' }}>
-            <MessageSquare size={14} style={{ color: 'var(--eco-primary)' }} />
-            Feedback
+      {/* hero. The aurora wash, the badge pill and the centred column are gone
+          - the same three dark-page devices removed from every other public
+          page. Ranged left off the calibration rail's spine. */}
+      <div style={{ marginBottom: 'clamp(2.5rem, 6vw, 3.5rem)', maxWidth: 940 }}>
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.85rem',
+            flexWrap: 'wrap',
+            marginBottom: '2rem',
+          }}
+        >
+          <span className="eco-marker">Feedback</span>
+          <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
+            NO ACCOUNT NEEDED
           </span>
-          <h1 style={{ fontSize: 'clamp(2.3rem, 6.5vw, 3.8rem)', lineHeight: 1.04, marginBottom: '0.9rem' }}>
-            Tell us what you <span className="eco-gradient-text">think</span>
-          </h1>
-          <p className="eco-text-muted" style={{ margin: '0 auto', fontSize: '1.1rem', maxWidth: 520 }}>
-            Found a bug, want a feature, or just have a thought? We read everything.
-          </p>
-        </div>
+          <span className="eco-marker" style={{ opacity: 0.6 }}>read by a person</span>
+          <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
+        </motion.div>
+
+        <h1
+          className="eco-display"
+          style={{ fontSize: 'clamp(2.4rem, 7.5vw, 4.6rem)', margin: '0 0 1.3rem' }}
+        >
+          Tell us what you <span className="eco-gradient-text">think</span>
+        </h1>
+        <p
+          className="eco-text-muted"
+          style={{ fontSize: 'clamp(1rem, 2.2vw, 1.15rem)', maxWidth: '54ch', margin: 0 }}
+        >
+          Found a bug, want a feature, or just have a thought? We read everything.
+        </p>
       </div>
 
       <div
@@ -224,58 +240,62 @@ export default function Feedback() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="eco-card"
-          style={{ padding: 0, overflow: 'hidden' }}
+          // The panel loses its card. The form beside it keeps one, because a
+          // form is a control surface and needs an edge; this is prose, and
+          // prose sits on the page.
+          style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}
         >
-          <div className="eco-photo-zoom" style={{ height: 150, overflow: 'hidden' }}>
+          {/* the plate, captioned by the heading under it */}
+          <div
+            className="eco-photo-zoom"
+            style={{
+              overflow: 'hidden',
+              borderRadius: 'var(--eco-radius-sm)',
+              aspectRatio: '16 / 9',
+              marginBottom: '1.2rem',
+            }}
+          >
             <Photo
               id={PHOTOS.community}
               alt="Hands cupping a young seedling growing in soil"
-              width={640}
+              width={720}
               className="eco-photo-cover"
               style={{ width: '100%', height: '100%', display: 'block' }}
             />
           </div>
 
-          <div style={{ padding: '1.4rem' }}>
-            <h2 style={{ fontSize: '1.15rem', marginBottom: '0.4rem' }}>
-              Your feedback shapes EcoTrack
-            </h2>
-            <p className="eco-text-muted" style={{ fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.3rem' }}>
-              This is a student project that gets better every time someone takes a
-              minute to say what worked and what did not.
-            </p>
+          <h2 className="eco-display" style={{ fontSize: '1.3rem', margin: '0 0 0.5rem' }}>
+            Your feedback shapes EcoTrack
+          </h2>
+          <p className="eco-text-muted" style={{ fontSize: '0.9rem', lineHeight: 1.65, margin: '0 0 1.6rem' }}>
+            This is a student project that gets better every time someone takes a
+            minute to say what worked and what did not.
+          </p>
 
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {POINTS.map((point) => {
-                const Icon = point.icon;
-                return (
-                  <div key={point.title} style={{ display: 'flex', gap: '0.75rem' }}>
-                    <div
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 10,
-                        flexShrink: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'rgba(var(--eco-primary-rgb), 0.14)',
-                        color: 'var(--eco-primary)',
-                      }}
-                    >
-                      <Icon size={17} />
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{point.title}</div>
-                      <div className="eco-text-muted" style={{ fontSize: '0.82rem', lineHeight: 1.5 }}>
-                        {point.body}
-                      </div>
-                    </div>
+          <div style={{ display: 'grid', gap: '1.2rem' }}>
+            {POINTS.map((point) => {
+              const Icon = point.icon;
+              return (
+                // The 34px tinted rounded square behind each icon is gone. It
+                // was chrome around a 17px glyph, and the tint it used - 14% of
+                // the brand green - put a green shape behind a green icon.
+                <div
+                  key={point.title}
+                  style={{ paddingTop: '0.85rem', borderTop: '1px solid var(--rule)' }}
+                >
+                  <Icon
+                    size={17}
+                    style={{ color: 'var(--eco-primary)', display: 'block', marginBottom: '0.65rem' }}
+                  />
+                  <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.98rem' }}>
+                    {point.title}
                   </div>
-                );
-              })}
-            </div>
+                  <div className="eco-text-muted" style={{ fontSize: '0.85rem', lineHeight: 1.55, marginTop: '0.2rem' }}>
+                    {point.body}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </motion.aside>
 
@@ -351,7 +371,11 @@ export default function Feedback() {
                         cursor: 'pointer',
                         padding: 2,
                         display: 'flex',
-                        color: filled ? 'var(--eco-orange)' : 'var(--eco-text-muted)',
+                        // Amber, not --eco-orange. A rating is a value being
+                        // reported, so it takes the instrument's colour - and
+                        // on paper the old orange measured under the 4.5:1
+                        // floor while the readout amber clears it.
+                        color: filled ? 'var(--readout)' : 'var(--eco-text-muted)',
                         transition: 'color 0.15s ease, transform 0.15s ease',
                         transform: filled && !prefersReducedMotion ? 'scale(1.12)' : 'none',
                       }}
@@ -362,7 +386,7 @@ export default function Feedback() {
                 })}
               </div>
               {shownRating > 0 && (
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--eco-orange)' }}>
+                <span className="eco-marker" style={{ color: 'var(--readout)' }}>
                   {RATING_LABELS[shownRating]}
                 </span>
               )}
@@ -467,11 +491,17 @@ export default function Feedback() {
       </div>
 
       {/* ---------- what happens next ---------- */}
-      <div style={{ marginTop: 'clamp(2.5rem, 6vw, 4rem)' }}>
-        <h2 style={{ textAlign: 'center', fontSize: 'clamp(1.5rem, 3.4vw, 2.1rem)', marginBottom: '1.8rem' }}>
+      <div style={{ marginTop: 'clamp(3rem, 7vw, 4.5rem)' }}>
+        <div className="eco-marker" style={{ display: 'block', marginBottom: '1.1rem' }}>
+          After you send it
+        </div>
+        <h2
+          className="eco-display"
+          style={{ fontSize: 'clamp(1.7rem, 4vw, 2.6rem)', margin: '0 0 2rem' }}
+        >
           What happens <span className="eco-gradient-text">next</span>
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.3rem' }}>
           {[
             { icon: Send, step: '01', title: 'You send it', body: 'A bug, an idea, or a compliment — it takes about a minute.' },
             { icon: MessageSquare, step: '02', title: 'We read it', body: 'Every message lands in the dashboard and is read by a real person.' },
@@ -485,38 +515,33 @@ export default function Feedback() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.4 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={prefersReducedMotion ? {} : { y: -5 }}
-                className="eco-card eco-card-hover"
+                // Numbered, and here the order is real: you send it, then it is
+                // read, then it ships. The step index leads the channel as a
+                // mono readout instead of a 1.6rem green glyph at 35% opacity
+                // sitting beside a gradient disc.
+                style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '0.8rem' }}>
-                  <div
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: 12,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'linear-gradient(135deg, rgba(8,168,105,0.18), rgba(14,121,207,0.18))',
-                      color: 'var(--eco-primary)',
-                    }}
-                  >
-                    <Icon size={19} />
-                  </div>
-                  <span
-                    style={{
-                      fontFamily: 'Space Grotesk, sans-serif',
-                      fontWeight: 700,
-                      fontSize: '1.6rem',
-                      color: 'var(--eco-primary)',
-                      opacity: 0.35,
-                    }}
-                  >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.6rem',
+                    marginBottom: '1.1rem',
+                  }}
+                >
+                  <span className="eco-readout" style={{ fontSize: '0.9rem', fontWeight: 600 }}>
                     {s.step}
                   </span>
+                  <Icon size={19} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
                 </div>
-                <h3 style={{ fontSize: '1.05rem', marginBottom: '0.4rem' }}>{s.title}</h3>
-                <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.55, margin: 0 }}>
+                <h3
+                  className="eco-display"
+                  style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '0.5rem' }}
+                >
+                  {s.title}
+                </h3>
+                <p className="eco-text-muted" style={{ fontSize: '0.9rem', lineHeight: 1.6, margin: 0 }}>
                   {s.body}
                 </p>
               </motion.div>
