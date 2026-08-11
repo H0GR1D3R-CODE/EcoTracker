@@ -58,7 +58,7 @@ function celebrate() {
     // canvas-confetti needs real hex values, the same constraint Chart.js has -
     // these were the pre-redesign neon green and violet. Now the actual brand
     // green, One Tree Planted's own green, the instrument teal and amber.
-    colors: ['#4fbe80', '#00c96b', '#3fb0a8', '#ffb000'],
+    colors: ['#2e6a4a', '#2c6577', '#8a5116', '#6a5480'],
     disableForReducedMotion: true, // canvas-confetti honours the OS setting itself
   };
 

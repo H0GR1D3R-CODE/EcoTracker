@@ -197,8 +197,8 @@ export default function Assistant() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
-                  color: '#04140c',
+                  background: 'var(--eco-primary)',
+                  color: 'var(--eco-bg)',
                   flexShrink: 0,
                 }}
               >

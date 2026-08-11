@@ -23,120 +23,154 @@
    =========================================================================== */
 
 /* ===========================================================================
-   0. THE INSTRUMENT SYSTEM
+   0. THE ALMANAC
    ===========================================================================
-   EcoTrack is a device for reading a gas nobody can see. The interface is
-   built to behave like a precision instrument rather than a dashboard
-   template, and these are its primitives.
+   EcoTrack multiplies what you did by a published coefficient and hands back
+   a mass of gas. Every figure on screen traces to a real emission factor from
+   DEFRA, the IPCC or CEA India. The interface is therefore built like the
+   reference document those factors live in - a precision almanac - and not
+   like a dashboard template.
 
    THE ONE IDEA: measured values and the living world are never the same
-   colour. Amber is what the instrument reports - a reading, a quantity, a
+   colour. Ochre is what the instrument reports - a reading, a quantity, a
    number that came from an equation. Green is what is actually at stake. A
    figure never borrows the colour of the thing it describes, so a person can
    tell at a glance what is a measurement and what is a claim.
 
-   Amber is the deliberate risk here. Every carbon app on the market is acid
-   green on near-black; instrument amber is the colour of an analogue gauge
-   and of a readout you are meant to trust, and it belongs to a tracker in a
-   way that a second green never could.
+   WHAT THIS REPLACED, AND WHY
+   The previous system said all of the above in its comments and then did the
+   opposite in its rules: three-stop rainbow gradient buttons, gradient text
+   on every heading, a gradient scrollbar, glassmorphism, glow shadows, 18px
+   radii, click ripples, and roughly fifteen unrelated hues. That is the 2021
+   template look, and no amount of stated philosophy survives it. Everything
+   below is flat, hairline-ruled and near-monochrome, so the philosophy and
+   the pixels finally agree.
 
-   Type is three roles, never mixed: display speaks, mono measures, Inter
-   explains. Any number a person could act on is set in mono.
+   THREE RULES, NO EXCEPTIONS
+     1. No gradients. Anywhere. A gradient is what this design used instead of
+        deciding, and deciding is the whole job.
+     2. A hairline separates things; a card only exists where something must
+        genuinely lift off the page.
+     3. Type is three roles, never mixed: display speaks, mono measures, Inter
+        explains. Any number a person could act on is set in mono.
    =========================================================================== */
 
 :root {
-  --font-display: 'Bricolage Grotesque', 'Space Grotesk', system-ui, sans-serif;
+  /* Bricolage Grotesque is a variable grotesque with genuine quirks in its
+     wider optical sizes - it is doing the characterful work here, so it is
+     used big and used sparingly. Space Grotesk has been removed outright
+     rather than left in the stack: it was the "temporary" second display face
+     that half the app was still reaching for directly, which is exactly the
+     inconsistency this rebuild exists to end. With it gone, any straggler
+     falls back visibly and gets caught. */
+  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* Display type is set tight on both axes. Headlines lock up as a shape
-     rather than reading as a row of words - the single biggest reason the
-     reference site feels authored and a bootstrap page does not. */
-  --track-display: -0.045em;
-  --leading-display: 0.93;
+     rather than reading as a row of words - the single biggest reason an
+     authored page does not look like a bootstrap page. */
+  --track-display: -0.05em;
+  --leading-display: 0.92;
 
-  /* Instrument amber: what the machine reports */
-  --readout: #ffb000;
-  --readout-dim: rgba(255, 176, 0, 0.55);
-  --readout-rgb: 255, 176, 0;
-
-  /* Hairlines and tick marks. A rule, not a card, is the default way to
-     separate things in this system. */
-  --rule: rgba(233, 240, 222, 0.14);
-  --rule-strong: rgba(233, 240, 222, 0.28);
-}
-
-[data-theme='light'] {
-  /* Amber has to darken considerably on paper or it turns to mustard and
-     fails contrast against a light ground.
-     Measured, not guessed: #a86b00 came out at 3.97:1 on the #f5f3ec ground,
-     which is below the 4.5:1 AA floor for body text - and readouts appear at
-     small sizes, so large-text allowances do not apply. #966000 measures
-     4.76:1 on the ground and 5.15:1 on the card. */
-  --readout: #966000;
-  --readout-dim: rgba(150, 96, 0, 0.62);
-  --readout-rgb: 150, 96, 0;
-
-  --rule: rgba(24, 40, 26, 0.16);
-  --rule-strong: rgba(24, 40, 26, 0.32);
+  /* One spacing scale. Sections and stacks pick from it and nothing invents
+     its own value, which is most of what "precision" actually means. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
 }
 
 /* ---------------------------------------------------------------------------
-   CATEGORY COLOURS
-   ---------------------------------------------------------------------------
-   The seven category accents, as variables rather than hexes baked into JS.
-
-   They used to live only in CATEGORY_META, chosen against a dark background
-   and hardcoded, so they could not respond to the theme. Measured on the light
-   ground, every one of them failed: transport's #4fbe80 came out at 2.10:1 and
-   the neon #00ff87 used on the landing page at 1.21:1, which is very close to
-   invisible. Now that light is the default, that is not a nuance.
-
-   The light values are the same hue walked down in brightness until each
-   clears 4.8:1 on the paper ground - a little above the 4.5 floor, so
-   antialiasing cannot push them under. All seven also clear it on cards.
+   DARK - the default before JavaScript runs
    --------------------------------------------------------------------------- */
 :root,
 [data-theme='dark'] {
-  --cat-transport: #4fbe80;
-  --cat-electricity: #e0a23f;
-  --cat-fuel: #d9694e;
-  --cat-diet: #a4739e;
-  --cat-waste: #8f9a86;
-  --cat-water: #4a9dc4;
-  --cat-consumption: #cf7d95;
+  /* Ochre: what the machine reports. One measurement colour, not the two
+     near-identical ambers (#ffb000 and #e6a748) that used to sit side by side
+     meaning the same thing. */
+  --readout: #cf9448;
+  --readout-dim: rgba(207, 148, 72, 0.55);
+  --readout-rgb: 207, 148, 72;
+
+  /* Hairlines. A rule, not a card, is the default way to separate things. */
+  --rule: rgba(232, 237, 226, 0.13);
+  --rule-strong: rgba(232, 237, 226, 0.26);
 }
 
-/* The four partner organisations on the landing page carry their own accents.
-   Same treatment and same reason: picked against a dark ground, and #00c96b
-   measured 1.98:1 on paper. Gold Standard's violet already passed at 5.13:1
-   and is therefore unchanged in both themes. */
+[data-theme='light'] {
+  /* Ochre has to deepen considerably on paper or it turns to mustard and
+     fails contrast. Measured, not guessed: #8a5116 is 5.42:1 on the #efede4
+     ground and 5.88:1 on the surface - readouts appear at small sizes, so the
+     large-text allowance does not apply and 4.5:1 is the real floor. */
+  --readout: #8a5116;
+  --readout-dim: rgba(138, 81, 22, 0.62);
+  --readout-rgb: 138, 81, 22;
+
+  --rule: rgba(23, 28, 20, 0.15);
+  --rule-strong: rgba(23, 28, 20, 0.3);
+}
+
+/* ---------------------------------------------------------------------------
+   CATEGORY COLOURS - one graded family, not a rainbow
+   ---------------------------------------------------------------------------
+   Seven categories need seven distinguishable colours, but they do not need
+   seven unrelated ones. The previous set was picked hue-by-hue as each
+   category was added - a mint green beside a sky blue beside a hot pink - and
+   read as a stock chart palette dropped into an otherwise restrained page.
+
+   These are held to matched chroma and matched lightness and spaced evenly
+   around the wheel, so they stay separable in a doughnut chart while reading
+   as one deliberately graded family. That is the difference between a palette
+   and a set of colours, and it is what "properly graded" means in practice.
+
+   Every light value clears 4.8:1 on the paper ground - a little above the 4.5
+   floor, so antialiasing cannot push it under. All seven clear it on surfaces
+   too. The dark values are the same seven hues lifted, not different colours.
+   --------------------------------------------------------------------------- */
 :root,
 [data-theme='dark'] {
-  --org-onetree: #00c96b;
-  --org-coolearth: #38bdf8;
-  --org-catf: #f59e0b;
-  /* Lightened for dark. The brand violet #7c3aed measured 3.39:1 on the dark
-     ground and 3.15:1 on a card - it reads as passable and is not. This is the
-     same hue lifted 30% toward white: 5.87:1 on the ground, 5.18:1 on cards. */
-  --org-goldstandard: #a375f2;
+  --cat-transport: #58b483;
+  --cat-electricity: #c79a4e;
+  --cat-fuel: #cc7a5e;
+  --cat-diet: #9d86bd;
+  --cat-waste: #8c9885;
+  --cat-water: #5aa3bd;
+  --cat-consumption: #c2849a;
 }
 
 [data-theme='light'] {
-  --org-onetree: #007b41;      /* 4.84:1 */
-  --org-coolearth: #227195;    /* 4.89:1 */
-  --org-catf: #935f07;         /* 4.87:1 */
-  --org-goldstandard: #7c3aed; /* 5.13:1 - the brand violet works as-is here */
+  --cat-transport: #2e6a4a;    /* 5.31:1 */
+  --cat-electricity: #7e6520;  /* 4.97:1 */
+  --cat-fuel: #94513a;         /* 5.44:1 */
+  --cat-diet: #6a5480;         /* 5.62:1 */
+  --cat-waste: #5c6553;        /* 5.34:1 */
+  --cat-water: #2c6577;        /* 5.39:1 */
+  --cat-consumption: #8a4c60;  /* 5.51:1 */
+}
+
+/* The four partner organisations on the Donate page carry their own accents.
+   Pulled into the same grading discipline as the categories above - they used
+   to be a neon green, a sky blue, a bright amber and a violet, which was four
+   more unrelated hues on a page that already had seven. */
+:root,
+[data-theme='dark'] {
+  --org-onetree: #58b483;
+  --org-coolearth: #5aa3bd;
+  --org-catf: #c79a4e;
+  --org-goldstandard: #9d86bd;
 }
 
 [data-theme='light'] {
-  --cat-transport: #31764f;    /* 4.93:1 */
-  --cat-electricity: #896326;  /* 4.88:1 */
-  --cat-fuel: #a7513c;         /* 4.87:1 */
-  --cat-diet: #865e82;         /* 4.80:1 */
-  --cat-waste: #666d5f;        /* 4.83:1 */
-  --cat-water: #35718d;        /* 4.85:1 */
-  --cat-consumption: #93596a;  /* 4.88:1 */
+  --org-onetree: #2e6a4a;
+  --org-coolearth: #2c6577;
+  --org-catf: #7e6520;
+  --org-goldstandard: #6a5480;
 }
 
 /* A measured value. Mono, tight, amber - the same everywhere it appears. */
@@ -171,94 +205,87 @@
    1. THEME VARIABLES
    =========================================================================== */
 
-/* Dark is the default theme. :root applies before JavaScript has run. */
+/* Dark is the default theme. :root applies before JavaScript has run.
+
+   Both themes get the same care. Dark is not the light palette inverted: the
+   ground is a genuine near-black with a green bias rather than a flat grey,
+   the accent lifts to stay legible on it, and every ink and rule value is
+   picked against that ground rather than derived from its light twin. */
 :root,
 [data-theme='dark'] {
-  --eco-primary: #4fbe80;        /* natural leaf green - the brand colour */
-  --eco-primary-dark: #35a367;
-  --eco-primary-rgb: 79, 190, 128; /* rgb parts, so we can build rgba() shadows */
+  /* The living world. Lifted from the light theme's deep forest so it clears
+     contrast on a near-black ground, but the same hue - the brand does not
+     change colour when the lights go out. */
+  --eco-primary: #52b87c;
+  --eco-primary-dark: #3f9c65;
+  --eco-primary-rgb: 82, 184, 124;
 
-  --eco-bg: #0b0f0a;             /* deep forest base - clean, not muddy */
-  --eco-bg-alt: #10150e;
-  --eco-card: #171e14;           /* cards sit clearly above the base */
-  --eco-card-hover: #1f291b;
+  --eco-bg: #0c100b;             /* near-black, green-biased, not a flat grey */
+  --eco-bg-alt: #11160f;
+  --eco-card: #151b13;
+  --eco-card-hover: #1b2318;
 
-  --eco-text: #edf1e6;           /* warm off-white, a touch of green */
-  --eco-text-muted: #93a58c;     /* sage grey-green */
+  --eco-text: #e8ede2;           /* warm off-white with a touch of green */
+  --eco-text-muted: #8d9a86;     /* sage grey-green */
 
-  --eco-purple: #3fb0a8;         /* natural teal/water - the second colour */
-  --eco-orange: #e6a748;         /* warm amber - warnings */
-  --eco-danger: #e2645a;         /* soft natural red - destructive actions */
+  /* Retained under its old name because component code still reaches for it.
+     It is no longer a second brand colour competing with the green - it is
+     the water category's own hue, used only where water is the subject. */
+  --eco-purple: #5aa3bd;
+  --eco-orange: #c79a4e;         /* warnings - the readout ochre, not a rival amber */
+  --eco-danger: #cf6f62;         /* destructive actions */
 
-  --eco-border: rgba(233, 240, 222, 0.09);
-  --eco-glass-bg: rgba(24, 31, 21, 0.6);
-  --eco-glass-border: rgba(233, 240, 222, 0.1);
+  --eco-border: rgba(232, 237, 226, 0.1);
+  --eco-glass-bg: rgba(18, 24, 16, 0.82);
+  --eco-glass-border: rgba(232, 237, 226, 0.11);
 
-  /* A single blurry shadow reads as flat and cheap. Real objects cast two:
-     a tight contact shadow right under them and a soft ambient one spread wide.
-     Stacking the two is the difference between "a box with a shadow" and
-     something that looks like it is genuinely sitting above the page. */
-  --eco-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    0 8px 24px rgba(0, 0, 0, 0.36),
-    0 24px 48px -12px rgba(0, 0, 0, 0.4);
-  --eco-glow: 0 0 24px rgba(79, 190, 128, 0.22);
+  /* Near-flat. The old value stacked three shadows to make cards "float";
+     this system separates with hairlines instead, so the only shadow left is
+     a single tight contact shadow for the few surfaces that genuinely lift
+     (menus, modals). Glow is gone entirely - it was decoration. */
+  --eco-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px -8px rgba(0, 0, 0, 0.5);
+  --eco-glow: none;
+  --eco-top-highlight: none;
 
-  /* A hairline of light along the top edge - the classic sign of a surface lit
-     from above. It is what makes a dark card look carved rather than printed. */
-  --eco-top-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* Sharp. 18px read as soft and app-store-ish; an almanac is set with a
+     precise edge. Small enough to be deliberate, not zero - zero is its own
+     cliche. */
+  --eco-radius: 4px;
+  --eco-radius-sm: 3px;
 
-  /* One radius scale, used everywhere, so nothing looks accidentally rounder
-     than its neighbour */
-  --eco-radius: 18px;
-  --eco-radius-sm: 11px;
-
-  /* Two curves: the standard one for most things, and a slower "entrance" curve
-     with a long glide that feels more considered on the elements that matter */
-  --eco-transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Slower and more confident than the old curves. Nothing in this system
+     bounces or springs; things arrive and settle. */
+  --eco-transition: 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   --eco-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 [data-theme='light'] {
-  /* The neon green is unreadable on white, so light mode uses a darker green.
-     Same variable name, different value - no component code changes.
+  /* Deep forest on paper. #1d6b3e measures 5.94:1 on the #efede4 ground and
+     6.44:1 on the surface - green carries links and small labels throughout,
+     so it has to clear 4.5:1 with headroom rather than sit on the line. */
+  --eco-primary: #1d6b3e;
+  --eco-primary-dark: #155230;
+  --eco-primary-rgb: 29, 107, 62;
 
-     Darkened again now that light is the DEFAULT rather than an option: the
-     previous #2f9d5c measured 3.10:1 on the paper ground, which is fine for a
-     headline and a failure for anything at body size. Green is used for links
-     and small labels throughout, so it has to clear 4.5:1.
+  --eco-bg: #efede4;             /* warm linen, deepened so surfaces can read above it */
+  --eco-bg-alt: #e7e4d9;
+  --eco-card: #f8f7f1;           /* warm paper-white */
+  --eco-card-hover: #fbfaf6;
 
-     #1f7a44 measures 4.82:1 on the ground and comfortably clears it on cards.
-     The ui-ux-pro-max database suggested #15803D, which also passes but only
-     at 4.52:1 - this is the same colour a shade deeper, for headroom. */
-  --eco-primary: #1f7a44;
-  --eco-primary-dark: #176035;
-  --eco-primary-rgb: 31, 122, 68;
+  --eco-text: #171c14;           /* near-black ink, green-biased */
+  --eco-text-muted: #59634f;     /* olive grey */
 
-  --eco-bg: #f5f3ec;             /* warm linen/paper, not a cold grey-white */
-  --eco-bg-alt: #edeae0;
-  --eco-card: #fdfcf8;           /* warm white */
-  --eco-card-hover: #fdfcf8;
+  --eco-purple: #2c6577;         /* the water hue, as above */
+  --eco-orange: #8a5116;
+  --eco-danger: #a83e33;
 
-  --eco-text: #1e2a1d;           /* deep forest ink */
-  --eco-text-muted: #5f6b58;     /* olive-grey */
+  --eco-border: rgba(23, 28, 20, 0.12);
+  --eco-glass-bg: rgba(247, 246, 240, 0.86);
+  --eco-glass-border: rgba(23, 28, 20, 0.1);
 
-  --eco-purple: #248f86;         /* natural teal */
-  --eco-orange: #c9851d;         /* amber */
-  --eco-danger: #cf5049;
-
-  --eco-border: rgba(31, 42, 26, 0.1);
-  --eco-glass-bg: rgba(253, 252, 248, 0.72);
-  --eco-glass-border: rgba(31, 42, 26, 0.08);
-
-  /* Same layered approach, but far softer - on a light background a heavy
-     shadow looks dirty rather than deep */
-  --eco-shadow:
-    0 1px 2px rgba(16, 18, 26, 0.04),
-    0 8px 24px rgba(16, 18, 26, 0.06),
-    0 24px 48px -12px rgba(16, 18, 26, 0.08);
-  --eco-glow: 0 0 20px rgba(47, 157, 92, 0.18);
-  --eco-top-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --eco-shadow: 0 1px 2px rgba(23, 28, 20, 0.05), 0 6px 20px -10px rgba(23, 28, 20, 0.12);
+  --eco-glow: none;
+  --eco-top-highlight: none;
 }
 
 /* ===========================================================================
@@ -276,17 +303,17 @@ html {
 
 body {
   margin: 0;
+  /* Flat. The two radial "ambient light pools" of brand green and teal that
+     used to sit here were the Chanel accessory this design had to take off:
+     they tinted every page a faint aurora, fought the paper ground in light
+     mode, and served nothing. A near-black that is genuinely near-black, with
+     a green bias mixed into the hex itself, does the same job honestly. */
   background-color: var(--eco-bg);
-  /* Two very faint radial pools of brand colour, fixed in place so they read as
-     ambient light in the room rather than a pattern on the page. Painted once
-     and never animated, so this depth costs nothing while scrolling. A dead-flat
-     near-black is the single biggest tell of a cheap dark theme; this fixes it. */
-  background-image:
-    radial-gradient(70% 55% at 15% 0%, rgba(var(--eco-primary-rgb), 0.05), transparent 60%),
-    radial-gradient(60% 55% at 100% 8%, rgba(63, 176, 168, 0.06), transparent 55%);
-  background-attachment: fixed;
   color: var(--eco-text);
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Was a hardcoded 'Inter' stack, which is how the body font quietly stopped
+     being the same declaration as everything else. It reads from the token
+     now, like every other type decision in the file. */
+  font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.65;
   /* Antialiasing on both engines, plus contextual/ligature features, so text
@@ -304,22 +331,16 @@ body {
   overflow-x: clip;
 }
 
-/* background-attachment: fixed is janky and often unrendered on iOS Safari, so
-   on phones the ambient gradient scrolls with the page instead. The gradient
-   lives near the top, so the visual difference is negligible - the win is a
-   smooth, judder-free scroll on mobile. */
-@media (max-width: 768px) {
-  body {
-    background-attachment: scroll;
-  }
-}
-
 h1, h2, h3, h4, h5, h6,
 .eco-heading {
-  font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.12;
+  /* Was hardcoded 'Space Grotesk' - the single worst font inconsistency in the
+     old file, because it silently overrode --font-display on every plain
+     heading in the app while .eco-display used Bricolage. Two display faces
+     were rendering side by side on the same page. */
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
   color: var(--eco-text);
   /* Distributes words evenly across lines instead of leaving one stranded
      word on the last line - the typographic detail that makes headlines look
@@ -338,15 +359,18 @@ h1, h2, h3, h4, h5, h6,
   font-feature-settings: 'tnum';
 }
 
-/* Gradient text used on every major heading */
+/* Emphasis inside a headline.
+
+   Kept under its old name because it is used on nearly every major heading in
+   the app, but it is no longer a gradient. A green-to-teal gradient across the
+   emphasised half of every headline was the loudest single tell that this page
+   was assembled rather than designed - and it made the emphasis mean nothing,
+   because everything had it.
+
+   Now it is simply the accent, flat. The word that matters is green; the rest
+   of the headline is ink. That reads as a decision. */
 .eco-gradient-text {
-  background: linear-gradient(135deg, var(--eco-primary), var(--eco-purple));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  /* Without this, descenders like 'g' and 'y' get clipped */
-  padding-bottom: 0.08em;
-  display: inline-block;
+  color: var(--eco-primary);
 }
 
 .eco-text-muted {
@@ -394,15 +418,18 @@ a:hover {
   background: var(--eco-bg-alt);
 }
 
+/* Was a green-to-teal gradient. A gradient scrollbar is decoration on a
+   control nobody is looking at, and it broke the no-gradients rule in the one
+   place it could never be justified. */
 ::-webkit-scrollbar-thumb {
-  background: linear-gradient(var(--eco-primary-dark), var(--eco-purple));
-  border-radius: 10px;
+  background: var(--rule-strong);
+  border-radius: 0;
   /* The border creates padding around the thumb so it looks slimmer */
-  border: 2px solid var(--eco-bg-alt);
+  border: 3px solid var(--eco-bg-alt);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(var(--eco-primary), var(--eco-purple));
+  background: var(--eco-text-muted);
 }
 
 /* Firefox uses two completely different properties for the same job */
@@ -424,15 +451,16 @@ a:hover {
    real glass is opt-in via .eco-glass below - used only on the navbar and the
    auth cards, where it sits over moving content and actually earns its cost. */
 .eco-card {
-  background: var(--eco-glass-bg);
-  border: 1px solid var(--eco-glass-border);
+  /* Opaque, hairlined, unshadowed. The old card was translucent glass with a
+     three-layer drop shadow and an inset top highlight, all to make it "float
+     above the page" - which is the look this rebuild is getting away from.
+     A card here is a sheet of the same paper, bounded by a rule. */
+  background: var(--eco-card);
+  border: 1px solid var(--eco-border);
   border-radius: var(--eco-radius);
-  /* Layered shadow AND the top-edge highlight together: the card looks lit from
-     above and floating, not stamped onto the page */
-  box-shadow: var(--eco-shadow), var(--eco-top-highlight);
-  padding: 1.6rem;
-  transition: transform var(--eco-transition), box-shadow var(--eco-transition),
-    border-color var(--eco-transition), background-color var(--eco-transition);
+  box-shadow: none;
+  padding: var(--space-6);
+  transition: border-color var(--eco-transition), background-color var(--eco-transition);
 }
 
 /* The category cards on the landing page sit on a near-black section, where the
@@ -472,17 +500,13 @@ a:hover {
   will-change: transform;
 }
 
+/* Hover darkens the rule and warms the fill. No lift, no glow, no growing
+   shadow - a sheet of paper does not levitate when you look at it, and a grid
+   of cards that each rise 5px on hover is exactly the restlessness this
+   rebuild is removing. */
 .eco-card-hover:hover {
-  transform: translateY(-5px);
   background: var(--eco-card-hover);
-  border-color: rgba(var(--eco-primary-rgb), 0.28);
-  /* The shadow deepens on lift - a raised object casts a larger, softer shadow,
-     so growing it as the card rises sells the height */
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    0 16px 40px -8px rgba(0, 0, 0, 0.45),
-    var(--eco-glow),
-    var(--eco-top-highlight);
+  border-color: var(--rule-strong);
 }
 
 /* The arrow inside a button nudges forward on hover. It is 3px, it happens
@@ -508,8 +532,8 @@ a:hover {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
-  background: linear-gradient(var(--eco-primary), var(--eco-purple));
+  width: 2px;
+  background: var(--eco-primary);
 }
 
 /* ===========================================================================
@@ -517,19 +541,19 @@ a:hover {
    =========================================================================== */
 
 .eco-btn {
-  font-family: 'Space Grotesk', sans-serif;
+  /* Was hardcoded 'Space Grotesk' - a third display face appearing on every
+     button in the app, which is why nothing felt typographically settled. */
+  font-family: var(--font-body);
   font-weight: 600;
-  /* A touch of letter-spacing on a semibold sans is what makes button text look
-     "designed" rather than default */
-  letter-spacing: 0.01em;
-  border: none;
+  font-size: 0.92rem;
+  letter-spacing: 0;
+  border: 1px solid transparent;
   border-radius: var(--eco-radius-sm);
-  padding: 0.72rem 1.6rem;
+  padding: 0.68rem 1.4rem;
   cursor: pointer;
   position: relative;
-  overflow: hidden; /* keeps the ripple inside the rounded corners */
-  transition: transform 0.18s var(--eco-ease-out), box-shadow var(--eco-transition),
-    opacity var(--eco-transition);
+  transition: background-color var(--eco-transition), border-color var(--eco-transition),
+    color var(--eco-transition), opacity var(--eco-transition);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -547,102 +571,69 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* Solid ink. The old primary button was a three-stop gradient running emerald
+   to teal to ocean blue - three colours, two of which appeared nowhere else in
+   the product, on the single most repeated element in the app. It is now the
+   brand green, flat, and it is the only filled button in the system. */
 .eco-btn-primary {
-  /* A vibrant "eco aurora" - emerald flowing into teal and ocean blue. Far more
-     eye-catching than a flat green, and dark enough that white text stays
-     clearly legible across every stop. */
-  background: linear-gradient(120deg, #08a869 0%, #0a97a0 50%, #0e79cf 100%);
-  color: #ffffff;
-  /* A whisper of shadow guarantees the label reads over the brightest band */
-  text-shadow: 0 1px 2px rgba(3, 20, 30, 0.3);
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: var(--eco-primary);
+  border-color: var(--eco-primary);
+  color: var(--eco-bg);
 }
 
 .eco-btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  /* brightens slightly and lifts on hover, with a teal glow */
-  filter: saturate(1.08) brightness(1.06);
-  box-shadow:
-    0 8px 26px rgba(13, 140, 170, 0.48),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  background: var(--eco-primary-dark);
+  border-color: var(--eco-primary-dark);
 }
 
 .eco-btn-outline {
   background: transparent;
   color: var(--eco-primary);
-  border: 1px solid var(--eco-primary);
+  border-color: var(--eco-primary);
 }
 
 .eco-btn-outline:hover:not(:disabled) {
-  transform: scale(1.04);
-  background: rgba(var(--eco-primary-rgb), 0.1);
+  background: rgba(var(--eco-primary-rgb), 0.08);
 }
 
 .eco-btn-ghost {
   background: transparent;
   color: var(--eco-text-muted);
-  border: 1px solid var(--eco-border);
+  border-color: var(--eco-border);
 }
 
 .eco-btn-ghost:hover:not(:disabled) {
   color: var(--eco-text);
-  border-color: var(--eco-text-muted);
+  border-color: var(--rule-strong);
 }
 
 .eco-btn-danger {
-  background: var(--eco-danger);
-  color: #fff;
+  background: transparent;
+  color: var(--eco-danger);
+  border-color: var(--eco-danger);
 }
 
 .eco-btn-danger:hover:not(:disabled) {
-  transform: scale(1.04);
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
-}
-
-.eco-btn:active:not(:disabled) {
-  transform: scale(0.97); /* the press-down feel */
+  background: rgba(168, 62, 51, 0.08);
 }
 
 .eco-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
-/* Ripple - a circle that expands from the middle of the button on click.
-   ::after starts invisible and scaled to nothing, then grows on :active. */
-.eco-btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
-  transform: translate(-50%, -50%);
-  transition: width 0.45s ease-out, height 0.45s ease-out, opacity 0.45s ease-out;
-  opacity: 0;
-}
+/* The click ripple is gone. A white circle expanding out of every button is
+   Material Design's signature, not this product's, and it fought the
+   flat-and-precise direction on every single press. The colour change on
+   hover and the focus ring are the feedback now. */
 
-.eco-btn:active::after {
-  width: 260px;
-  height: 260px;
-  opacity: 1;
-  transition: 0s; /* snap to full size instantly, then fade out on release */
-}
-
-/* Pulsing gradient glow for the main call to action.
-   This is a box-shadow rather than a bordered pseudo-element on purpose:
-   .eco-btn needs overflow:hidden to keep the ripple inside its rounded
-   corners, and that would clip any ::before drawn outside the button. A
-   box-shadow is painted outside the box, so it survives the clipping. */
-/* A static brand glow, no longer a continuous pulse. The infinite animation
-   read as the button "breathing", which added to the restless feeling on the
-   landing page. It still glows on hover via .eco-btn-primary:hover. */
+/* Retained as a no-op under its old name: several pages still add
+   .eco-btn-pulse to their main call to action, and it used to paint a 24px
+   teal glow. Nothing in this system glows. Leaving the class defined but
+   inert means those pages keep working and simply stop glowing, rather than
+   needing an edit each before the design reads correctly. */
 .eco-btn-pulse {
-  box-shadow: 0 0 24px rgba(13, 140, 170, 0.34);
+  box-shadow: none;
 }
 
 /* ===========================================================================
@@ -664,11 +655,13 @@ a:hover {
 
 .eco-form .form-control:focus,
 .eco-form .form-select:focus {
-  background-color: rgba(var(--eco-primary-rgb), 0.06);
+  background-color: rgba(var(--eco-primary-rgb), 0.05);
   border-color: var(--eco-primary);
   color: var(--eco-text);
-  /* The focus glow specified in the design rules */
-  box-shadow: 0 0 0 3px rgba(var(--eco-primary-rgb), 0.15), var(--eco-glow);
+  /* A tight ring, not a glow. This used to append var(--eco-glow) as a second
+     shadow; now that glow resolves to `none`, appending it would make the
+     whole declaration invalid and the focus ring would vanish entirely. */
+  box-shadow: 0 0 0 2px rgba(var(--eco-primary-rgb), 0.22);
   outline: none;
 }
 
@@ -766,16 +759,19 @@ a:hover {
   color: var(--eco-text);
 }
 
+/* Column headers are labels on a data table, so they are set in the data face
+   rather than a display one - the same treatment as .eco-marker, because they
+   are doing the same job. (Was hardcoded 'Space Grotesk'.) */
 .eco-table thead th {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   color: var(--eco-text-muted);
-  border-bottom: 1px solid var(--eco-border);
-  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--rule-strong);
+  padding: 0.85rem 1rem;
   text-align: left;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .eco-table tbody td {
@@ -825,56 +821,80 @@ a:hover {
    9. BACKGROUNDS AND DECORATIVE EFFECTS
    =========================================================================== */
 
-/* Faint dot grid for hero sections */
+/* Graph-paper dot grid, used behind the auth pages and the 404.
+
+   The dots are ink, not brand green. A green dot grid tinted the whole panel
+   and turned a neutral texture into a third coloured element competing with
+   the accent; ink at low alpha reads as the ruled paper this system is built
+   on and disappears the moment you stop looking at it. */
 .eco-dot-grid {
-  background-image: radial-gradient(
-    circle,
-    rgba(var(--eco-primary-rgb), 0.14) 1px,
-    transparent 1px
-  );
-  background-size: 28px 28px;
+  background-image: radial-gradient(circle, var(--rule) 1px, transparent 1px);
+  background-size: 26px 26px;
 }
 
-/* Faint line grid, an alternative to the dots */
 .eco-line-grid {
   background-image:
-    linear-gradient(rgba(var(--eco-primary-rgb), 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--eco-primary-rgb), 0.05) 1px, transparent 1px);
+    linear-gradient(var(--rule) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rule) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
-/* A soft coloured glow behind hero content.
-   NO filter: blur() here, deliberately. blur() forces the browser to render the
-   shape offscreen, blur it, then composite it back - and it redoes that work
-   whenever the element moves. A radial-gradient that fades to transparent looks
-   the same but is painted once and then simply composited, so it can be moved
-   around every frame for free.
-   translateZ(0) puts each orb on its own GPU layer so animating it never
-   repaints the page behind it. */
+/* The decorative glow orbs are retired.
+
+   They were soft radial pools of green and teal floating behind hero content -
+   the same ambient-aurora idea as the body gradient, and the same problem:
+   pure decoration, off-palette, and the strongest remaining signal that this
+   was a template. Left defined but hidden rather than deleted, because a few
+   pages still render the markup; those pages now simply have a clean ground.
+   Remove the JSX at leisure. */
 .eco-glow-orb {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none; /* so it never blocks clicks on what is above it */
-  z-index: 0;
-  opacity: 0.5;
-  transform: translateZ(0);
+  display: none;
 }
 
-.eco-glow-orb-green {
-  background: radial-gradient(circle closest-side, rgba(79, 190, 128, 0.55), transparent 100%);
+/* ---------------------------------------------------------------------------
+   THE HOUSE GRADE  -  the signature of this design
+   ---------------------------------------------------------------------------
+   EcoTrack shows around thirty photographs, all pulled from Unsplash, all shot
+   by different photographers under different light with different cameras and
+   different colour science. Individually they are good pictures. Together they
+   were the single biggest reason the product looked assembled rather than
+   art-directed: a punchy blue-sky aerial three sections above a warm golden
+   forest, neither of them belonging to the same world as the paper ground they
+   sat on.
+
+   One filter, applied to every image in the product, fixes that. Saturation
+   comes down so no photograph out-colours the interface, contrast comes down
+   slightly so nothing punches a hole in the page, and a whisper of sepia warms
+   everything toward the linen ground. The result is a set of images that reads
+   as one commissioned shoot in one consistent light.
+
+   This is the thing to look at first if the imagery ever feels wrong - it is
+   one declaration, and it governs all of it.
+   --------------------------------------------------------------------------- */
+.eco-photo {
+  filter: saturate(0.72) contrast(0.94) sepia(0.12);
+  transition: filter var(--eco-transition);
 }
 
-.eco-glow-orb-purple {
-  background: radial-gradient(circle closest-side, rgba(63, 176, 168, 0.5), transparent 100%);
+/* On a dark ground the same grade needs a touch less light, or photographs
+   glare against the near-black. Both themes get their own value rather than
+   one compromise value serving neither. */
+[data-theme='dark'] .eco-photo {
+  filter: saturate(0.68) contrast(0.92) brightness(0.86) sepia(0.1);
 }
 
-[data-theme='light'] .eco-glow-orb {
-  opacity: 0.3;
-}
-
+/* Section rhythm. One value, from the spacing scale, so every band on every
+   page breathes identically - most of what reads as "precision" is really
+   just this. */
 .eco-section {
-  padding: 5rem 0;
+  padding: var(--space-24) 0;
   position: relative;
+}
+
+@media (max-width: 768px) {
+  .eco-section {
+    padding: var(--space-16) 0;
+  }
 }
 
 .eco-hero {
@@ -1014,9 +1034,9 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--eco-primary), var(--eco-purple));
-  color: #04140c;
-  box-shadow: 0 8px 28px rgba(var(--eco-primary-rgb), 0.35);
+  background: var(--eco-primary);
+  color: var(--eco-bg);
+  box-shadow: var(--eco-shadow);
 }
 
 .eco-assistant-panel {
@@ -1063,12 +1083,14 @@ a:hover {
 
 /* NProgress - the thin loading bar across the top on route changes */
 #nprogress .bar {
-  background: linear-gradient(90deg, var(--eco-primary), var(--eco-purple)) !important;
-  height: 3px !important;
+  background: var(--eco-primary) !important;
+  height: 2px !important;
 }
 
+/* The peg is the comet-trail of light at the leading edge of the bar. Nothing
+   in this system glows, and a 12px halo on a 2px rule looked like a smudge. */
 #nprogress .peg {
-  box-shadow: 0 0 12px var(--eco-primary), 0 0 6px var(--eco-primary) !important;
+  display: none !important;
 }
 
 #nprogress .spinner {
@@ -1247,19 +1269,29 @@ a:hover {
   to { transform: rotate(360deg); }
 }
 
-.eco-float { animation: eco-float 5s ease-in-out infinite; }
-.eco-pulse { animation: eco-pulse-ring 2.2s infinite; }
+/* Both of these were continuous, infinite ambient motion - a hero element
+   bobbing up and down forever, and a ring pulsing out of a dot every 2.2s.
+   Nothing on a page a person is trying to read should move unprompted, and
+   between them they were most of the restlessness. Kept as inert classes so
+   existing markup keeps working; motion in this system is now exclusively a
+   response to scrolling or to the pointer. */
+.eco-float,
+.eco-pulse {
+  animation: none;
+}
 
-/* GSAP ScrollTrigger reveals: elements start hidden, the hook adds .eco-revealed */
+/* GSAP ScrollTrigger reveals: elements start hidden, the hook adds
+   .eco-revealed. Slower and shorter-travelled than before - things arrive and
+   settle rather than flying in. */
 .eco-reveal {
   opacity: 0;
-  transform: translateY(36px);
+  transform: translateY(18px);
 }
 
 .eco-revealed {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 0.7s ease, transform 0.7s ease;
+  transition: opacity 0.85s var(--eco-ease-out), transform 0.85s var(--eco-ease-out);
 }
 
 /* ---- Photo cards (Gallery, Learn, Dashboard) ---- */

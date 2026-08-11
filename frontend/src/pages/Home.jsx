@@ -1259,7 +1259,7 @@ export default function Home() {
                         height: `${height * 100}%`,
                         transformOrigin: 'bottom',
                         borderRadius: '6px 6px 0 0',
-                        background: 'linear-gradient(180deg, var(--eco-primary), rgba(124,58,237,0.65))',
+                        background: 'var(--eco-primary)',
                       }}
                     />
                   ))}

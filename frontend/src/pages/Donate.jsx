@@ -73,7 +73,7 @@ const PRESETS = [
 // modal is always on a light background regardless of our own theme, so this
 // matches the light-theme brand green rather than the dark-theme one - it was
 // #2f9d5c, a shade from before the redesign that no longer matches either.
-const CHECKOUT_THEME = '#1f7a44';
+const CHECKOUT_THEME = '#1d6b3e';
 
 // Razorpay key ids carry their own mode: rzp_test_... or rzp_live_.... So the
 // "nothing is really charged" notice can decide for itself whether to appear,
@@ -175,7 +175,11 @@ export default function Donate() {
     // Same constraint as the checkout theme above - canvas-confetti needs real
     // hex values. Updated from the pre-redesign palette to the current brand
     // green, the instrument teal and amber.
-    const colours = ['#4fbe80', '#3fb0a8', '#ffb000', '#00c96b'];
+    // The graded palette, not the pre-rebuild one. Confetti is the one place
+    // colour gets to be celebratory, but it still has to be this product's
+    // colours - these are the accent, the water hue, the readout ochre and the
+    // plum, all straight off the category ramp.
+    const colours = ['#2e6a4a', '#2c6577', '#8a5116', '#6a5480'];
     confetti({ particleCount: 90, spread: 70, origin: { y: 0.35 }, colors: colours });
 
     const second = setTimeout(() => {

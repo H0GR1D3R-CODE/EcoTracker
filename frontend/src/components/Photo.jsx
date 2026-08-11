@@ -23,26 +23,29 @@ export default function Photo({
   const [failed, setFailed] = useState(false);
 
   if (failed) {
+    // A flat wash of the category colour, not a gradient into a second hue.
+    // The fallback should look like a deliberately empty plate, not like a
+    // different design system leaking through on a bad network.
     return (
       <div
         role="img"
         aria-label={alt}
         className={className}
-        style={{
-          ...style,
-          background: `linear-gradient(135deg, ${color}, var(--eco-purple))`,
-        }}
+        style={{ ...style, background: color, opacity: 0.14 }}
       />
     );
   }
 
+  // .eco-photo carries the house grade - see index.css. Every photograph in
+  // the product passes through the same filter so thirty images by thirty
+  // different photographers read as one commissioned shoot.
   return (
     <img
       src={photoUrl(id, width)}
       alt={alt}
       loading={loading}
       onError={() => setFailed(true)}
-      className={className}
+      className={className ? `eco-photo ${className}` : 'eco-photo'}
       style={{ objectFit: 'cover', ...style }}
     />
   );

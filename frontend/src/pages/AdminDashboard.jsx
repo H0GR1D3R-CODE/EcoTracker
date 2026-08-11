@@ -1031,8 +1031,8 @@ export default function AdminDashboard() {
                         height: 32,
                         borderRadius: '50%',
                         flexShrink: 0,
-                        background: 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
-                        color: '#04140c',
+                        background: 'var(--eco-primary)',
+                        color: 'var(--eco-bg)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -1152,8 +1152,7 @@ export default function AdminDashboard() {
                   top: 6,
                   bottom: 6,
                   width: 2,
-                  background:
-                    'linear-gradient(180deg, rgba(var(--eco-primary-rgb),0.5), rgba(var(--eco-primary-rgb),0.05))',
+                  background: 'var(--rule-strong)',
                 }}
               />
 
@@ -1349,10 +1348,8 @@ export default function AdminDashboard() {
                               fontWeight: 700,
                               fontSize: '0.78rem',
                               fontFamily: 'var(--font-display)',
-                              background: row.isAdmin
-                                ? 'linear-gradient(135deg, var(--eco-purple), var(--eco-primary))'
-                                : 'var(--eco-border)',
-                              color: row.isAdmin ? '#04140c' : 'var(--eco-text-muted)',
+                              background: row.isAdmin ? 'var(--eco-primary)' : 'var(--eco-border)',
+                              color: row.isAdmin ? 'var(--eco-bg)' : 'var(--eco-text-muted)',
                             }}
                           >
                             {getInitials(row.name)}
@@ -2053,10 +2050,8 @@ export default function AdminDashboard() {
                       justifyContent: 'center',
                       fontWeight: 700,
                       fontFamily: 'var(--font-display)',
-                      background: detail.profile.isAdmin
-                        ? 'linear-gradient(135deg, var(--eco-purple), var(--eco-primary))'
-                        : 'linear-gradient(135deg, var(--eco-primary), var(--eco-purple))',
-                      color: '#04140c',
+                      background: 'var(--eco-primary)',
+                      color: 'var(--eco-bg)',
                     }}
                   >
                     {getInitials(detail.profile.name)}

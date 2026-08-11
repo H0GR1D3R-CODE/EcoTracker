@@ -20,7 +20,7 @@
     <!-- Colours the browser chrome on mobile to match the light theme. The
          value is kept in step with --eco-bg by ThemeContext when the user
          toggles; this is only the pre-JavaScript default. -->
-    <meta name="theme-color" content="#f5f3ec" />
+    <meta name="theme-color" content="#efede4" />
 
     <!-- Without these, pasting the site's link into WhatsApp, iMessage,
          LinkedIn or Twitter/X showed a bare URL with no title, description or
@@ -62,16 +62,22 @@
          the fonts arrive noticeably faster. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- THREE ROLES, THREE FACES.
+    <!-- THREE ROLES, THREE FACES, AND ONLY THREE.
          Bricolage Grotesque is the display voice: a variable grotesque with real
          character, set big and tight. IBM Plex Mono carries every measured
          value, because this app is an instrument and its figures should read as
          readings, not as marketing numbers. Inter stays for long prose, where it
          is genuinely the better tool.
-         Space Grotesk is still listed while the older pages are migrated to the
-         new system; it comes out once nothing references it. -->
+
+         Space Grotesk has been removed. It was loaded as a temporary fourth
+         face "while the older pages are migrated", and instead became the face
+         that every plain heading, every button and every table header quietly
+         rendered in - two display typefaces on screen at once, which is why
+         nothing looked typographically settled. Dropping it from the request
+         means any remaining reference falls back visibly rather than silently
+         working, which is how the last few got found. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
 

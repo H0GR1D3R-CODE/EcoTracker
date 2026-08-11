@@ -84,7 +84,7 @@ export function ThemeProvider({ children }) {
       // These must match --eco-bg for each theme in index.css. They were
       // #0a0a0f / #f4f6f9, neither of which the app has used for some time,
       // so the phone's chrome sat a shade off the page it framed.
-      themeColorMeta.setAttribute('content', theme === 'dark' ? '#0b0f0a' : '#f5f3ec');
+      themeColorMeta.setAttribute('content', theme === 'dark' ? '#0c100b' : '#efede4');
     }
 
     try {

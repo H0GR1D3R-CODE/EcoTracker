@@ -133,7 +133,7 @@ function useBaseOptions() {
           cornerRadius: 10,
           displayColors: true,
           boxPadding: 4,
-          titleFont: { family: "'Bricolage Grotesque', 'Space Grotesk', sans-serif", size: 13, weight: '600' },
+          titleFont: { family: "'Bricolage Grotesque', system-ui, sans-serif", size: 13, weight: '600' },
           bodyFont: { family: 'Inter, sans-serif', size: 12 },
           callbacks: {
             // Without this the tooltip just shows a bare number
