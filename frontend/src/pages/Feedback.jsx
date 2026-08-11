@@ -18,8 +18,8 @@ import {
   Loader2,
   MessageSquare,
   Send,
-  Sparkles,
   Star,
+  UserCheck,
   Wrench,
 } from 'lucide-react';
 
@@ -47,9 +47,9 @@ const RATING_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
 // The reassurance points in the left-hand panel.
 const POINTS = [
   {
-    icon: Sparkles,
-    title: 'We read everything',
-    body: 'Every message lands in the dashboard and is read by a real person — not a bot.',
+    icon: UserCheck,
+    title: 'No account needed',
+    body: "Sign-in isn't required — leave a name and email only if you'd like a reply.",
   },
   {
     icon: Wrench,

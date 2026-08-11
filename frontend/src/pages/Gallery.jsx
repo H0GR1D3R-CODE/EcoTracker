@@ -26,7 +26,7 @@ const FEATURED = {
   color: 'var(--org-onetree)',
   title: 'One planet, one atmosphere',
   caption:
-    'Every tonne of CO₂ we emit ends up in the same shared sky. These are the systems your everyday choices connect to — and the ones we can still change.',
+    'Every tonne of CO₂ we emit ends up in the same shared sky. A forest like this one absorbs some of it back — proof the balance can still tip the right way.',
   alt: 'Aerial view of a road winding through dense green forest',
 };
 

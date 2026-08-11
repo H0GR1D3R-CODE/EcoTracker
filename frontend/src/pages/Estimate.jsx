@@ -43,7 +43,6 @@ import {
   Car,
   Check,
   Info,
-  Leaf,
   ShoppingBag,
   UtensilsCrossed,
   Zap,
@@ -769,20 +768,6 @@ export default function Estimate() {
                 tracked month usually comes out <strong>higher</strong> than this.
               </p>
             </div>
-
-            <p
-              className="eco-text-muted"
-              style={{
-                fontSize: '0.72rem',
-                marginTop: '0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-              }}
-            >
-              <Leaf size={12} />
-              A rough estimate — your real footprint depends on the details.
-            </p>
           </div>
         </div>
       </div>

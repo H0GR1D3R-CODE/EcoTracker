@@ -44,6 +44,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { dashboardApi, getErrorMessage } from '../utils/api';
 import SelectField from '../components/SelectField';
+import PageBanner from '../components/PageBanner';
 import { formatCategory, formatDate, formatEmission, formatNumber, getInitials } from '../utils/formatters';
 import { NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
 
@@ -244,17 +245,16 @@ export default function Profile() {
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem', maxWidth: 780 }}>
-      <div style={{ marginBottom: '2.4rem' }}>
-        <div className="eco-marker" style={{ marginBottom: '1rem', display: 'block' }}>
-          Your account
-        </div>
-        <h1 className="eco-display" style={{ fontSize: 'clamp(2rem, 5vw, 2.8rem)', margin: '0 0 0.5rem' }}>
-          Your <span className="eco-gradient-text">Profile</span>
-        </h1>
-        <p className="eco-text-muted" style={{ margin: 0 }}>
-          Manage your account details.
-        </p>
-      </div>
+      <PageBanner
+        photo="profileCompass"
+        alt="A compass, close up, in the dark"
+        color="var(--eco-primary)"
+        icon={User}
+        eyebrow="Your account"
+        title="Your"
+        titleAccent="Profile"
+        subtitle="Manage your account details."
+      />
 
       {/* ---------- Identity ---------- */}
       <motion.div

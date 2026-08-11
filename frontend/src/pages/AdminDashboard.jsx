@@ -2056,7 +2056,7 @@ export default function AdminDashboard() {
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <h2 style={{ fontSize: '1.25rem', margin: 0 }}>{detail.profile.name}</h2>
+                      <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: 0 }}>{detail.profile.name}</h2>
                       {detail.profile.isAdmin && (
                         <span
                           className="eco-marker"
@@ -2217,7 +2217,7 @@ export default function AdminDashboard() {
                 {/* ---- category breakdown ---- */}
                 {Object.keys(detail.summary.categoryTotals || {}).length > 0 && (
                   <div style={{ marginTop: '1.5rem' }}>
-                    <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.7rem' }}>Emissions by category</h3>
+                    <h3 className="eco-display" style={{ fontSize: '0.9rem', margin: '0 0 0.7rem' }}>Emissions by category</h3>
 
                     {/* The same two charts the user sees on their own dashboard,
                         so the console shows their data the way they see it.
@@ -2308,7 +2308,7 @@ export default function AdminDashboard() {
 
                 {/* ---- activity timeline ---- */}
                 <div style={{ marginTop: '1.6rem' }}>
-                  <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <h3 className="eco-display" style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <Activity size={15} style={{ color: 'var(--eco-primary)' }} />
                     Activity timeline
                     <span className="eco-text-muted" style={{ fontWeight: 400 }}>
@@ -2366,7 +2366,7 @@ export default function AdminDashboard() {
                 {/* ---- donations this user has made ---- */}
                 {detail.donations && detail.donations.length > 0 && (
                   <div style={{ marginTop: '1.6rem' }}>
-                    <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <h3 className="eco-display" style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <HeartHandshake size={15} style={{ color: 'var(--eco-primary)' }} />
                       Donations from this user
                       <span className="eco-text-muted" style={{ fontWeight: 400 }}>
@@ -2441,7 +2441,7 @@ export default function AdminDashboard() {
                 {/* ---- feedback this user has submitted ---- */}
                 {detail.feedback && detail.feedback.length > 0 && (
                   <div style={{ marginTop: '1.6rem' }}>
-                    <h3 style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <h3 className="eco-display" style={{ fontSize: '0.9rem', margin: '0 0 0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <MessageSquare size={15} style={{ color: 'var(--eco-primary)' }} />
                       Feedback from this user
                       <span className="eco-text-muted" style={{ fontWeight: 400 }}>({detail.feedback.length})</span>
@@ -2536,7 +2536,7 @@ export default function AdminDashboard() {
                 <AlertTriangle size={21} />
               </div>
               <div style={{ flex: 1 }}>
-                <h3 style={{ fontSize: '1.1rem', marginBottom: '0.4rem' }}>Delete this user?</h3>
+                <h3 className="eco-display" style={{ fontSize: '1.1rem', marginBottom: '0.4rem' }}>Delete this user?</h3>
                 <p className="eco-text-muted" style={{ fontSize: '0.88rem', margin: 0, lineHeight: 1.6 }}>
                   This permanently removes <strong style={{ color: 'var(--eco-text)' }}>{confirmDelete.name}</strong>{' '}
                   ({confirmDelete.email}) along with all{' '}
