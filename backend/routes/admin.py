@@ -747,6 +747,24 @@ def system_health():
             "detail": f"Donations off — missing {' and '.join(missing)}",
         })
 
+    # --- Branded email (Resend) - powers the password-reset and donation
+    # thank-you emails; without it both features silently fall back to
+    # Firebase's own plain email (reset) or send nothing at all (donation) ---
+    if Config.RESEND_API_KEY:
+        checks.append({
+            "id": "email",
+            "label": "Branded email",
+            "status": "ok",
+            "detail": f"Key set · sending as {Config.RESEND_FROM_EMAIL}",
+        })
+    else:
+        checks.append({
+            "id": "email",
+            "label": "Branded email",
+            "status": "warn",
+            "detail": "No RESEND_API_KEY — reset falls back to Firebase's plain email, donation emails are off",
+        })
+
     # --- Assistant ---
     if Config.GEMINI_API_KEY:
         checks.append({
