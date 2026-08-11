@@ -909,6 +909,7 @@ export default function AdminDashboard() {
               No sign-ups recorded yet.
             </p>
           ) : (
+            <div style={{ overflowX: 'auto', paddingBottom: '0.2rem' }}>
             <div
               style={{
                 display: 'flex',
@@ -916,6 +917,11 @@ export default function AdminDashboard() {
                 gap: '0.7rem',
                 height: 190,
                 paddingTop: '1rem',
+                // Bars have a fixed minimum width and scroll sideways past it,
+                // rather than flex-shrinking below their nowrap month label -
+                // which had no floor, so enough months quietly overflowed the
+                // page instead of scrolling within their own box.
+                minWidth: 'min-content',
               }}
             >
               {insights.months.map((month, index) => {
@@ -927,7 +933,7 @@ export default function AdminDashboard() {
                   <div
                     key={month}
                     style={{
-                      flex: 1,
+                      flex: '1 0 46px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -963,6 +969,7 @@ export default function AdminDashboard() {
                   </div>
                 );
               })}
+            </div>
             </div>
           )}
         </div>
