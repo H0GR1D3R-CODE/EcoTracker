@@ -301,15 +301,23 @@ export default function Navbar() {
                 <Link
                   to="/donate"
                   className="eco-btn eco-btn-outline d-none d-xl-inline-flex"
-                  style={{ fontSize: '0.88rem' }}
+                  style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
                 >
                   <Heart size={15} />
                   Donate
                 </Link>
-                <Link to="/login" className="eco-btn eco-btn-ghost" style={{ fontSize: '0.88rem' }}>
+                <Link
+                  to="/login"
+                  className="eco-btn eco-btn-ghost"
+                  style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
+                >
                   Log in
                 </Link>
-                <Link to="/register" className="eco-btn eco-btn-primary" style={{ fontSize: '0.88rem' }}>
+                <Link
+                  to="/register"
+                  className="eco-btn eco-btn-primary"
+                  style={{ fontSize: '0.85rem', padding: '0.5rem 1.1rem', whiteSpace: 'nowrap' }}
+                >
                   Get started
                 </Link>
               </div>
