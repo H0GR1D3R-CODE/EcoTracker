@@ -296,6 +296,37 @@ def login():
 # POST /api/auth/forgot-password        (PUBLIC - this is for someone locked out)
 # ---------------------------------------------------------------------------
 
+def _link_generation_failure_hides_account(error):
+    """
+    Whether a failure from generate_password_reset_link() is (or safely
+    might be) Firebase's own way of saying "no account has this email" -
+    see forgot_password()'s docstring for why that case has to look
+    identical to a real success, and why isinstance-checking
+    firebase_auth.UserNotFoundError does not actually catch it.
+
+    Firebase's REST API answers a nonexistent email with HTTP 200 and no
+    oobLink field, rather than a distinct error, so this inspects the
+    underlying HTTP response the Admin SDK attaches to the exception instead
+    of the exception's class. Anything that doesn't match this exact shape
+    (no response at all, a non-200 status, a response with no valid JSON
+    body) is treated as a genuine infrastructure problem instead, so a real
+    account never silently loses its email fallback because of this.
+    """
+    if isinstance(error, firebase_auth.UserNotFoundError):
+        return True
+
+    response = getattr(error, "http_response", None)
+    if response is None or response.status_code != 200:
+        return False
+
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+
+    return isinstance(body, dict) and "oobLink" not in body
+
+
 @auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():
     """
@@ -316,10 +347,26 @@ def forgot_password():
     has to notice and interpret.
 
     ACCOUNT ENUMERATION, again - see AuthContext.resetPassword()'s own
-    comment for the fuller reasoning. auth.UserNotFoundError is treated the
-    same as success: nothing is actually sent, but the response cannot be
-    allowed to say so, or asking about a stranger's email address here would
-    reveal whether they have an EcoTrack account at all.
+    comment for the fuller reasoning. A nonexistent email must produce a
+    response indistinguishable from a real success.
+
+    THIS USED TO CATCH firebase_auth.UserNotFoundError, WHICH IS WRONG.
+    Firebase's own REST API answers a nonexistent email with HTTP 200 and no
+    oobLink field, not a distinct "not found" error - the Admin SDK surfaces
+    that as a generic UnexpectedResponseError with no dedicated exception
+    type of its own. UserNotFoundError is real, but it is not what this call
+    actually raises for that case, so the old code fell into the generic
+    `except Exception` branch instead - which returned sent:false. That went
+    unnoticed for days because, before RESEND_API_KEY was set, every real
+    account ALSO got sent:false (Resend wasn't configured), so there was
+    nothing to tell apart. The moment the branded email started actually
+    sending, a real account returned sent:true and a fake one sent:false - a
+    live, observable leak. Confirmed both ways against a real service
+    account before this fix. See _link_generation_failure_hides_account()
+    for how this route now tells "no such account" apart from a genuine
+    infrastructure failure (bad settings, credentials, network) - the latter
+    still has to return sent:false, or a real user hits a backend hiccup and
+    silently gets no email at all instead of falling back to Firebase's own.
     """
     body = request.get_json(silent=True) or {}
     email = _clean_text(body.get("email")).lower()
@@ -335,14 +382,16 @@ def forgot_password():
                 handle_code_in_app=False,
             ),
         )
-    except firebase_auth.UserNotFoundError:
-        return api_success({"sent": True})
-    except Exception:
-        # Anything else (a malformed address Firebase itself rejects, a
-        # transient Admin SDK problem) - report unavailable rather than a
-        # hard error, so the frontend quietly falls back to Firebase's own
-        # email instead of showing the user a failure for something that
-        # still has a working path.
+    except Exception as error:
+        if _link_generation_failure_hides_account(error):
+            # sent:True here does not mean an email went out - it means
+            # "nothing for the caller to learn from this," the same response
+            # a real success produces.
+            return api_success({"sent": True})
+        # A genuine infrastructure problem (bad settings, credentials,
+        # network) rather than a signal about whether the account exists -
+        # report unavailable so the frontend falls back to Firebase's own
+        # email instead of a real user silently getting nothing.
         return api_success({"sent": False})
 
     sent = send_password_reset_email(email, reset_link)
