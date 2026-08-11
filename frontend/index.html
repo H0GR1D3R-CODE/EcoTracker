@@ -5,7 +5,12 @@
 <html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the page draw under the notch/home-indicator on
+         a phone with a cutout - the app's own layout pads around it with
+         env(safe-area-inset-*) instead of the OS just cropping the page. Without
+         this, the same app wrapped in Capacitor for Android/iOS renders behind
+         a solid bar of dead space at the top and bottom. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <title>EcoTrack - Carbon Footprint Tracker</title>
     <meta
@@ -16,6 +21,17 @@
          value is kept in step with --eco-bg by ThemeContext when the user
          toggles; this is only the pre-JavaScript default. -->
     <meta name="theme-color" content="#f5f3ec" />
+
+    <!-- Makes the site installable straight from the browser (Android Chrome's
+         "Add to Home screen" / iOS Safari's "Add to Home Screen") - a real,
+         completely free app icon on a phone's home screen with no store, no
+         review and no fee, independent of the Capacitor build in android/ and
+         ios/ which is what actually goes to the Play Store / App Store. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.webp" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="EcoTrack" />
 
     <!-- Google Fonts: Space Grotesk for headings, Inter for body text.
          preconnect tells the browser to open the connection early, which makes

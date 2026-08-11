@@ -7,31 +7,43 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:sync": "vite build && npx cap sync",
+    "cap:android": "npm run cap:sync && npx cap open android",
+    "cap:ios": "npm run cap:sync && npx cap open ios",
+    "cap:assets": "npx capacitor-assets generate"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
-    "firebase": "^10.14.1",
-    "axios": "^1.7.7",
-    "bootstrap": "^5.3.3",
-    "framer-motion": "^11.11.9",
-    "lucide-react": "^0.454.0",
-    "react-hot-toast": "^2.4.1",
-    "chart.js": "^4.4.6",
-    "react-chartjs-2": "^5.2.0",
-    "gsap": "^3.12.5",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.5.0",
+    "axios": "^1.7.7",
+    "bootstrap": "^5.3.3",
     "canvas-confetti": "^1.9.3",
-    "react-datepicker": "^7.5.0",
+    "chart.js": "^4.4.6",
     "date-fns": "^4.1.0",
-    "nprogress": "^0.2.0"
+    "firebase": "^10.14.1",
+    "framer-motion": "^11.11.9",
+    "gsap": "^3.12.5",
+    "lucide-react": "^0.454.0",
+    "nprogress": "^0.2.0",
+    "react": "^18.3.1",
+    "react-chartjs-2": "^5.2.0",
+    "react-datepicker": "^7.5.0",
+    "react-dom": "^18.3.1",
+    "react-hot-toast": "^2.4.1",
+    "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@vitejs/plugin-react": "^4.3.3",
-    "vite": "^5.4.10",
-    "eslint": "^8.57.1"
+    "eslint": "^8.57.1",
+    "vite": "^5.4.10"
   }
 }

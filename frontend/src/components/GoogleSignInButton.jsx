@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { isNativeApp } from '../utils/platform';
 
 /**
  * Google's "G", drawn inline.
@@ -47,6 +48,12 @@ export default function GoogleSignInButton({ label = 'Continue with Google', onD
   const { loginWithGoogle } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const [busy, setBusy] = useState(false);
+
+  // Google's OAuth popup does not complete inside Capacitor's embedded
+  // WebView (see utils/platform.js) - email/password stays as the one
+  // working sign-in path there, so this never renders a button that would
+  // just fail on tap.
+  if (isNativeApp()) return null;
 
   const handleClick = async () => {
     if (busy) return;

@@ -14,6 +14,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail, Send
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
+import { isNativeApp } from '../utils/platform';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function Login() {
@@ -357,20 +358,22 @@ export default function Login() {
           onDone={() => navigate(redirectTo, { replace: true })}
         />
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.8rem',
-            margin: '1.3rem 0',
-          }}
-        >
-          <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
-          <span className="eco-text-muted" style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}>
-            OR
-          </span>
-          <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
-        </div>
+        {!isNativeApp() && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.8rem',
+              margin: '1.3rem 0',
+            }}
+          >
+            <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+            <span className="eco-text-muted" style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}>
+              OR
+            </span>
+            <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+          </div>
+        )}
 
         {/* ---------- Form ---------- */}
         {/* noValidate turns off the browser's own popup messages so ours show instead */}

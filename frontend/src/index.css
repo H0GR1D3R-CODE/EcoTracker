@@ -928,6 +928,10 @@ a:hover {
     border-color var(--eco-transition), box-shadow var(--eco-transition);
   background: transparent;
   border-bottom: 1px solid transparent;
+  /* Clears the notch/status bar when this runs as the wrapped Capacitor app
+     (or is installed as a PWA) - a plain browser tab has no inset, so this is
+     0px there and changes nothing. */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* JavaScript adds this class once the page is scrolled past 80px */
@@ -973,7 +977,7 @@ a:hover {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-top: 1px solid var(--eco-glass-border);
-  padding: 0.4rem 0 0.3rem;
+  padding: 0.4rem 0 calc(0.3rem + env(safe-area-inset-bottom, 0px));
 }
 
 .eco-bottom-nav-item {

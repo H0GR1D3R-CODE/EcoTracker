@@ -1,0 +1,18 @@
+{
+  "appId": "com.ecotrack.app",
+  "appName": "EcoTrack",
+  "webDir": "dist",
+  "backgroundColor": "#f5f3ec",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 700,
+      "backgroundColor": "#f5f3ec",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#f5f3ec"
+    }
+  }
+}

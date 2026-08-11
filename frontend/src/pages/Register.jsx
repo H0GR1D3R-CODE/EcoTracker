@@ -33,6 +33,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import SelectField from '../components/SelectField';
 import { EMAIL_ERROR, EMAIL_PATTERN, NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
+import { isNativeApp } from '../utils/platform';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const TOTAL_STEPS = 3;
@@ -712,35 +713,39 @@ export default function Register() {
               and the account would already be half-described by then. */}
           {step === 1 && (
             <>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.8rem',
-                  margin: '1.5rem 0 1.2rem',
-                }}
-              >
-                <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
-                <span
-                  className="eco-text-muted"
-                  style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}
+              {!isNativeApp() && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.8rem',
+                    margin: '1.5rem 0 1.2rem',
+                  }}
                 >
-                  OR
-                </span>
-                <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
-              </div>
+                  <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+                  <span
+                    className="eco-text-muted"
+                    style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}
+                  >
+                    OR
+                  </span>
+                  <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+                </div>
+              )}
 
               <GoogleSignInButton
                 label="Sign up with Google"
                 onDone={() => navigate('/dashboard', { replace: true })}
               />
 
-              <p
-                className="eco-text-muted"
-                style={{ fontSize: '0.74rem', textAlign: 'center', margin: '0.7rem 0 0' }}
-              >
-                No password to choose — Google has already verified your email
-              </p>
+              {!isNativeApp() && (
+                <p
+                  className="eco-text-muted"
+                  style={{ fontSize: '0.74rem', textAlign: 'center', margin: '0.7rem 0 0' }}
+                >
+                  No password to choose — Google has already verified your email
+                </p>
+              )}
             </>
           )}
 
