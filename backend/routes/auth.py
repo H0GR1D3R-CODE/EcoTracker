@@ -108,12 +108,26 @@ def _clean_text(value, fallback=""):
     return value.strip()
 
 
+# The only punctuation a real name uses - a space, apostrophe, hyphen or
+# period (initials like "J.R.", surnames like "O'Brien-Smith"). Everything
+# else has to be a letter: no digits, no other symbols. This is what "only
+# strings, no numbers" means for the name field in practice - mirrors
+# NAME_PATTERN in frontend/src/utils/validation.js exactly, so the client
+# never accepts a name the server would reject, or vice versa. Enforced here
+# too (not just in React) because this route can be called directly.
+_NAME_EXTRA_CHARS = " '.-"
+
+
 def _validate_name(name):
     """Return an error message string, or None when the name is fine."""
     if len(name) < 2:
         return "Name must be at least 2 characters long."
     if len(name) > 60:
         return "Name must be 60 characters or fewer."
+    if not name[0].isalpha():
+        return "Name must start with a letter."
+    if not all(ch.isalpha() or ch in _NAME_EXTRA_CHARS for ch in name):
+        return "Name can only contain letters, spaces, hyphens, apostrophes and periods — no numbers or symbols."
     return None
 
 

@@ -32,7 +32,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import SelectField from '../components/SelectField';
-import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
+import { EMAIL_ERROR, EMAIL_PATTERN, NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const TOTAL_STEPS = 3;
@@ -143,7 +143,9 @@ export default function Register() {
         ? 'Name must be at least 2 characters.'
         : form.name.trim().length > 60
           ? 'Name must be 60 characters or fewer.'
-          : null,
+          : !isValidName(form.name)
+            ? NAME_ERROR
+            : null,
 
     email: !form.email.trim()
       ? 'Email is required.'
@@ -178,7 +180,11 @@ export default function Register() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((previous) => ({ ...previous, [name]: value }));
+    // The name field only ever accepts letters and name punctuation - stripped
+    // as the user types rather than only complained about after the fact, so a
+    // digit or symbol simply never appears in the field.
+    const nextValue = name === 'name' ? sanitizeNameInput(value) : value;
+    setForm((previous) => ({ ...previous, [name]: nextValue }));
   };
 
   const handleBlur = (event) => {

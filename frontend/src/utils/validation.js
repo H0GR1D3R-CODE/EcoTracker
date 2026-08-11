@@ -30,3 +30,30 @@ export function isValidEmail(value) {
 
 /** The one wording used wherever an email fails validation. */
 export const EMAIL_ERROR = 'That email address does not look valid.';
+
+/**
+ * A person's name: letters only (any script - \p{L} covers accented Latin,
+ * Devanagari, etc., not just A-Z), plus the punctuation real names actually
+ * use - a space, apostrophe, hyphen or period (initials like "J.R.",
+ * surnames like "O'Brien-Smith"). No digits, no other symbols. This is the
+ * rule behind "only strings, no numbers" in the registration/profile forms -
+ * matches backend/routes/auth.py's _validate_name() exactly, so a name the
+ * client accepts is never rejected by the server, or vice versa.
+ */
+export const NAME_PATTERN = /^[\p{L}][\p{L} '.-]*$/u;
+
+/** Whether a string is a usable name once trimmed. */
+export function isValidName(value) {
+  return NAME_PATTERN.test(String(value || '').trim());
+}
+
+export const NAME_ERROR =
+  'Name can only contain letters, spaces, hyphens, apostrophes and periods — no numbers or symbols.';
+
+/**
+ * Strips characters a name field should never contain, for filtering
+ * keystrokes as the user types rather than only complaining after the fact.
+ */
+export function sanitizeNameInput(value) {
+  return String(value || '').replace(/[^\p{L} '.-]/gu, '');
+}

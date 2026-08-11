@@ -45,6 +45,7 @@ import { useTheme } from '../context/ThemeContext';
 import { dashboardApi, getErrorMessage } from '../utils/api';
 import SelectField from '../components/SelectField';
 import { formatCategory, formatDate, formatEmission, formatNumber, getInitials } from '../utils/formatters';
+import { NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
 
 // A password this page will accept as "new" - the same floor Firebase itself
 // enforces, so the field never rejects something the server would allow, or
@@ -142,7 +143,9 @@ export default function Profile() {
         ? 'Name must be at least 2 characters.'
         : form.name.trim().length > 60
           ? 'Name must be 60 characters or fewer.'
-          : null,
+          : !isValidName(form.name)
+            ? NAME_ERROR
+            : null,
     region: !form.region ? 'Please choose a region.' : null,
   };
 
@@ -155,7 +158,10 @@ export default function Profile() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((previous) => ({ ...previous, [name]: value }));
+    // Same live filtering as Register.jsx's name field - letters and name
+    // punctuation only, no digits or other symbols.
+    const nextValue = name === 'name' ? sanitizeNameInput(value) : value;
+    setForm((previous) => ({ ...previous, [name]: nextValue }));
   };
 
   const handleBlur = (event) => {
