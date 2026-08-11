@@ -635,9 +635,13 @@ export default function Home() {
               className="eco-text-muted"
               style={{
                 fontSize: 'clamp(1rem, 2.2vw, 1.18rem)',
-                maxWidth: 620,
-                margin: '0 0 2.4rem',
+                // Was declared twice in this object - `maxWidth: 620` then
+                // `maxWidth: '54ch'` four lines later, so the pixel value was
+                // silently discarded and Vite warned about it on every build.
+                // 54ch is the one that was winning and the one that is right:
+                // a measure, not a pixel width.
                 maxWidth: '54ch',
+                margin: '0 0 2.4rem',
               }}
             >
               EcoTrack turns everyday choices — your commute, your meals, your
