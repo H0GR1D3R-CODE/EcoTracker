@@ -245,7 +245,9 @@ export default function Register() {
         region: form.region,
       });
 
-      toast.success('Account created. Welcome to EcoTrack!');
+      // No welcome text here either - same reasoning as Login.jsx, the
+      // dashboard banner is about to say it.
+      toast.success('Account created.');
       navigate('/dashboard', { replace: true });
     } catch (error) {
       toast.error(error.message);

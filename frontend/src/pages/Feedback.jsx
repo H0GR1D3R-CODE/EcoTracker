@@ -124,8 +124,9 @@ export default function Feedback() {
         message: prefix + form.message.trim(),
         rating: rating || undefined,
       });
+      // No toast here - setSent(true) swaps in a dedicated "Thank you" screen
+      // right below, which would otherwise say the same thing twice.
       setSent(true);
-      toast.success('Thank you for your feedback!');
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not send your feedback. Please try again.'));
     } finally {

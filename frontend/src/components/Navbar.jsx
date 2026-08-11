@@ -99,7 +99,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success('Signed out successfully.');
+      toast.success('Signed out.');
       // replace:true so the protected page they left is not sitting in history
       // for the back button, and so this is the single settled destination
       // rather than racing the ProtectedRoute redirect that fires on sign-out.

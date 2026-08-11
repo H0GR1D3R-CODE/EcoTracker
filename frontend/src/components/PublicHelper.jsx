@@ -63,7 +63,7 @@ const TOPICS = [
     keywords: ['free', 'cost', 'price', 'pay', 'money', 'subscription'],
     question: 'Is it free?',
     answer:
-      'Yes — EcoTrack is completely free to use. Create an account and start tracking; there is nothing to pay.',
+      'Yes — EcoTrack is completely free. Create an account and start tracking.',
     link: { to: '/register', label: 'Start tracking free' },
   },
   {

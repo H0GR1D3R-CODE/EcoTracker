@@ -92,7 +92,9 @@ export default function Login() {
 
     try {
       const profile = await login({ email: form.email.trim(), password: form.password });
-      toast.success(`Welcome back, ${profile?.name?.split(' ')[0] || 'there'}!`);
+      // No "welcome back" toast here - the dashboard's own banner says exactly
+      // that a moment later, and saying it twice in two different places felt
+      // like two different systems greeting you rather than one.
       // The admin account is admin-only, so send it straight to the console
       navigate(profile?.isAdmin ? '/admin' : redirectTo, { replace: true });
     } catch (error) {

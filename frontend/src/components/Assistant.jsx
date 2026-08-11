@@ -257,7 +257,7 @@ export default function Assistant() {
                     style={{ fontSize: '0.86rem', marginBottom: '1.1rem' }}
                   >
                     {isAdmin
-                      ? 'Ask me about your footprint, your goals, how any part of EcoTrack works, or the platform-wide figures and console - I can see those too, since you are an admin.'
+                      ? 'Ask about your footprint, goals, how EcoTrack works, or the platform-wide figures.'
                       : 'Ask me about your footprint, your goals, or how any part of EcoTrack works. I only see your own data.'}
                   </p>
 

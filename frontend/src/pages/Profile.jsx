@@ -179,7 +179,7 @@ export default function Profile() {
 
     try {
       await updateProfile({ name: form.name.trim(), region: form.region });
-      toast.success('Profile updated successfully.');
+      toast.success('Profile updated.');
       setTouched({});
     } catch (error) {
       toast.error(error.message);

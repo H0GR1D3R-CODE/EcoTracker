@@ -219,7 +219,7 @@ export default function Donate() {
   const verify = async (response, order) => {
     setStage('verifying');
     try {
-      const result = await paymentsApi.verifyPayment({
+      await paymentsApi.verifyPayment({
         razorpay_order_id: response.razorpay_order_id,
         razorpay_payment_id: response.razorpay_payment_id,
         razorpay_signature: response.razorpay_signature,
@@ -231,6 +231,9 @@ export default function Donate() {
         email: form.email.trim(),
       });
 
+      // No toast here - setDone(...) swaps in the full "Thank you, truly"
+      // receipt screen right below, which would otherwise say the same thing
+      // a second time in a different voice.
       setDone({
         paymentId: response.razorpay_payment_id,
         orderId: response.razorpay_order_id,
@@ -239,7 +242,6 @@ export default function Donate() {
         email: form.email.trim(),
         at: new Date(),
       });
-      toast.success(result?.message || 'Payment verified. Thank you!');
     } catch (error) {
       // The money may well have left their account, so never imply it did not.
       toast.error(
