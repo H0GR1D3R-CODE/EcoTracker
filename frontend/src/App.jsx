@@ -4,7 +4,7 @@
 // takes the whole app down.
 
 import React, { Suspense, lazy, useEffect } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import NProgress from 'nprogress';
 import { AlertTriangle, RotateCw } from 'lucide-react';
@@ -49,6 +49,7 @@ const Goals = lazy(() => import('./pages/Goals'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Profile = lazy(() => import('./pages/Profile'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 // ---------------------------------------------------------------------------
 // ERROR BOUNDARY
@@ -294,8 +295,11 @@ export default function App() {
             />
 
             {/* ---------- Anything else ---------- */}
-            {/* replace means the bad URL does not stay in the back button history */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* A real 404 rather than a silent redirect - the old behaviour
+                sent a mistyped or stale URL straight to the homepage with no
+                sign anything was wrong, which just hides the mistake instead
+                of explaining it. */}
+            <Route path="*" element={<MotionPage><NotFound /></MotionPage>} />
         </Routes>
         </Suspense>
       </ErrorBoundary>
