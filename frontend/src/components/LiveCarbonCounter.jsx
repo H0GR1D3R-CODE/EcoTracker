@@ -38,20 +38,49 @@ export default function LiveCarbonCounter() {
   const { prefersReducedMotion } = useTheme();
   const [tonnes, setTonnes] = useState(tonnesSoFarThisYear);
   const timerRef = useRef(null);
+  const sectionRef = useRef(null);
+
+  // Only ticks while this section is actually on screen. It used to run at
+  // 50ms - 20 React re-renders a second - unconditionally for as long as Home
+  // stayed mounted, whether this section was in view, scrolled past, or the
+  // tab was in the background. That is a real, measurable drag on every other
+  // animation and interaction competing for the same main thread, not a
+  // theoretical one: this was the single heaviest render loop on the busiest
+  // page in the app, running regardless of whether anyone could see it.
+  const [inView, setInView] = useState(false);
 
   useEffect(() => {
-    // 50 ms feels live (the last digits scramble); once a second is enough when
-    // the visitor has asked for reduced motion.
-    const interval = prefersReducedMotion ? 1000 : 50;
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((entry) => setInView(entry.isIntersecting)),
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!inView) return undefined;
+
+    // 200ms still reads as "live" - the last three or four digits keep
+    // moving - at a fifth of the render load 50ms carried. Once a second is
+    // enough when the visitor has asked for reduced motion.
+    const interval = prefersReducedMotion ? 1000 : 200;
+    setTonnes(tonnesSoFarThisYear()); // catch up immediately on scrolling back into view
     timerRef.current = setInterval(() => setTonnes(tonnesSoFarThisYear()), interval);
     return () => clearInterval(timerRef.current);
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, inView]);
 
   const year = new Date().getFullYear();
   const display = Math.floor(tonnes).toLocaleString('en-US');
 
   return (
-    <section className="eco-section eco-line-grid">
+    <section ref={sectionRef} className="eco-section eco-line-grid">
       <div className="container">
         <motion.div
           initial={prefersReducedMotion ? false : { opacity: 0, y: 26 }}

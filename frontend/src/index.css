@@ -1343,6 +1343,35 @@ a:hover {
   }
 }
 
+/* ---- Home hero (Home.jsx) ---- */
+/* The headline needed real room to run at its largest clamp() size before a
+   second column started fighting it for width, so this stacks later than
+   .eco-auth-grid does (980px, not 900) - HeroReel is a companion to the
+   headline, not an equal partner competing with it. */
+.eco-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: clamp(2.5rem, 6vw, 4.5rem);
+  align-items: center;
+}
+
+@media (max-width: 980px) {
+  .eco-hero-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.5rem;
+  }
+
+  /* On a stacked hero the reel would otherwise inherit the 4:5 portrait ratio
+     built for a narrow side column, which makes it too tall once it is the
+     full page width - 16:9 reads correctly at full width on a phone. The
+     !important is necessary, not a shortcut: HeroReel sets aspect-ratio as an
+     inline style, which always outranks a class selector on specificity
+     alone, override or not. */
+  .eco-hero-reel {
+    aspect-ratio: 16 / 9 !important;
+  }
+}
+
 /* ---- Estimate (Estimate.jsx) ---- */
 /* The questions column and the readout panel are NOT equal halves. The
    questions carry four options each and need the width; the panel is a gauge

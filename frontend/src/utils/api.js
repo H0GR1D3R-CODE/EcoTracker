@@ -25,8 +25,20 @@ NProgress.configure({ showSpinner: false, trickleSpeed: 120, minimum: 0.15 });
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-  // Render puts free services to sleep, so the first request after a quiet
-  // period can take 30+ seconds while the server wakes up
+  // The backend moved from Render to Vercel serverless functions - this
+  // comment used to describe Render specifically putting free services to
+  // sleep, which is no longer what's actually happening and was stale.
+  // Vercel's Python runtime has its own real cold-start cost instead: the
+  // whole backend (every route, one bundled function - see backend/vercel.json)
+  // has to import firebase-admin's dependency chain (grpc, protobuf,
+  // cryptography) and initialise it before ANY request can be answered, even
+  // a route that touches no Firebase data at all. Measured directly against
+  // the deployed backend: a cold request can take 5-16s; a "warm" one still
+  // regularly runs 1-3s, because Vercel's Hobby tier does not keep a Python
+  // function warm reliably between requests. This is an architectural cost of
+  // one bundled serverless function on a free tier, not something a frontend
+  // timeout value fixes - the timeout only decides how long to wait before
+  // giving up, so it stays generous.
   timeout: 45000,
   headers: { 'Content-Type': 'application/json' },
 });

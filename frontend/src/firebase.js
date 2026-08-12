@@ -6,7 +6,7 @@
 // Firebase's only job on the frontend is proving who the user is.
 
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { browserSessionPersistence, getAuth, setPersistence } from 'firebase/auth';
 
 // Every value comes from the .env file. import.meta.env is how Vite exposes
 // environment variables to browser code - only names starting with VITE_ work.
@@ -39,8 +39,24 @@ if (missingKeys.length > 0) {
 const firebaseApp = initializeApp(firebaseConfig);
 
 // The auth object is what every login, logout and token call uses.
-// By default Firebase remembers the session in localStorage, so a user stays
-// signed in after closing the tab.
 export const auth = getAuth(firebaseApp);
+
+// By default Firebase remembers the session in localStorage, which survives
+// closing the browser entirely - so someone who walked away from a shared or
+// borrowed machine without clicking "Logout" stayed signed in indefinitely,
+// and the next person to open the site landed on a public page (Home, About)
+// still wearing the signed-in navbar, because the URL said one thing and the
+// restored session said another.
+//
+// browserSessionPersistence keeps the session alive across reloads and
+// in-tab navigation - so a normal visit is unaffected - but clears the moment
+// the tab or window closes. Closing without signing out now behaves like
+// signing out: the next visit starts genuinely fresh.
+setPersistence(auth, browserSessionPersistence).catch((error) => {
+  // Falls back to the SDK's default persistence if the browser refuses (some
+  // privacy modes block all storage) - a user staying signed in longer than
+  // intended is a far smaller problem than sign-in failing outright.
+  console.error('[EcoTrack] Could not set session-only auth persistence:', error);
+});
 
 export default firebaseApp;

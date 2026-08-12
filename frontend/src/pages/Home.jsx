@@ -50,7 +50,7 @@ import { useCounter } from '../hooks/useCounter';
 import { useScrollReveal, useStaggerReveal } from '../hooks/useScrollReveal';
 import Photo from '../components/Photo';
 import LiveCarbonCounter from '../components/LiveCarbonCounter';
-import VideoBand from '../components/VideoBand';
+import HeroReel from '../components/HeroReel';
 import { PHOTOS } from '../utils/photos';
 
 // A few real photographs shown in the "world your choices touch" strip near the
@@ -559,6 +559,13 @@ export default function Home() {
             and the type, which is the whole point of this direction. */}
 
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
+          {/* Two columns above 980px: the headline keeps its spine on the
+              left, and HeroReel - real moving footage, not another still -
+              sits beside it so the first thing anyone sees on arrival
+              includes something actually happening, not just type. Below
+              980px they stack, headline first: a phone screen does not have
+              room to argue between reading and watching at once. */}
+          <div className="eco-hero-grid">
           {/* Left-aligned, not centred. Centred hero copy is the default
               arrangement on every landing page; ranging it left gives the
               headline a spine to hang off and sets up a real column measure
@@ -698,6 +705,9 @@ export default function Home() {
                 <CountUpStat key={stat.label} {...stat} />
               ))}
             </div>
+          </div>
+
+          <HeroReel />
           </div>
         </div>
       </section>
@@ -1279,9 +1289,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* ================= VIDEO BAND ================= */}
-      <VideoBand />
 
       {/* ================= IMPACT SWAPS ================= */}
       <section className="eco-section" style={{ background: 'var(--eco-bg-alt)' }}>
