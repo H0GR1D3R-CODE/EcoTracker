@@ -50,6 +50,7 @@ import {
   TrendLineChart,
 } from '../components/EmissionChart';
 import { SkeletonChart, SkeletonStatCard } from '../components/SkeletonCard';
+import { useSlowLoadHint } from '../hooks/useSlowLoadHint';
 import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
 import { formatCategory, formatEmission, formatNumber } from '../utils/formatters';
 
@@ -227,6 +228,12 @@ export default function Dashboard() {
 
   const firstName = profile?.name?.split(' ')[0] || 'there';
 
+  // Same reasoning as ProtectedRoute's own use of this hook: the backend can
+  // take several real seconds to answer on a cold start, and a skeleton with
+  // no explanation for why it is taking this long reads as stuck rather than
+  // merely slow once that stretches past a few seconds.
+  const showSlowHint = useSlowLoadHint(loading);
+
   // ---------- error ----------
   if (error && !summary) {
     return (
@@ -280,6 +287,15 @@ export default function Dashboard() {
           <SkeletonChart height={280} />
           <SkeletonChart height={280} />
         </div>
+
+        {showSlowHint && (
+          <p
+            className="eco-text-muted"
+            style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: '2rem' }}
+          >
+            Waking up the server — the first request after a quiet spell can take a few seconds.
+          </p>
+        )}
       </div>
     );
   }

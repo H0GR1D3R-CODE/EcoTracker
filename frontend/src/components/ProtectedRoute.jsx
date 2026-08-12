@@ -23,12 +23,22 @@ import toast from 'react-hot-toast';
 import { CloudOff, RotateCw } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { useSlowLoadHint } from '../hooks/useSlowLoadHint';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function ProtectedRoute({ children, adminOnly = false, userOnly = false }) {
   const { user, profile, loading, isAdmin, profileError, refreshProfile, logout } = useAuth();
   const location = useLocation();
   const [retrying, setRetrying] = useState(false);
+
+  // The backend is a single Vercel serverless function bundling every route
+  // (see backend/vercel.json), which pays a real, measured cold-start cost -
+  // 2 to 16 seconds across repeated requests, not a rare edge case - before
+  // it can answer anything, including the profile fetch this gates on below.
+  // Without this, "Checking your session…" sat there unexplained for that
+  // whole wait, on every visit to any protected page, and looked broken
+  // rather than merely slow.
+  const showSlowHint = useSlowLoadHint(loading);
 
   // Show the toast in an effect, not during render. Updating another component
   // (the toast container) while this one renders is a React error.
@@ -47,7 +57,15 @@ export default function ProtectedRoute({ children, adminOnly = false, userOnly =
   // briefly see "no user" and bounce the person to the login screen before
   // Firebase had finished restoring their session.
   if (loading) {
-    return <LoadingSpinner message="Checking your session…" />;
+    return (
+      <LoadingSpinner
+        message={
+          showSlowHint
+            ? 'Waking up the server — the first request after a quiet spell can take a few seconds.'
+            : 'Checking your session…'
+        }
+      />
+    );
   }
 
   // STEP 2: definitely not signed in - send them to log in.
@@ -59,7 +77,8 @@ export default function ProtectedRoute({ children, adminOnly = false, userOnly =
 
   // STEP 3: signed in, but the profile could not be fetched.
   // This is almost always the Flask backend being unreachable - either it is
-  // not running locally, or Render has put the free service to sleep. Showing
+  // not running locally, or the deployed one hasn't answered within the
+  // timeout (see api.js's own comment on Vercel's cold-start cost). Showing
   // a retry button here is what stops the app hanging on a spinner forever.
   if (!profile && profileError) {
     const handleRetry = async () => {

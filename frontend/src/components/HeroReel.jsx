@@ -34,9 +34,19 @@
 //     IntersectionObserver - a background clip nobody can see is just a CPU
 //     heater, hero or not.
 //   * Two sources let the browser pick a file sized for its viewport: ~2 MB
-//     square-ish SD under 768px, ~10 MB HD above it.
+//     square-ish SD under 768px, ~19.6 MB Full HD above it.
 //   * prefersReducedMotion never autoplays. The poster frame shows instead,
 //     with a play control so watching is a choice.
+//
+// WHY 1920x1080, NOT THE ORIGINAL 1280x720
+// The desktop panel is a tall, narrow crop of this landscape clip (a portrait
+// slice of a 16:9 frame - see .eco-hero-reel in index.css), which was
+// stretching the 720p source to roughly 1.19x its native height to fill the
+// panel and reads as soft/blurry at that size. Pexels hosts the same clip at
+// 1920x1080 for free - switching to it means the crop is now a slight
+// DOWNSCALE (1080 -> ~856px tall) instead of an upscale, which is the actual
+// fix; a still-higher 1440p/4K file exists too but at 45-83 MB it would trade
+// a sharper video for a much slower page, which is not the trade this needs.
 
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -47,7 +57,7 @@ import { useInView } from '../hooks/useInView';
 
 const VIDEO_ID = '4318714';
 const POSTER = `https://images.pexels.com/videos/${VIDEO_ID}/pexels-photo-${VIDEO_ID}.jpeg?auto=compress&cs=tinysrgb&w=1200`;
-const SOURCE_HD = `https://videos.pexels.com/video-files/${VIDEO_ID}/${VIDEO_ID}-hd_1280_720_24fps.mp4`;
+const SOURCE_HD = `https://videos.pexels.com/video-files/${VIDEO_ID}/${VIDEO_ID}-hd_1920_1080_24fps.mp4`;
 const SOURCE_SD = `https://videos.pexels.com/video-files/${VIDEO_ID}/${VIDEO_ID}-sd_640_360_24fps.mp4`;
 
 export default function HeroReel() {
