@@ -561,9 +561,8 @@ export default function Home() {
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           {/* Left-aligned, not centred. Centred hero copy is the default
               arrangement on every landing page; ranging it left gives the
-              headline a spine to hang off, sets up a real column measure for
-              the paragraph, and lines the whole block up with the calibration
-              rail running down the same edge. */}
+              headline a spine to hang off and sets up a real column measure
+              for the paragraph beneath it. */}
           <div style={{ maxWidth: 940, textAlign: 'left' }}>
             {/* Was a pill with a gradient ring - the single most templated
                 element on the page, and the kind of thing that appears on every

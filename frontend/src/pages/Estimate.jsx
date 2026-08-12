@@ -268,8 +268,8 @@ export default function Estimate() {
       {/* The AuroraBackground that used to wash this section is gone, with the
           badge pill and the centred column. All three were dark-page devices:
           coloured light bleeding across a near-black ground, and a hero
-          arrangement that every SaaS landing page ships. Ranged left, the
-          headline hangs off the same spine as the calibration rail. */}
+          arrangement that every SaaS landing page ships. Ranged left, same as
+          every other page's hero. */}
       <section style={{ padding: 'clamp(3rem, 8vw, 5rem) 0 clamp(1.5rem, 4vw, 2.5rem)' }}>
         <div className="container">
           <div style={{ maxWidth: 940 }}>

@@ -596,8 +596,8 @@ export default function Donate() {
       {/* ---------- hero: the plate, then what it is for ---------- */}
       {/* The photograph carried the whole hero on top of it under a wash that
           reached 92% black at the bottom edge - the same scrim removed from
-          Home, Learn and Gallery. The plate stands on its own and the headline
-          ranges left underneath it, off the calibration rail's spine. */}
+          Home, Learn and Gallery. The plate stands on its own now and the
+          headline ranges left underneath it, off the container's own edge. */}
       <section style={{ overflow: 'hidden', height: 'clamp(260px, 38vh, 420px)' }}>
         <img
           src={photoUrl(PHOTOS.forestWater, 1600)}

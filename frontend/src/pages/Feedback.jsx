@@ -191,7 +191,7 @@ export default function Feedback() {
     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '4rem', maxWidth: 960 }}>
       {/* hero. The aurora wash, the badge pill and the centred column are gone
           - the same three dark-page devices removed from every other public
-          page. Ranged left off the calibration rail's spine. */}
+          page. Ranged left, same as every other page's hero. */}
       <div style={{ marginBottom: 'clamp(2.5rem, 6vw, 3.5rem)', maxWidth: 940 }}>
         <motion.div
           initial={prefersReducedMotion ? false : { opacity: 0, y: -10 }}

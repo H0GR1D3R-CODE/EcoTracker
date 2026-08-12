@@ -351,9 +351,9 @@ export default function Register() {
                     alignItems: 'baseline',
                     gap: '0.8rem',
                     paddingTop: '0.8rem',
-                    // The rule is the state. Amber marks where the instrument
-                    // currently is, which is the same mark the calibration rail
-                    // uses for the needle.
+                    // The rule is the state. The readout colour marks where
+                    // the instrument currently is, the same mark used for
+                    // every measured value in the app.
                     borderTop: `1px solid ${active ? 'var(--readout)' : 'var(--rule)'}`,
                     opacity: done || active ? 1 : 0.55,
                     transition: 'border-color 0.3s ease, opacity 0.3s ease',

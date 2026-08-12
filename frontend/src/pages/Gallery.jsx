@@ -8,8 +8,7 @@
 // Restyled into the instrument system. The opener carried its title in white
 // type over an 82%-black scrim, and each row led with a huge translucent
 // numeral in the panel's own colour. Both are gone: photographs are captioned
-// rather than written on, and the index is a mono readout - the same marking
-// the calibration rail uses down the left edge of every page.
+// rather than written on, and the index is a mono readout instead.
 
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -174,8 +173,9 @@ function EssayRow({ panel, index, reducedMotion }) {
       >
         {/* The index was a 4.4rem Space Grotesk numeral in the panel's colour at
             28% opacity - decoration behaving as texture, and a number wearing
-            the colour of the thing it counts. It is a reading now: mono, amber,
-            small, the same mark the calibration rail carries. */}
+            the colour of the thing it counts. It is a reading now: mono,
+            readout-coloured, small - the same mark used for every measured
+            value in the app. */}
         <div
           style={{
             display: 'flex',
