@@ -102,16 +102,24 @@ export default function HeroReel() {
   return (
     <motion.div
       ref={wrapRef}
-      className="eco-hero-reel"
+      // .eco-photo is the same house colour grade every photograph in the
+      // product passes through - filter on this wrapper reaches both the
+      // poster background AND the video composited inside it in one pass, so
+      // real moving footage reads as part of the same commissioned shoot as
+      // the stills rather than an unrelated raw clip that wandered in.
+      // Putting it on the <video> as well, instead of only here, would stack
+      // the same filter twice and over-grade it.
+      className="eco-hero-reel eco-photo"
       initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.7, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
       style={{
+        // Sizing, border-radius and the viewport-edge bleed all live in
+        // index.css's .eco-hero-reel now (and its 980px stacked-mobile
+        // override) - a fixed inline aspect-ratio here would fight the grid
+        // row's own height, which is the whole point of the panel treatment.
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: 'var(--eco-radius-sm)',
-        border: '1px solid var(--rule)',
-        aspectRatio: '4 / 5',
         background: `var(--eco-bg-alt) center / cover no-repeat url(${POSTER})`,
       }}
     >

@@ -1347,27 +1347,61 @@ a:hover {
 /* The headline needed real room to run at its largest clamp() size before a
    second column started fighting it for width, so this stacks later than
    .eco-auth-grid does (980px, not 900) - HeroReel is a companion to the
-   headline, not an equal partner competing with it. */
+   headline, not an equal partner competing with it.
+
+   min-height gives the row real, deliberate proportions instead of sizing to
+   whatever height the text happens to need - the first version of this did
+   the latter, which is exactly why the reel read as "a small video stuck to
+   the side" rather than a real half of the hero: it was a short box, not a
+   panel. */
 .eco-hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 42vw);
   gap: clamp(2.5rem, 6vw, 4.5rem);
   align-items: center;
+  min-height: clamp(460px, 68vh, 660px);
+}
+
+/* HeroReel bleeds past .container's own gutter rather than sitting fully
+   boxed inside it - part of what made the first version read as "a small
+   video stuck to the side" rather than a real panel.
+
+   Deliberately NOT a calc(50% - 50vw) viewport-edge breakout: that trick only
+   resolves correctly when applied to a direct, symmetric child of the
+   centered container, and this is a grid item nested inside one instead - in
+   testing it measured 50% against its own (much narrower) grid cell, not the
+   page, and overshot the true edge by 300+ px, getting silently clipped by
+   body's overflow-x: clip. .container's own right gutter (Bootstrap's
+   --bs-gutter-x, 12px) is a fixed, breakpoint-independent value that is safe
+   to cancel with a plain negative margin at every viewport width, which a
+   full edge-to-edge bleed is not without either JavaScript or rebuilding the
+   whole hero around vw units - not a trade worth making for this.
+
+   align-self: stretch fills the full min-height of the row, top to bottom,
+   rather than centering inside it at its own aspect ratio. */
+.eco-hero-reel {
+  align-self: stretch;
+  height: 100%;
+  margin-right: -12px;
+  border-radius: var(--eco-radius-sm) 0 0 var(--eco-radius-sm);
+  aspect-ratio: unset !important;
 }
 
 @media (max-width: 980px) {
   .eco-hero-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 2.5rem;
+    min-height: 0;
   }
 
-  /* On a stacked hero the reel would otherwise inherit the 4:5 portrait ratio
-     built for a narrow side column, which makes it too tall once it is the
-     full page width - 16:9 reads correctly at full width on a phone. The
-     !important is necessary, not a shortcut: HeroReel sets aspect-ratio as an
-     inline style, which always outranks a class selector on specificity
-     alone, override or not. */
+  /* Contained again on a phone: there is no second column to bleed off of,
+     and un-cancelling the breakout margin here (rather than just leaving it)
+     is what stops the panel shifting the whole hero sideways instead of
+     simply stacking under the headline. 16:9 at full width reads correctly
+     where the 42vw panel's tall proportions would not. */
   .eco-hero-reel {
+    margin-right: 0;
+    border-radius: var(--eco-radius-sm);
     aspect-ratio: 16 / 9 !important;
   }
 }
