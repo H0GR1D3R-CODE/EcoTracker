@@ -21,6 +21,7 @@ import { Activity, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { useTheme } from '../context/ThemeContext';
+import { useInView } from '../hooks/useInView';
 
 // ~40 Gt CO₂ per year. A single, citable, round figure — the point is the scale.
 const ANNUAL_TONNES = 40_000_000_000;
@@ -47,22 +48,11 @@ export default function LiveCarbonCounter() {
   // animation and interaction competing for the same main thread, not a
   // theoretical one: this was the single heaviest render loop on the busiest
   // page in the app, running regardless of whether anyone could see it.
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const el = sectionRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') {
-      setInView(true);
-      return undefined;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => entries.forEach((entry) => setInView(entry.isIntersecting)),
-      { threshold: 0.1 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  //
+  // defaultValue: true - degrades to "always ticking" rather than "never
+  // ticking" in an environment with no IntersectionObserver, matching this
+  // component's own original fallback.
+  const inView = useInView(sectionRef, { threshold: 0.1, defaultValue: true });
 
   useEffect(() => {
     if (!inView) return undefined;

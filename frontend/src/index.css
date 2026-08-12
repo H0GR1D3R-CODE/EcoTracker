@@ -1371,20 +1371,29 @@ a:hover {
    centered container, and this is a grid item nested inside one instead - in
    testing it measured 50% against its own (much narrower) grid cell, not the
    page, and overshot the true edge by 300+ px, getting silently clipped by
-   body's overflow-x: clip. .container's own right gutter (Bootstrap's
-   --bs-gutter-x, 12px) is a fixed, breakpoint-independent value that is safe
-   to cancel with a plain negative margin at every viewport width, which a
-   full edge-to-edge bleed is not without either JavaScript or rebuilding the
-   whole hero around vw units - not a trade worth making for this.
+   body's overflow-x: clip. .container's own right gutter is a fixed,
+   breakpoint-independent value that is safe to cancel with a plain negative
+   margin at every viewport width, which a full edge-to-edge bleed is not
+   without either JavaScript or rebuilding the whole hero around vw units -
+   not a trade worth making for this.
+
+   Reads var(--bs-gutter-x) rather than a bare -12px, so this stays correct
+   if Bootstrap's own gutter variable is ever overridden anywhere else in the
+   project instead of silently drifting out of sync with it - the 1.5rem
+   fallback matches Bootstrap's own default for browsers/tooling that don't
+   see the variable at all.
 
    align-self: stretch fills the full min-height of the row, top to bottom,
-   rather than centering inside it at its own aspect ratio. */
+   rather than centering inside it at its own aspect ratio. No aspect-ratio
+   override is needed here at this breakpoint - height:100% together with
+   align-self:stretch already fully determines this element's size, and
+   nothing else in the stylesheet sets aspect-ratio on it outside the 980px
+   rule below. */
 .eco-hero-reel {
   align-self: stretch;
   height: 100%;
-  margin-right: -12px;
+  margin-right: calc(var(--bs-gutter-x, 1.5rem) * -0.5);
   border-radius: var(--eco-radius-sm) 0 0 var(--eco-radius-sm);
-  aspect-ratio: unset !important;
 }
 
 @media (max-width: 980px) {

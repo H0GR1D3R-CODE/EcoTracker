@@ -43,6 +43,7 @@ import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 
 import { useTheme } from '../context/ThemeContext';
+import { useInView } from '../hooks/useInView';
 
 const VIDEO_ID = '4318714';
 const POSTER = `https://images.pexels.com/videos/${VIDEO_ID}/pexels-photo-${VIDEO_ID}.jpeg?auto=compress&cs=tinysrgb&w=1200`;
@@ -63,30 +64,37 @@ export default function HeroReel() {
   // Reduced motion starts paused; anyone can still press play by choice
   const [playing, setPlaying] = useState(!prefersReducedMotion);
 
-  // Play only while actually on screen, pause the instant it is not.
+  // prefersReducedMotion is live, not fixed at mount - ThemeContext keeps a
+  // matchMedia listener open for exactly this, so someone can turn the OS
+  // setting on mid-visit. Without this effect, playing only ever reflected
+  // its value at the moment this component first rendered: turning reduced
+  // motion on later did nothing, and the observer below kept calling
+  // video.play() on every scroll-into-view regardless - the opposite of what
+  // the state is named for. Deliberately one-directional: turning the OS
+  // setting back off does not auto-resume a video reduced motion just paused,
+  // the same way it would not un-pause something a person paused by hand.
   useEffect(() => {
-    const wrap = wrapRef.current;
+    if (prefersReducedMotion) setPlaying(false);
+  }, [prefersReducedMotion]);
+
+  // Play only while actually on screen, pause the instant it is not.
+  //
+  // defaultValue: false - degrades to "never plays" in an environment with
+  // no IntersectionObserver, matching this component's own original
+  // fallback (the effect used to return early before ever calling .play()).
+  const heroInView = useInView(wrapRef, { threshold: 0.15, defaultValue: false });
+
+  useEffect(() => {
     const video = videoRef.current;
-    if (!wrap || !video || typeof IntersectionObserver === 'undefined') {
-      return undefined;
+    if (!video) return undefined;
+
+    if (heroInView && playing) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
     }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && playing) {
-            video.play().catch(() => {});
-          } else {
-            video.pause();
-          }
-        });
-      },
-      { threshold: 0.15 }
-    );
-
-    observer.observe(wrap);
-    return () => observer.disconnect();
-  }, [playing]);
+    return undefined;
+  }, [heroInView, playing]);
 
   const togglePlay = () => {
     setPlaying((current) => !current);

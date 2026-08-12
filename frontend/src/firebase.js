@@ -8,6 +8,8 @@
 import { initializeApp } from 'firebase/app';
 import { browserSessionPersistence, getAuth, setPersistence } from 'firebase/auth';
 
+import { isNativeApp } from './utils/platform';
+
 // Every value comes from the .env file. import.meta.env is how Vite exposes
 // environment variables to browser code - only names starting with VITE_ work.
 const firebaseConfig = {
@@ -52,11 +54,28 @@ export const auth = getAuth(firebaseApp);
 // in-tab navigation - so a normal visit is unaffected - but clears the moment
 // the tab or window closes. Closing without signing out now behaves like
 // signing out: the next visit starts genuinely fresh.
-setPersistence(auth, browserSessionPersistence).catch((error) => {
-  // Falls back to the SDK's default persistence if the browser refuses (some
-  // privacy modes block all storage) - a user staying signed in longer than
-  // intended is a far smaller problem than sign-in failing outright.
-  console.error('[EcoTrack] Could not set session-only auth persistence:', error);
-});
+//
+// ONLY for the browser. The app also ships wrapped in Capacitor for Android
+// and iOS (see utils/platform.js), and "closing the tab" has no equivalent
+// there - what a native app's OS routinely does instead is kill the
+// backgrounded process to reclaim memory, which would clear sessionStorage
+// the same way and sign someone out of an app they never chose to leave.
+// Shared-device abandonment is a browser problem; native keeps Firebase's
+// default persistent session, which is what an installed app's users expect.
+//
+// authReady is exported so callers that need session-only persistence to be
+// in effect BEFORE the first sign-in call (AuthContext's login/register/
+// loginWithGoogle) can await it - setPersistence is otherwise fire-and-forget
+// here, and a sign-in racing ahead of it would silently go out under
+// Firebase's default persistent mode instead.
+export const authReady = isNativeApp()
+  ? Promise.resolve()
+  : setPersistence(auth, browserSessionPersistence).catch((error) => {
+      // Falls back to the SDK's default persistence if the browser refuses
+      // (some privacy modes block all storage) - a user staying signed in
+      // longer than intended is a far smaller problem than sign-in failing
+      // outright.
+      console.error('[EcoTrack] Could not set session-only auth persistence:', error);
+    });
 
 export default firebaseApp;

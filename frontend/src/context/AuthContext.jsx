@@ -8,9 +8,11 @@
 // Both are needed. Firebase proves the user is who they say they are; the
 // profile holds everything the app actually displays.
 //
-// The listener below (onAuthStateChanged) is what keeps a user logged in across
-// refreshes: Firebase restores the session from localStorage, fires the
-// listener, and this file then fetches the matching profile from the backend.
+// The listener below (onAuthStateChanged) is what keeps a user logged in
+// across refreshes: Firebase restores the session (from sessionStorage in
+// the browser, or its own persistent store on native - see firebase.js's
+// authReady for which), fires the listener, and this file then fetches the
+// matching profile from the backend.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
@@ -26,7 +28,7 @@ import {
   updatePassword,
 } from 'firebase/auth';
 
-import { auth } from '../firebase';
+import { auth, authReady } from '../firebase';
 import { authApi, getErrorCode, getErrorMessage } from '../utils/api';
 
 const AuthContext = createContext(null);
@@ -149,6 +151,11 @@ export function AuthProvider({ children }) {
     }
 
     try {
+      // Wait for firebase.js to finish choosing session-only vs. persistent
+      // storage before this sign-in writes anywhere - otherwise a sign-in
+      // fast enough to race that setup silently lands under Firebase's
+      // default persistent mode instead of the one actually intended.
+      await authReady;
       // Step 2: sign in so the browser holds a valid ID token
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await credential.user.getIdToken();
@@ -173,6 +180,8 @@ export function AuthProvider({ children }) {
     let credential;
 
     try {
+      // See register()'s own comment on authReady - same race, same fix.
+      await authReady;
       credential = await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
       throw new Error(friendlyAuthError(error));
@@ -203,6 +212,10 @@ export function AuthProvider({ children }) {
     let credential;
 
     try {
+      // Same authReady race as register()/login() - a Google sign-in this
+      // fast is unlikely (the popup itself takes a moment), but there is no
+      // reason to leave the window open just because it is narrower here.
+      await authReady;
       const provider = new GoogleAuthProvider();
       // Always ask which account to use. Without this, anyone already signed
       // in to one Google account is silently forced into it, which is
