@@ -1,4 +1,7 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": {
     "site": "ecotrackapp",
     "public": "frontend/dist",
@@ -26,6 +29,21 @@
         "source": "**/*.@(js|css|woff2)",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "_comment": "Security headers, on every response. CSP origins are scoped to what this app actually loads: Google Fonts (index.html), Firebase Auth's REST calls (identitytoolkit/securetoken/googleapis - popups to accounts.google.com are a separate top-level navigation, not subject to this page's CSP), the Flask API on Vercel (utils/api.js baseURL), Unsplash-hosted photos (utils/photos.js), Razorpay's checkout script + its own API calls (utils/razorpay.js, Donate.jsx) - donations open Razorpay's UI inside an iframe/popup it manages itself, hence frame-src - and Google reCAPTCHA v3 (utils/recaptcha.js), which loads its own script from google.com and runs its verification inside a hidden iframe regardless of whether the visible badge is shown. style-src keeps 'unsafe-inline': this app is built with inline style={{...}} throughout every component, and CSP's style-src covers the style attribute as well as <style> tags - dropping unsafe-inline here would blank the entire app, not just tighten it. script-src has no such exception: the one inline script index.html used to have (the pre-paint theme flash fix) was moved to public/theme-init.js specifically so this could be strict.",
+        "source": "**",
+        "headers": [
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "X-Frame-Options", "value": "DENY" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+          { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
+          { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self' https://*.razorpay.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://images.unsplash.com https://*.razorpay.com; connect-src 'self' https://eco-tracker-hogrider.vercel.app https://*.googleapis.com https://*.razorpay.com https://www.google.com/recaptcha/; frame-src https://*.razorpay.com https://www.google.com/recaptcha/; object-src 'none'; base-uri 'self'; form-action 'self'"
+          }
         ]
       }
     ]

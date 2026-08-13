@@ -41,6 +41,7 @@ import {
 import { adminApi, getErrorMessage } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import StatCard from '../components/StatCard';
 import { CategoryDoughnutChart, TrendLineChart } from '../components/EmissionChart';
 import { SkeletonStatCard, SkeletonTable } from '../components/SkeletonCard';
@@ -99,6 +100,10 @@ export default function AdminDashboard() {
   const [detailUid, setDetailUid] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // Without this, the page behind this fixed-position modal can still be
+  // drag-scrolled on iOS while the modal itself stays put on screen.
+  useBodyScrollLock(Boolean(detailUid));
   const [detailError, setDetailError] = useState(null);
 
   // ---------------------------------------------------------------------
@@ -499,7 +504,7 @@ export default function AdminDashboard() {
         initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        style={{ marginBottom: '2.2rem' }}
+        style={{ marginBottom: '2.5rem' }}
       >
         <div
           className="eco-photo-zoom"
@@ -507,7 +512,7 @@ export default function AdminDashboard() {
             position: 'relative',
             overflow: 'hidden',
             borderRadius: 'var(--eco-radius-sm)',
-            height: 'clamp(140px, 20vh, 210px)',
+            height: 'clamp(200px, 28vh, 320px)',
           }}
         >
           <Photo
@@ -528,8 +533,8 @@ export default function AdminDashboard() {
             justifyContent: 'space-between',
             flexWrap: 'wrap',
             gap: '1rem',
-            marginTop: '1.2rem',
-            paddingTop: '0.95rem',
+            marginTop: '1.6rem',
+            paddingTop: '1.1rem',
             borderTop: '1px solid var(--rule-strong)',
           }}
         >
@@ -541,7 +546,7 @@ export default function AdminDashboard() {
               <Shield size={13} style={{ color: 'var(--eco-primary)' }} />
               Admin console
             </span>
-            <h1 className="eco-display" style={{ fontSize: 'clamp(1.9rem, 4.4vw, 2.9rem)', margin: '0 0 0.45rem' }}>
+            <h1 className="eco-display" style={{ fontSize: 'clamp(2rem, 4.6vw, 3.1rem)', margin: '0 0 0.5rem' }}>
               Command <span className="eco-gradient-text">centre</span>
             </h1>
             <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.95rem' }}>
@@ -1420,7 +1425,7 @@ export default function AdminDashboard() {
                               border: 'none',
                               color: 'var(--eco-text-muted)',
                               cursor: 'pointer',
-                              padding: 6,
+                              padding: 10, // 44px-ish tap target, not ~27px
                               display: 'inline-flex',
                               borderRadius: 6,
                             }}
@@ -1451,7 +1456,7 @@ export default function AdminDashboard() {
                                 border: 'none',
                                 color: 'var(--eco-danger)',
                                 cursor: 'pointer',
-                                padding: 6,
+                                padding: 10, // 44px-ish tap target, not ~27px
                                 display: 'inline-flex',
                                 borderRadius: 6,
                               }}
@@ -1598,7 +1603,7 @@ export default function AdminDashboard() {
                     border: 'none',
                     color: 'var(--eco-danger)',
                     cursor: 'pointer',
-                    padding: 6,
+                    padding: 10, // 44px-ish tap target, not ~27px
                     display: 'flex',
                     alignSelf: 'flex-start',
                     flexShrink: 0,
@@ -1779,7 +1784,7 @@ export default function AdminDashboard() {
                     border: 'none',
                     color: 'var(--eco-danger)',
                     cursor: 'pointer',
-                    padding: 6,
+                    padding: 10, // 44px-ish tap target, not ~27px
                     display: 'flex',
                     alignSelf: 'flex-start',
                     flexShrink: 0,
@@ -1994,7 +1999,7 @@ export default function AdminDashboard() {
                 border: 'none',
                 color: 'var(--eco-text-muted)',
                 cursor: 'pointer',
-                padding: 6,
+                padding: 10, // 44px-ish tap target, not ~27px
                 display: 'flex',
               }}
             >

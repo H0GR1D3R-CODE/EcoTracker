@@ -383,8 +383,8 @@ export default function Calculator() {
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '1.5rem',
+          gap: '2rem',
+          marginBottom: '2.5rem',
         }}
       >
         {/* ---------- form ---------- */}
@@ -718,7 +718,7 @@ export default function Calculator() {
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReducedMotion ? {} : { opacity: 0, y: -14 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            style={{ marginBottom: '1.5rem' }}
+            style={{ marginBottom: '2.5rem' }}
           >
             <div
               style={{
@@ -906,7 +906,11 @@ export default function Calculator() {
                             border: 'none',
                             color: 'var(--eco-text-muted)',
                             cursor: 'pointer',
-                            padding: 6,
+                            // 10, not 6: a 15px icon at 6px padding is a
+                            // ~27px tap target, under Apple's 44px HIG
+                            // minimum - real risk of mis-tapping the wrong
+                            // row's delete button in a dense table on a phone.
+                            padding: 10,
                             display: 'inline-flex',
                             borderRadius: 6,
                           }}

@@ -76,6 +76,28 @@ def create_app():
     app.register_blueprint(payments_bp)    # /api/create-order, /api/verify-payment  (public)
 
     # -----------------------------------------------------------------------
+    # Security headers, on every response
+    # -----------------------------------------------------------------------
+    # Every response from this API is JSON, never HTML, so most of the usual
+    # browser-facing headers (CSP, X-Frame-Options) matter less here than on
+    # the frontend's own headers in firebase.json - but nosniff and a minimal
+    # CSP cost nothing and close off the case where a browser is tricked into
+    # rendering a JSON error response as something else. HSTS is set even
+    # though Vercel already forces HTTPS at the edge, because that platform
+    # guarantee is not something this codebase can verify or enforce itself -
+    # stating it explicitly here is a real, if small, second layer.
+    @app.after_request
+    def set_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=63072000; includeSubDomains; preload"
+        )
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+        return response
+
+    # -----------------------------------------------------------------------
     # Server status routes
     # -----------------------------------------------------------------------
 

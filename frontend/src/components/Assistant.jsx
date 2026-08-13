@@ -241,6 +241,11 @@ export default function Assistant() {
               style={{
                 flex: 1,
                 overflowY: 'auto',
+                // Without this, scrolling past the top/bottom of a short
+                // conversation chains into the page behind this fixed panel
+                // on iOS - a visible rubber-band bounce of content the panel
+                // is supposed to be sitting on top of.
+                overscrollBehavior: 'contain',
                 padding: '1rem 0',
                 display: 'flex',
                 flexDirection: 'column',
@@ -267,6 +272,14 @@ export default function Assistant() {
                         key={question}
                         type="button"
                         onClick={() => send(question)}
+                        // Was onMouseEnter/onMouseLeave setting inline styles
+                        // directly - iOS touch doesn't reliably fire
+                        // mouseleave after a tap, so a tapped chip could stay
+                        // highlighted until something else was touched. A CSS
+                        // class with a (hover:hover) and (pointer:fine)
+                        // -guarded :hover rule (see .eco-assistant-starter-btn
+                        // in index.css) only ever activates on a real mouse.
+                        className="eco-assistant-starter-btn"
                         style={{
                           textAlign: 'left',
                           padding: '0.6rem 0.75rem',
@@ -277,16 +290,6 @@ export default function Assistant() {
                           fontSize: '0.84rem',
                           cursor: 'pointer',
                           transition: 'border-color 0.2s ease, background-color 0.2s ease',
-                        }}
-                        onMouseEnter={(event) => {
-                          event.currentTarget.style.borderColor =
-                            'rgba(var(--eco-primary-rgb), 0.4)';
-                          event.currentTarget.style.background =
-                            'rgba(var(--eco-primary-rgb), 0.06)';
-                        }}
-                        onMouseLeave={(event) => {
-                          event.currentTarget.style.borderColor = 'var(--eco-border)';
-                          event.currentTarget.style.background = 'transparent';
                         }}
                       >
                         {question}
@@ -417,7 +420,11 @@ export default function Assistant() {
                   border: '1px solid var(--eco-border)',
                   background: 'rgba(var(--eco-primary-rgb), 0.04)',
                   color: 'var(--eco-text)',
-                  fontSize: '0.87rem',
+                  // 1rem, not 0.87rem: iOS Safari force-zooms the whole page
+                  // on focus for any text input under 16px, and doesn't
+                  // reliably zoom back out - a real, repeated annoyance on
+                  // an input someone is about to type a whole question into.
+                  fontSize: '1rem',
                   fontFamily: 'inherit',
                   lineHeight: 1.5,
                   outline: 'none',

@@ -18,14 +18,17 @@ with exactly three documented exceptions:
 """
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 
+import requests
 from flask import g, jsonify, request
 from firebase_admin import auth as firebase_auth
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
+
+RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify"
 
 # Short month names used in chart labels, e.g. "Jul 2026"
 MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -203,6 +206,118 @@ def require_auth(view_function):
         return view_function(*args, **kwargs)
 
     return wrapper
+
+
+def verify_recaptcha(token, action):
+    """
+    Check a Google reCAPTCHA v3 token, or pass everything through when the
+    feature has no secret key configured yet.
+
+    NOT CONFIGURED -> (True, None). Deliberately open, not deliberately
+    closed: the same "optional until you add your own key" pattern as the AI
+    assistant and the branded reset email elsewhere in this app. A bot check
+    that is half set up and blocks every real signup because nobody added a
+    secret key yet would be a worse outcome than the bot traffic it was
+    meant to stop.
+
+    CONFIGURED -> Google is asked to score the token 0.0 (bot) to 1.0
+    (human). 'action' must match what the frontend told grecaptcha.execute()
+    it was doing (e.g. "register") - reCAPTCHA ties the score to that label,
+    and a mismatch is itself a signal something is wrong (a token minted for
+    one action being replayed against a different one).
+
+    Returns (passed: bool, reason: str | None) - reason is only for server
+    logs, never sent to the client, so it cannot help an attacker learn which
+    specific check they failed.
+    """
+    if not Config.RECAPTCHA_SECRET_KEY:
+        return True, None
+
+    if not token or not isinstance(token, str):
+        return False, "missing_token"
+
+    try:
+        response = requests.post(
+            RECAPTCHA_VERIFY_URL,
+            data={"secret": Config.RECAPTCHA_SECRET_KEY, "response": token},
+            timeout=5,
+        )
+        result = response.json()
+    except (requests.RequestException, ValueError):
+        # Google's own service being unreachable is not the caller's fault -
+        # fail open rather than lock out every real user over a network blip
+        # on a third party this app does not control.
+        return True, "verification_unreachable"
+
+    if not result.get("success"):
+        return False, f"google_rejected:{result.get('error-codes')}"
+    if result.get("action") != action:
+        return False, "action_mismatch"
+    if result.get("score", 0.0) < Config.RECAPTCHA_MIN_SCORE:
+        return False, f"low_score:{result.get('score')}"
+
+    return True, None
+
+
+_RATE_LIMIT_COLLECTION = "rateLimits"
+
+
+def client_ip():
+    """
+    The caller's real IP address.
+
+    Vercel (like any platform running Flask behind a proxy/edge network) puts
+    the real client address in X-Forwarded-For, not request.remote_addr -
+    that header would just be the proxy's own address. The first entry in a
+    comma-separated X-Forwarded-For is the original client; anything after it
+    was added by intermediate proxies.
+    """
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def check_rate_limit(bucket, key, max_attempts, window_seconds):
+    """
+    A sliding-window rate limit, backed by Firestore.
+
+    WHY FIRESTORE AND NOT AN IN-MEMORY COUNTER
+    The obvious approach - a dict of counters kept in a module-level variable,
+    which is what Flask-Limiter does by default - does not work on Vercel.
+    Every request can land on a fresh serverless function instance with its
+    own empty memory; a counter that resets on every cold start is not a rate
+    limit, it just look like one in local testing where the process actually
+    stays warm. Firestore is already this app's persistent store, so it
+    stands in as the shared counter with no new infrastructure, no Redis
+    add-on, and no extra cost.
+
+    'bucket' names the thing being limited (e.g. "register", "forgot-password"),
+    'key' identifies who (an IP address or an email address) - the two are
+    combined into one document id so different buckets never collide.
+
+    Returns True and records this attempt if the caller is still under the
+    limit, False (without recording anything further) if they are over it.
+    """
+    db = get_db()
+    doc_ref = db.collection(_RATE_LIMIT_COLLECTION).document(f"{bucket}:{key}")
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(seconds=window_seconds)
+
+    doc = doc_ref.get()
+    attempts = []
+    if doc.exists:
+        stored = doc.to_dict().get("attempts") or []
+        # Firestore returns timestamps as timezone-aware datetimes already,
+        # so this is a plain comparison, not a conversion.
+        attempts = [ts for ts in stored if ts > window_start]
+
+    if len(attempts) >= max_attempts:
+        return False
+
+    attempts.append(now)
+    doc_ref.set({"attempts": attempts})
+    return True
 
 
 def require_admin(view_function):

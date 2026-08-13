@@ -36,9 +36,12 @@ from routes import (
     EMAIL_ERROR,
     api_error,
     api_success,
+    check_rate_limit,
+    client_ip,
     is_admin,
     is_valid_email,
     require_auth,
+    verify_recaptcha,
     verify_token,
 )
 
@@ -145,7 +148,27 @@ def register():
 
     Body: {"name": "Aadi", "email": "a@b.com", "password": "secret123", "region": "India"}
     """
+    # This route has no auth token to key a rate limit on - the IP address is
+    # the only identity available before an account exists. 8 accounts per
+    # hour per IP is generous for a real person, tight for a scripted signup
+    # flood aimed at, for example, spamming the Feedback/Donate flows next
+    # with fresh accounts.
+    if not check_rate_limit("register", client_ip(), max_attempts=8, window_seconds=3600):
+        return api_error(
+            "Too many accounts created from this connection recently. Please try again later.",
+            429,
+            code="rate_limited",
+        )
+
     body = request.get_json(silent=True) or {}  # silent=True avoids a crash on bad JSON
+
+    recaptcha_ok, _reason = verify_recaptcha(body.get("recaptchaToken"), "register")
+    if not recaptcha_ok:
+        return api_error(
+            "Could not verify you're not a bot. Please refresh the page and try again.",
+            403,
+            code="recaptcha_failed",
+        )
 
     name = _clean_text(body.get("name"))
     email = _clean_text(body.get("email")).lower()  # store emails lowercase for consistency
@@ -373,6 +396,27 @@ def forgot_password():
 
     if not email or not is_valid_email(email):
         return api_error(EMAIL_ERROR, 400, code="invalid_email")
+
+    # Two separate limits, because they guard against two different attacks.
+    # By IP: stops one source hammering this route at all (each call sends a
+    # real email and costs an Admin SDK link-generation request). By email:
+    # stops that same flood from a botnet/rotating-IP source that targets one
+    # specific victim's inbox instead - the IP limit alone would not catch
+    # that. Checked before the enumeration-safe branches below on purpose:
+    # both limiter responses are 429s with no mention of whether the account
+    # exists, so being rate-limited reveals nothing an attacker could use.
+    if not check_rate_limit("forgot-password-ip", client_ip(), max_attempts=6, window_seconds=900):
+        return api_error(
+            "Too many requests from this connection. Please wait a few minutes and try again.",
+            429,
+            code="rate_limited",
+        )
+    if not check_rate_limit("forgot-password-email", email, max_attempts=3, window_seconds=900):
+        return api_error(
+            "Too many reset requests for this address. Please wait a few minutes and try again.",
+            429,
+            code="rate_limited",
+        )
 
     try:
         reset_link = firebase_auth.generate_password_reset_link(

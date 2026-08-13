@@ -17,7 +17,15 @@ from flask import Blueprint, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
-from routes import EMAIL_ERROR, api_error, api_success, is_valid_email
+from routes import (
+    EMAIL_ERROR,
+    api_error,
+    api_success,
+    check_rate_limit,
+    client_ip,
+    is_valid_email,
+    verify_recaptcha,
+)
 
 feedback_bp = Blueprint("feedback", __name__, url_prefix="/api/feedback")
 
@@ -37,7 +45,22 @@ def submit_feedback():
     Body: {"name": "Aadi", "email": "a@b.com", "message": "...", "rating": 5}
     Only message is required; name, email and rating are optional.
     """
+    if not check_rate_limit("feedback", client_ip(), max_attempts=10, window_seconds=3600):
+        return api_error(
+            "Too much feedback sent from this connection recently. Please try again later.",
+            429,
+            code="rate_limited",
+        )
+
     body = request.get_json(silent=True) or {}
+
+    recaptcha_ok, _reason = verify_recaptcha(body.get("recaptchaToken"), "feedback")
+    if not recaptcha_ok:
+        return api_error(
+            "Could not verify you're not a bot. Please refresh the page and try again.",
+            403,
+            code="recaptcha_failed",
+        )
 
     # --- message (the only required field) ---
     message = str(body.get("message", "")).strip()

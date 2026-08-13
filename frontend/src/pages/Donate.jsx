@@ -44,6 +44,8 @@ import Photo from '../components/Photo';
 import { PHOTOS, photoUrl } from '../utils/photos';
 import { getErrorCode, getErrorMessage, paymentsApi } from '../utils/api';
 import { loadRazorpay } from '../utils/razorpay';
+import { executeRecaptcha } from '../utils/recaptcha';
+import RecaptchaNotice from '../components/RecaptchaNotice';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useCounter } from '../hooks/useCounter';
@@ -266,14 +268,18 @@ export default function Donate() {
 
     setStage('creating');
     try {
-      // Fetch the checkout script and open the order together - neither one
-      // needs the other, so there is no reason to wait twice.
+      // The order request needs the recaptcha token IN its body, so that one
+      // has to be awaited first - but it does not depend on the checkout
+      // script, so that still loads in parallel rather than after it.
+      const recaptchaToken = await executeRecaptcha('donate');
+
       const [Razorpay, order] = await Promise.all([
         loadRazorpay(),
         paymentsApi.createOrder({
           // Razorpay counts in paise, so ₹99 is 9900
           amount: Math.round(rupees * 100),
           currency: 'INR',
+          recaptchaToken,
         }),
       ]);
 
@@ -924,6 +930,7 @@ export default function Donate() {
               <Lock size={12} style={{ flexShrink: 0 }} />
               Card details go straight to Razorpay — EcoTrack never sees them.
             </p>
+            <RecaptchaNotice />
           </motion.form>
         </div>
 

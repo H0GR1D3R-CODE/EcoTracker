@@ -26,6 +26,8 @@ import {
 import Photo from '../components/Photo';
 import { PHOTOS } from '../utils/photos';
 import { feedbackApi, getErrorMessage } from '../utils/api';
+import { executeRecaptcha } from '../utils/recaptcha';
+import RecaptchaNotice from '../components/RecaptchaNotice';
 import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -118,11 +120,14 @@ export default function Feedback() {
       // just a general note.
       const prefix = topic && topic !== 'General' ? `[${topic}] ` : '';
 
+      const recaptchaToken = await executeRecaptcha('feedback');
+
       await feedbackApi.submit({
         name: form.name.trim(),
         email: form.email.trim(),
         message: prefix + form.message.trim(),
         rating: rating || undefined,
+        recaptchaToken,
       });
       // No toast here - setSent(true) swaps in a dedicated "Thank you" screen
       // right below, which would otherwise say the same thing twice.
@@ -488,6 +493,7 @@ export default function Feedback() {
               </>
             )}
           </button>
+          <RecaptchaNotice />
         </motion.form>
       </div>
 

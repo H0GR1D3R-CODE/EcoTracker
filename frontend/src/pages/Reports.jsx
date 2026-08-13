@@ -394,7 +394,7 @@ export default function Reports() {
       />
 
       {/* ============ CONTROLS ============ */}
-      <div className="eco-card eco-no-print" style={{ marginBottom: '1.5rem' }}>
+      <div className="eco-card eco-no-print" style={{ marginBottom: '2.5rem' }}>
         {/* The period used to be a dropdown - one click to open, one more to
             read the options, a third to pick. A segmented row shows every
             choice at once, so "which periods can I even ask for?" is answered
@@ -545,7 +545,7 @@ export default function Reports() {
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             id="eco-report-printable"
             className="eco-card"
-            style={{ marginBottom: '2rem' }}
+            style={{ marginBottom: '2.5rem' }}
           >
             {/* --- header --- */}
             <div>
@@ -919,7 +919,7 @@ export default function Reports() {
                     border: 'none',
                     color: 'var(--eco-text-muted)',
                     cursor: 'pointer',
-                    padding: 6,
+                    padding: 10, // 44px-ish tap target, not ~27px
                     display: 'flex',
                   }}
                 >

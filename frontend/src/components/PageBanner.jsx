@@ -55,7 +55,7 @@ export default function PageBanner({
     offset: ['start start', 'end start'],
   });
 
-  const photoScale = useTransform(scrollYProgress, [0, 1], [1, 1.22]);
+  const photoScale = useTransform(scrollYProgress, [0, 1], [1, 1.25]);
   const photoY = useTransform(scrollYProgress, [0, 1], ['0%', '16%']);
 
   // The title used to lift and fade out with the image. It sits on the page
@@ -64,12 +64,30 @@ export default function PageBanner({
 
   return (
     <motion.div
+      // eco-no-print: this is decorative chrome, not report content. Reports
+      // is the one page with a real print button, and without this the
+      // banner (now up to 320px tall) ate a third of the first printed page
+      // ahead of the actual figures - directly against that page's own
+      // "printed artefact, not a stack of dashboard sections" framing.
+      className="eco-no-print"
       initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      style={{ marginBottom: '2.2rem' }}
+      style={{ marginBottom: '2.5rem' }}
     >
-      {/* the plate */}
+      {/* the plate — sized like a real hero now, not a strip. This is the one
+          component behind every signed-in page (Dashboard/Calculator/Goals/
+          Reports), so making it properly cinematic here is what makes all
+          four tabs read as one considered product instead of four thin
+          headers stacked over a wall of numbers.
+
+          The clamp floor is 200px, not the 240px an earlier pass used - a
+          code review caught that a 240px floor binds (i.e. stops scaling
+          down) on anything shorter than ~630px tall, which pins the banner
+          near its max size on a landscape phone or a short browser window
+          and pushes the title/action button below the fold on every page
+          that renders this. 200px still reads as a real hero, not a strip,
+          without that failure mode. */}
       <div
         ref={bannerRef}
         className="eco-photo-zoom"
@@ -77,7 +95,7 @@ export default function PageBanner({
           position: 'relative',
           overflow: 'hidden',
           borderRadius: 'var(--eco-radius-sm)',
-          height: 'clamp(140px, 20vh, 210px)',
+          height: 'clamp(200px, 28vh, 320px)',
         }}
       >
         {/* The photo sits in its own transformed layer. Scaling slightly beyond
@@ -110,8 +128,8 @@ export default function PageBanner({
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '1rem',
-          marginTop: '1.2rem',
-          paddingTop: '0.95rem',
+          marginTop: '1.6rem',
+          paddingTop: '1.1rem',
           borderTop: '1px solid var(--rule-strong)',
         }}
       >
@@ -123,7 +141,7 @@ export default function PageBanner({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.45rem',
-                marginBottom: '0.75rem',
+                marginBottom: '0.85rem',
               }}
             >
               {Icon && <Icon size={13} style={{ color: 'var(--eco-primary)' }} />}
@@ -133,7 +151,7 @@ export default function PageBanner({
 
           <h1
             className="eco-display"
-            style={{ fontSize: 'clamp(1.9rem, 4.4vw, 2.9rem)', margin: '0 0 0.45rem' }}
+            style={{ fontSize: 'clamp(2rem, 4.6vw, 3.1rem)', margin: '0 0 0.5rem' }}
           >
             {title}
             {titleAccent && (
@@ -145,7 +163,7 @@ export default function PageBanner({
           </h1>
 
           {subtitle && (
-            <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.95rem', maxWidth: '54ch' }}>
+            <p className="eco-text-muted" style={{ margin: 0, fontSize: '1rem', maxWidth: '54ch' }}>
               {subtitle}
             </p>
           )}

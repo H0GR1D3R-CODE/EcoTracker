@@ -87,26 +87,12 @@
     <link rel="icon" href="/icons/icon-48.webp" type="image/webp" />
     <link rel="icon" href="/icons/icon-192.webp" type="image/webp" sizes="192x192" />
 
-    <script>
-      // Runs BEFORE React and before anything is painted.
-      // Without this, a user who chose light mode would see a flash of dark
-      // background on every page load while React starts up.
-      (function applySavedTheme() {
-        try {
-          var saved = localStorage.getItem('ecotrack-theme');
-          // Light is the default now, so an unset preference must be written
-          // out explicitly - <html> ships with data-theme="light" for the very
-          // first paint, and anyone who previously chose dark keeps it.
-          document.documentElement.setAttribute(
-            'data-theme',
-            saved === 'dark' ? 'dark' : 'light'
-          );
-        } catch (error) {
-          // localStorage throws in some private browsing modes - the attribute
-          // already on <html> stands, so light is what renders
-        }
-      })();
-    </script>
+    <!-- Was inline here - moved to its own file (public/theme-init.js) so
+         the page's Content-Security-Policy can drop 'unsafe-inline' from
+         script-src. Still runs before React and before first paint either
+         way; a plain <script src> blocks the parser exactly like an inline
+         block did. -->
+    <script src="/theme-init.js"></script>
   </head>
 
   <body>

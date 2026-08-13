@@ -28,6 +28,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import ThemeToggle from './ThemeToggle';
 import { getInitials } from '../utils/formatters';
 
@@ -89,12 +90,7 @@ export default function Navbar() {
   }, [location.pathname]);
 
   // Stop the page behind the mobile menu from scrolling while it is open
-  useEffect(() => {
-    document.body.style.overflow = menuOpen ? 'hidden' : '';
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [menuOpen]);
+  useBodyScrollLock(menuOpen);
 
   const handleLogout = async () => {
     try {
@@ -335,8 +331,11 @@ export default function Navbar() {
                 border: '1px solid var(--eco-border)',
                 borderRadius: 10,
                 color: 'var(--eco-text)',
-                width: 38,
-                height: 38,
+                // 44px, not 38: Apple's Human Interface Guidelines set 44x44
+                // as the minimum comfortable tap target, and this is the one
+                // button that opens navigation on a phone.
+                width: 44,
+                height: 44,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -371,6 +370,10 @@ export default function Navbar() {
               padding: '1rem',
               maxHeight: 'calc(100dvh - 68px)',
               overflowY: 'auto',
+              // Stops a drag past the top/bottom of this menu from
+              // scroll-chaining into the (already locked, but this still
+              // matters pre-lock and on the rubber-band edges) page behind it
+              overscrollBehavior: 'contain',
             }}
           >
             {user ? (

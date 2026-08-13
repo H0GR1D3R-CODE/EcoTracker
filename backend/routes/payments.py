@@ -43,7 +43,14 @@ from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
 from email_service import send_donation_thank_you_email
-from routes import api_error, api_success, verify_token
+from routes import (
+    api_error,
+    api_success,
+    check_rate_limit,
+    client_ip,
+    verify_recaptcha,
+    verify_token,
+)
 
 payments_bp = Blueprint("payments", __name__, url_prefix="/api")
 
@@ -108,7 +115,26 @@ def create_order():
             code="razorpay_unconfigured",
         )
 
+    # Every call here opens a real order with Razorpay's API, which is a
+    # billable/quota-bound third-party request even though no money moves
+    # until a signature is verified later - worth capping regardless of
+    # whether reCAPTCHA is configured.
+    if not check_rate_limit("create-order", client_ip(), max_attempts=15, window_seconds=600):
+        return api_error(
+            "Too many requests from this connection. Please wait a few minutes and try again.",
+            429,
+            code="rate_limited",
+        )
+
     body = request.get_json(silent=True) or {}
+
+    recaptcha_ok, _reason = verify_recaptcha(body.get("recaptchaToken"), "donate")
+    if not recaptcha_ok:
+        return api_error(
+            "Could not verify you're not a bot. Please refresh the page and try again.",
+            403,
+            code="recaptcha_failed",
+        )
 
     # --- amount (whole paise) ---
     amount = _to_int(body.get("amount"))

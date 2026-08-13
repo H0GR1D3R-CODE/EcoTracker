@@ -11,6 +11,9 @@
 // index.html, and getInitialTheme below.
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { StatusBar, Style } from '@capacitor/status-bar';
+
+import { isNativeApp } from '../utils/platform';
 
 const ThemeContext = createContext(null);
 
@@ -92,6 +95,29 @@ export function ThemeProvider({ children }) {
     } catch {
       // Saving failed - the theme still works for this session
     }
+  }, [theme]);
+
+  // The native-app equivalent of the theme-color meta tag above. Without
+  // this, the OS status bar was set once in capacitor.config.json (a stale
+  // colour, and a style that never changes) and never touched again - so
+  // switching to dark theme inside the app left the status bar's dark-text
+  // style sitting over a now near-black background, unreadable. The plugin
+  // is a no-op on web (isNativeApp() guards it), so this is safe to run
+  // unconditionally on every theme change.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+
+    const backgroundColor = theme === 'dark' ? '#0c100b' : '#efede4';
+    // Capacitor's naming mirrors iOS's own UIStatusBarStyle: Dark = dark
+    // text/icons, for a light background; Light = light text/icons, for a
+    // dark background.
+    const style = theme === 'dark' ? Style.Light : Style.Dark;
+
+    StatusBar.setBackgroundColor({ color: backgroundColor }).catch(() => {
+      // Some Android versions/edge-to-edge configs reject this - harmless,
+      // the style call below still fixes icon legibility either way.
+    });
+    StatusBar.setStyle({ style }).catch(() => {});
   }, [theme]);
 
   // Watch for the user changing their OS motion setting while the app is open

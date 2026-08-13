@@ -117,6 +117,20 @@ class Config:
     # sends the user back to once they are done.
     PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "https://ecotrackapp.web.app")
 
+    # --- Bot protection (Google reCAPTCHA v3) ---
+    # Same optional pattern as GEMINI_API_KEY and RESEND_API_KEY above: every
+    # route that checks this works completely without it configured - it just
+    # skips verification rather than blocking real users, because a half-set-up
+    # bot check that locks everyone out is worse than no bot check at all.
+    # Free, no card, at https://www.google.com/recaptcha/admin - register a
+    # v3 (score-based, invisible) site, set the site key as
+    # VITE_RECAPTCHA_SITE_KEY in frontend/.env and the secret key here.
+    RECAPTCHA_SECRET_KEY = os.getenv("RECAPTCHA_SECRET_KEY", "")
+
+    # Google scores each token 0.0 (almost certainly a bot) to 1.0 (almost
+    # certainly human). 0.5 is Google's own documented starting point.
+    RECAPTCHA_MIN_SCORE = float(os.getenv("RECAPTCHA_MIN_SCORE", "0.5"))
+
     # Firestore collection names kept in one place so a typo can only happen once.
     COLLECTION_USERS = "users"
     COLLECTION_CARBON_RECORDS = "carbonRecords"

@@ -9,7 +9,10 @@ import { Moon, Sun } from 'lucide-react';
 
 import { useTheme } from '../context/ThemeContext';
 
-export default function ThemeToggle({ size = 38 }) {
+// 44, not 38: Apple's Human Interface Guidelines set 44x44 as the minimum
+// comfortable tap target, and this button has no text label to widen its
+// effective hit area the way a labelled nav link does.
+export default function ThemeToggle({ size = 44 }) {
   const { isDark, toggleTheme, prefersReducedMotion } = useTheme();
 
   // With reduced motion on, the icon changes instantly instead of spinning

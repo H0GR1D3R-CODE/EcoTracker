@@ -44,6 +44,61 @@ export function SkeletonStatCard() {
 }
 
 /**
+ * Placeholder for PageBanner - shaped like the plate + caption it renders.
+ *
+ * A code review caught that Dashboard/Calculator/Goals' loading states never
+ * reserved space for the banner at all, so the whole ~200-320px hero would
+ * snap in above everything else the instant data arrived - a much bigger
+ * jolt now that the banner is taller than it used to be. Same invariant as
+ * every other skeleton here: shaped like what replaces it.
+ */
+export function SkeletonBanner() {
+  return (
+    <div style={{ marginBottom: '2.5rem' }}>
+      <div
+        className="eco-skeleton"
+        style={{ height: 'clamp(200px, 28vh, 320px)', borderRadius: 'var(--eco-radius-sm)' }}
+      />
+      <div style={{ marginTop: '1.6rem', paddingTop: '1.1rem', borderTop: '1px solid var(--rule-strong)' }}>
+        <SkeletonLine width={200} height={34} radius={6} style={{ marginBottom: '0.6rem' }} />
+        <SkeletonLine width={300} height={14} radius={4} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Placeholder for GlobalPictureSection's four-photo grid.
+ */
+export function SkeletonGlobalPicture() {
+  return (
+    <div style={{ marginBottom: '2.5rem' }}>
+      <div style={{ marginBottom: '1.4rem', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+        <SkeletonLine width={160} height={18} radius={3} style={{ marginBottom: '0.5rem' }} />
+        <SkeletonLine width={280} height={12} radius={3} />
+      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: '1.4rem',
+        }}
+      >
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index}>
+            <div
+              className="eco-skeleton"
+              style={{ height: 170, borderRadius: 'var(--eco-radius-sm)', marginBottom: '1.1rem' }}
+            />
+            <SkeletonLine width="70%" height={16} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Placeholder for a chart panel - also a channel now.
  */
 export function SkeletonChart({ height = 300 }) {

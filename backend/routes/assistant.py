@@ -74,6 +74,23 @@ MAX_SUMMARY_TOKENS = 1400
 # with the length of the chat.
 MAX_HISTORY_MESSAGES = 10
 
+# Newer Gemini models spend part of max_output_tokens on an invisible internal
+# "thinking" pass before writing the answer, and that spend is NOT capped
+# separately - it comes out of the same budget as the visible reply. Tested
+# directly against the live API: with a short system prompt and a small
+# max_output_tokens, thinking alone was consuming the entire budget and the
+# reply cut off after a handful of words with finish_reason MAX_TOKENS, before
+# a single full sentence. This app's system prompt is long enough in practice
+# that the failure did not reproduce end-to-end in testing, but there is no
+# reason to leave a whole request's worth of budget one bad turn away from
+# the same failure - this is grounded QA over figures already handed to the
+# model in the prompt, not a task that benefits from deep reasoning, so a
+# small fixed budget is a deliberate choice, not a compromise. 0 disables
+# thinking entirely on some models but was rejected outright (400
+# INVALID_ARGUMENT) by the model this app is currently configured to use -
+# 128 was the smallest value that worked across every test question.
+ASSISTANT_THINKING_BUDGET = 128
+
 MAX_MESSAGE_LENGTH = 2000
 
 # The personal carbon budget consistent with 1.5 C of warming
@@ -409,6 +426,7 @@ def _extract_reply(response):
     that case and would otherwise look like an empty reply.
     """
     candidates = response.candidates or []
+    reason_name = ""
     if candidates:
         finish_reason = getattr(candidates[0], "finish_reason", None)
         # finish_reason is an enum; .name gives the string form
@@ -417,7 +435,21 @@ def _extract_reply(response):
             return None
 
     text = response.text
-    return text.strip() if text else None
+    if not text:
+        return None
+    text = text.strip()
+
+    # A response can stop mid-sentence if it hits max_output_tokens - proven
+    # reachable in testing when thinking tokens ate the whole budget before
+    # any visible text, and ASSISTANT_THINKING_BUDGET above is what keeps that
+    # from happening in practice, not a guarantee for every possible prompt.
+    # Returning a truncated answer with no indication it was cut off would be
+    # worse than the honest, if less complete, alternative - someone reading
+    # a chat panel has no way to tell a real full stop from a chopped-off one.
+    if reason_name == "MAX_TOKENS":
+        text += " [Reply cut short - try asking again, or split it into a shorter question.]"
+
+    return text
 
 
 def _usage_of(response):
@@ -524,6 +556,9 @@ def chat():
                 # Low temperature because this is grounded question answering
                 # over the user's own figures - creativity is not wanted here
                 temperature=0.3,
+                thinking_config=genai_types.ThinkingConfig(
+                    thinking_budget=ASSISTANT_THINKING_BUDGET
+                ),
             ),
         )
     except genai_errors.ClientError as client_error:
@@ -662,6 +697,9 @@ Biggest contributors:
                 ],
                 max_output_tokens=MAX_SUMMARY_TOKENS,
                 temperature=0.4,
+                thinking_config=genai_types.ThinkingConfig(
+                    thinking_budget=ASSISTANT_THINKING_BUDGET
+                ),
             ),
         )
     except genai_errors.ClientError as client_error:

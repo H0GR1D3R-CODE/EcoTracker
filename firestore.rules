@@ -1,0 +1,31 @@
+// EcoTrack/firestore.rules
+//
+// Default-deny backstop for direct Firestore access.
+//
+// The app does not need this to function: the React frontend never talks to
+// Firestore directly (only to Firebase Auth for sign-in) - every read and
+// write goes through the Flask backend, which authenticates the caller via a
+// verified Firebase ID token and enforces per-user ownership before touching
+// any document. See backend/routes/__init__.py (require_auth) and the
+// ownership checks in backend/routes/carbon.py, goals.py, reports.py.
+//
+// This file exists purely as defense-in-depth: no committed rules file meant
+// this project's actual deployed rules were unverifiable from the codebase,
+// and if the Firebase console was ever left in "test mode" (Firebase's own
+// 30-day default of allow read, write: if true) or misconfigured by hand,
+// direct client access to Firestore - bypassing every check above - would be
+// silently wide open. A default-deny rule set makes that impossible: even a
+// raw Firebase client SDK call with a valid API key gets refused, because
+// nothing in the app is supposed to make one.
+//
+// Deploy with: firebase deploy --only firestore:rules
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

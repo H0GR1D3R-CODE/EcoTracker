@@ -238,6 +238,9 @@ export default function PublicHelper() {
               style={{
                 flex: 1,
                 overflowY: 'auto',
+                // Prevents an iOS scroll-chain into the page behind this
+                // fixed panel when the conversation is dragged past its ends.
+                overscrollBehavior: 'contain',
                 padding: '1rem 0',
                 display: 'flex',
                 flexDirection: 'column',
@@ -364,7 +367,9 @@ export default function PublicHelper() {
                   border: '1px solid var(--eco-border)',
                   background: 'rgba(var(--eco-primary-rgb), 0.04)',
                   color: 'var(--eco-text)',
-                  fontSize: '0.87rem',
+                  // 1rem, not 0.87rem: iOS Safari force-zooms the page on
+                  // focus for any text input under 16px.
+                  fontSize: '1rem',
                   outline: 'none',
                 }}
               />

@@ -2,14 +2,18 @@
 // The main screen for a signed-in user.
 //
 // SECTIONS, IN ORDER
-//   1. Greeting and last-updated line
-//   2. Four stat cards        - this month, this year, best category, active goals
-//   3. Six-month trend line   - is the footprint going up or down over time
-//   4. Category doughnut      - what the footprint is made of, right now
-//   5. Impact equivalents     - what the number actually means in real terms
-//   6. This month vs last     - which categories moved, and in which direction
-//   7. Insights               - plain-English observations drawn from the data
-//   8. SDG 13 context strip   - ties the personal number to the global goal
+//   1.  Greeting and last-updated line
+//   2.  Four stat cards        - this month, this year, best category, active goals
+//   3.  The bigger picture     - photo-led context (GlobalPictureSection), moved up
+//                                 here from last so the top of the page isn't
+//                                 wall-to-wall numbers
+//   4.  Six-month trend line   - is the footprint going up or down over time
+//   5.  Category doughnut      - what the footprint is made of, right now
+//   6.  Impact equivalents     - what the number actually means in real terms
+//   7.  This month vs last     - which categories moved, and in which direction
+//   8.  Insights               - plain-English observations drawn from the data
+//   9.  SDG 13 context strip   - ties the personal number to the global goal
+//   10. Give to the cause      - donation CTA, last on purpose
 //
 // Every figure comes from GET /api/dashboard/summary. The page does no emission
 // maths of its own: the backend calculated and stored each value when the user
@@ -40,77 +44,18 @@ import { useTheme } from '../context/ThemeContext';
 import { useDashboard } from '../hooks/useDashboard';
 import StatCard from '../components/StatCard';
 import ImpactEquivalents from '../components/ImpactEquivalents';
-import Photo from '../components/Photo';
 import PageBanner from '../components/PageBanner';
 import Reveal from '../components/Reveal';
-import { PHOTOS } from '../utils/photos';
+import GlobalPictureSection from '../components/GlobalPictureSection';
 import {
   CategoryDoughnutChart,
   ComparisonBarChart,
   TrendLineChart,
 } from '../components/EmissionChart';
-import { SkeletonChart, SkeletonStatCard } from '../components/SkeletonCard';
+import { SkeletonBanner, SkeletonChart, SkeletonGlobalPicture, SkeletonStatCard } from '../components/SkeletonCard';
 import { useSlowLoadHint } from '../hooks/useSlowLoadHint';
 import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
 import { formatCategory, formatEmission, formatNumber } from '../utils/formatters';
-
-// ---------------------------------------------------------------------------
-// THE GLOBAL PICTURE
-//
-// Educational context shown on every dashboard: where the world's emissions
-// actually come from, tied back to the EcoTrack category the user can act on.
-// Every percentage is a published figure with its source named, so it can be
-// cited in the report and defended in the viva - not a number we made up.
-// ---------------------------------------------------------------------------
-
-// The accents are the theme-aware category variables, not the hexes that used
-// to be baked in here. Two of those were measured failures on the light ground:
-// transport's #00ff87 came out at 1.21:1, which is very close to invisible, and
-// #f59e0b at 2.15:1. They also no longer matched the colour each category
-// carries everywhere else in the app, which is the point of tying them to the
-// category at all.
-const GLOBAL_SOURCES = [
-  {
-    photo: 'powerPlant4',
-    alt: 'An electricity transmission pylon in a field',
-    title: 'Energy & electricity',
-    share: '~25%',
-    color: 'var(--cat-electricity)',
-    body: 'Producing electricity and heat is the single largest source of global emissions, because so much of it still burns coal and gas.',
-    tie: 'Your Electricity category',
-    source: 'IPCC / EPA',
-  },
-  {
-    photo: 'traffic4',
-    alt: 'Cars on a road',
-    title: 'Transport',
-    share: '~24%',
-    color: 'var(--cat-transport)',
-    body: 'Cars, trucks, ships and planes together, and the fastest-growing source of emissions in most countries.',
-    tie: 'Your Transport category',
-    source: 'IEA',
-  },
-  {
-    photo: 'factory3',
-    alt: 'A large industrial factory',
-    title: 'Industry',
-    share: '~21%',
-    color: 'var(--org-goldstandard)',
-    body: 'Making steel, cement, chemicals and goods. Much of a product’s carbon is spent before it ever reaches you.',
-    tie: 'Your Consumption category',
-    source: 'EPA',
-  },
-  {
-    photo: 'forest3',
-    alt: 'Green forest on a mountainside',
-    title: 'Land use & waste',
-    share: '~18%',
-    color: 'var(--cat-water)',
-    body: 'Deforestation, farming and rotting landfill. This slice both emits carbon and destroys the forests that would absorb it.',
-    tie: 'Your Diet & Waste categories',
-    source: 'Our World in Data',
-  },
-];
 
 // ---------------------------------------------------------------------------
 // INSIGHTS
@@ -265,10 +210,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3rem' }}>
-        <div
-          className="eco-skeleton"
-          style={{ width: 260, height: 34, borderRadius: 8, marginBottom: '2rem' }}
-        />
+        <SkeletonBanner />
         <div
           style={{
             display: 'grid',
@@ -283,6 +225,7 @@ export default function Dashboard() {
             <SkeletonStatCard key={index} />
           ))}
         </div>
+        <SkeletonGlobalPicture />
         <div style={{ display: 'grid', gap: '2.5rem' }}>
           <SkeletonChart height={280} />
           <SkeletonChart height={280} />
@@ -456,7 +399,17 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ============ 3. TREND LINE ============ */}
+      {/* ============ 3. THE BIGGER PICTURE ============ */}
+      {/* Moved up from the bottom of the page to right here, straight after
+          the stat row - the numbers-only zone right after the header was
+          exactly what read as cramped, and a real photograph is what that
+          space needed rather than another chart. Extracted into its own
+          component (GlobalPictureSection) rather than inline: it's a
+          self-contained, animated block, the same shape ImpactEquivalents
+          was created to solve. */}
+      <GlobalPictureSection />
+
+      {/* ============ 4. TREND LINE ============ */}
       {/* Every panel on this page loses its card. A chart is already a bounded
           object with its own axes; putting it inside a lifted, bordered,
           shadowed box drew a second frame around a thing that was already
@@ -491,7 +444,7 @@ export default function Dashboard() {
         />
       </Reveal>
 
-      {/* ============ 4 + 5. BREAKDOWN AND IMPACT ============ */}
+      {/* ============ 5 + 6. BREAKDOWN AND IMPACT ============ */}
       <div
         style={{
           display: 'grid',
@@ -581,7 +534,7 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ============ 6. THIS MONTH VS LAST ============ */}
+      {/* ============ 7. THIS MONTH VS LAST ============ */}
       <Reveal style={{ marginBottom: '2.5rem', display: 'block', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
         <div
           style={{
@@ -636,7 +589,7 @@ export default function Dashboard() {
         />
       </Reveal>
 
-      {/* ============ 7. INSIGHTS ============ */}
+      {/* ============ 8. INSIGHTS ============ */}
       {insights.length > 0 && (
         <div style={{ marginBottom: '2.5rem', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
           <div
@@ -712,114 +665,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      {/* ============ 8. THE GLOBAL PICTURE ============ */}
-      {/* Zooms out from the user's own number to where the world's emissions
-          come from, with an illustration and a cited figure for each. Every
-          card links to the EcoTrack category the user can actually act on. */}
-      <div style={{ marginBottom: '2.5rem' }}>
-        <div style={{ marginBottom: '1.6rem', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
-          <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>
-            The bigger picture
-          </h2>
-          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-            Where the world&rsquo;s carbon comes from — and the category of yours that maps to it
-          </p>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '1.4rem',
-          }}
-        >
-          {GLOBAL_SOURCES.map((item, index) => (
-            <motion.div
-              key={item.title}
-              initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: false, amount: 0.2 }}
-              transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
-              style={{ display: 'flex', flexDirection: 'column' }}
-            >
-              {/* the plate, captioned by what follows it */}
-              <div
-                className="eco-photo-zoom"
-                style={{
-                  height: 118,
-                  overflow: 'hidden',
-                  borderRadius: 'var(--eco-radius-sm)',
-                  marginBottom: '1.1rem',
-                }}
-              >
-                <Photo
-                  id={PHOTOS[item.photo]}
-                  alt={item.alt}
-                  width={520}
-                  color={item.color}
-                  className="eco-photo-cover"
-                  style={{ width: '100%', height: '100%', display: 'block' }}
-                />
-              </div>
-
-              {/* the reading first, then what it is a reading of */}
-              <div style={{ paddingTop: '0.95rem', borderTop: '1px solid var(--rule-strong)', display: 'flex', flexDirection: 'column', flex: 1 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    marginBottom: '0.8rem',
-                  }}
-                >
-                  {/* The share was bold Space Grotesk tinted the category's own
-                      colour - a measurement wearing the colour of the thing it
-                      measures, which is the one rule the palette rests on. */}
-                  <span className="eco-readout" style={{ fontSize: '1.2rem', fontWeight: 500 }}>
-                    {item.share}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    style={{ width: 7, height: 7, borderRadius: 2, background: item.color, flexShrink: 0 }}
-                  />
-                </div>
-
-                <h3 className="eco-display" style={{ fontSize: '1.05rem', fontWeight: 600, margin: '0 0 0.45rem' }}>
-                  {item.title}
-                </h3>
-
-                <p
-                  className="eco-text-muted"
-                  style={{ fontSize: '0.84rem', lineHeight: 1.6, margin: '0 0 1rem' }}
-                >
-                  {item.body}
-                </p>
-
-                <div
-                  style={{
-                    marginTop: 'auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    paddingTop: '0.7rem',
-                    borderTop: '1px solid var(--rule)',
-                  }}
-                >
-                  <span className="eco-marker" style={{ fontSize: '0.62rem' }}>
-                    {item.tie}
-                  </span>
-                  <span className="eco-marker" style={{ fontSize: '0.62rem', opacity: 0.7 }}>
-                    {item.source}
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
 
       {/* ============ 9. SDG 13 CONTEXT ============ */}
       {/* The last glow orb in the signed-in app, and the gradient disc behind

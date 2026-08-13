@@ -142,10 +142,10 @@ export function AuthProvider({ children }) {
    * profile in the same operation), then we sign in on the client to get a
    * token for all future requests.
    */
-  const register = useCallback(async ({ name, email, password, region }) => {
+  const register = useCallback(async ({ name, email, password, region, recaptchaToken }) => {
     try {
       // Step 1: Flask creates the Firebase Auth account AND the profile
-      await authApi.register({ name, email, password, region });
+      await authApi.register({ name, email, password, region, recaptchaToken });
     } catch (error) {
       throw new Error(getErrorMessage(error, 'Registration failed. Please try again.'));
     }

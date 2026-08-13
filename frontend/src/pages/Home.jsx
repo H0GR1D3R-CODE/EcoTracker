@@ -46,6 +46,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useCounter } from '../hooks/useCounter';
 import { useScrollReveal, useStaggerReveal } from '../hooks/useScrollReveal';
 import Photo from '../components/Photo';
@@ -518,6 +519,10 @@ export default function Home() {
   // Which category's detail panel is open (null = none). Set by clicking a
   // category card in the "Seven categories" section.
   const [openCategory, setOpenCategory] = useState(null);
+
+  // Without this, the page behind this fixed-position modal can still be
+  // drag-scrolled on iOS while the modal itself stays put on screen.
+  useBodyScrollLock(Boolean(openCategory));
 
   // Which landing-page FAQ answer is expanded (-1 = all closed).
   const [openFaq, setOpenFaq] = useState(0);

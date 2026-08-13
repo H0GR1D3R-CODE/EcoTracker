@@ -34,6 +34,8 @@ import { useTheme } from '../context/ThemeContext';
 import SelectField from '../components/SelectField';
 import { EMAIL_ERROR, EMAIL_PATTERN, NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
 import { isNativeApp } from '../utils/platform';
+import { executeRecaptcha } from '../utils/recaptcha';
+import RecaptchaNotice from '../components/RecaptchaNotice';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const TOTAL_STEPS = 3;
@@ -238,11 +240,14 @@ export default function Register() {
     setSubmitting(true);
 
     try {
+      const recaptchaToken = await executeRecaptcha('register');
+
       await register({
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
         password: form.password,
         region: form.region,
+        recaptchaToken,
       });
 
       // No welcome text here either - same reasoning as Login.jsx, the
@@ -809,6 +814,8 @@ export default function Register() {
             )}
           </div>
         </form>
+
+        <RecaptchaNotice />
 
         <p
           className="eco-text-muted"

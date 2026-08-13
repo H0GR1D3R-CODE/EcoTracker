@@ -376,7 +376,7 @@ export default function Goals() {
             animate={{ opacity: 1, height: 'auto' }}
             exit={prefersReducedMotion ? {} : { opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            style={{ overflow: 'hidden', marginBottom: '1.5rem' }}
+            style={{ overflow: 'hidden', marginBottom: '2.5rem' }}
           >
             {/* The form keeps its card - it is the control surface of the page -
                 but loses .eco-card-accent, whose fixed gradient strip had
@@ -610,7 +610,7 @@ export default function Goals() {
                       border: 'none',
                       color: 'var(--eco-text-muted)',
                       cursor: 'pointer',
-                      padding: 6,
+                      padding: 10, // 44px-ish tap target, not ~27px
                       display: 'flex',
                     }}
                   >
@@ -771,7 +771,7 @@ export default function Goals() {
                     border: 'none',
                     color: 'var(--eco-text-muted)',
                     cursor: 'pointer',
-                    padding: 6,
+                    padding: 10, // 44px-ish tap target, not ~27px
                     display: 'flex',
                   }}
                 >

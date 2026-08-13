@@ -299,6 +299,13 @@
 html {
   /* Makes anchor links glide instead of jumping */
   scroll-behavior: smooth;
+  /* Without this, iOS Safari and Android Chrome both flash a default grey
+     box over whatever was tapped - a link, a button, a card - before any of
+     this file's own colours get a say. It clashes hard against the dark
+     theme in particular. Buttons and links already have their own
+     :hover/:active/:focus-visible treatment, so nothing is lost by turning
+     the browser's own flash off. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -504,9 +511,16 @@ a:hover {
    shadow - a sheet of paper does not levitate when you look at it, and a grid
    of cards that each rise 5px on hover is exactly the restlessness this
    rebuild is removing. */
-.eco-card-hover:hover {
-  background: var(--eco-card-hover);
-  border-color: var(--rule-strong);
+/* (hover: hover) and (pointer: fine) - guards every hover rule in this file
+   against iOS/Android touch. Without it, a tap "applies" :hover and it can
+   stick, visually highlighted, until the next unrelated tap elsewhere on
+   the page - there is no hover to leave on a touchscreen, so the browser
+   just never fires the un-hover. */
+@media (hover: hover) and (pointer: fine) {
+  .eco-card-hover:hover {
+    background: var(--eco-card-hover);
+    border-color: var(--rule-strong);
+  }
 }
 
 /* The arrow inside a button nudges forward on hover. It is 3px, it happens
@@ -789,8 +803,10 @@ a:hover {
   transition: background-color var(--eco-transition);
 }
 
-.eco-table tbody tr:hover {
-  background: rgba(var(--eco-primary-rgb), 0.07);
+@media (hover: hover) and (pointer: fine) {
+  .eco-table tbody tr:hover {
+    background: rgba(var(--eco-primary-rgb), 0.07);
+  }
 }
 
 /* Wrap wide tables in this so they scroll instead of breaking the layout */
@@ -975,10 +991,12 @@ a:hover {
   position: relative;
 }
 
-.eco-nav-link:hover {
-  color: var(--eco-text);
-  background: rgba(var(--eco-primary-rgb), 0.07);
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .eco-nav-link:hover {
+    color: var(--eco-text);
+    background: rgba(var(--eco-primary-rgb), 0.07);
+    opacity: 1;
+  }
 }
 
 .eco-nav-link-active {
@@ -1016,14 +1034,24 @@ a:hover {
   color: var(--eco-primary);
 }
 
+/* Google reCAPTCHA v3's default floating badge sits bottom-right - the same
+   corner as .eco-assistant-fab below, and Donate is reachable while signed
+   in, so the two could stack on top of each other. Google's terms allow
+   hiding the badge as long as the required attribution text appears near
+   the form instead (see the three forms that call executeRecaptcha() in
+   frontend/src/utils/recaptcha.js), which is the safer choice here. */
+.grecaptcha-badge {
+  visibility: hidden;
+}
+
 /* ===========================================================================
    ASSISTANT (floating chat)
    =========================================================================== */
 
 .eco-assistant-fab {
   position: fixed;
-  right: 1.5rem;
-  bottom: 1.5rem;
+  right: calc(1.5rem + env(safe-area-inset-right, 0px));
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   /* Below the mobile bottom nav (1040) so it can never cover navigation */
   z-index: 1035;
   width: 54px;
@@ -1041,9 +1069,9 @@ a:hover {
 
 .eco-assistant-panel {
   position: fixed;
-  right: 1.5rem;
+  right: calc(1.5rem + env(safe-area-inset-right, 0px));
   /* Sits just above the floating button */
-  bottom: calc(1.5rem + 54px + 0.75rem);
+  bottom: calc(1.5rem + 54px + 0.75rem + env(safe-area-inset-bottom, 0px));
   z-index: 1035;
   width: 380px;
   /* Tall enough to hold a conversation, short enough to never run off screen */
@@ -1053,19 +1081,31 @@ a:hover {
   padding: 1.1rem;
 }
 
-/* On phones the panel goes full width and lifts clear of the bottom nav */
-@media (max-width: 560px) {
+/* On phones the panel goes full width and lifts clear of the bottom nav.
+   768px, not 560px: that used to leave a gap where the bottom nav is
+   already showing (it switches on at 768px, same breakpoint used
+   throughout this file) but the FAB was still sitting at its desktop
+   bottom:1.5rem coordinate - overlapping the nav bar on any phone in
+   landscape, or a smaller tablet, between 560 and 768px wide. */
+@media (max-width: 768px) {
   .eco-assistant-fab {
-    right: 1rem;
-    bottom: 86px;
+    right: calc(1rem + env(safe-area-inset-right, 0px));
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
   }
 
   .eco-assistant-panel {
-    right: 0.75rem;
-    left: 0.75rem;
+    right: calc(0.75rem + env(safe-area-inset-right, 0px));
+    left: calc(0.75rem + env(safe-area-inset-left, 0px));
     width: auto;
-    bottom: calc(86px + 54px + 0.6rem);
+    bottom: calc(86px + 54px + 0.6rem + env(safe-area-inset-bottom, 0px));
     height: min(460px, calc(100dvh - 260px));
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .eco-assistant-starter-btn:hover {
+    border-color: rgba(var(--eco-primary-rgb), 0.4);
+    background: rgba(var(--eco-primary-rgb), 0.06);
   }
 }
 
@@ -1117,9 +1157,11 @@ a:hover {
   color: var(--eco-text) !important;
 }
 
-.react-datepicker__day:hover {
-  background-color: rgba(var(--eco-primary-rgb), 0.2) !important;
-  border-radius: 6px !important;
+@media (hover: hover) and (pointer: fine) {
+  .react-datepicker__day:hover {
+    background-color: rgba(var(--eco-primary-rgb), 0.2) !important;
+    border-radius: 6px !important;
+  }
 }
 
 .react-datepicker__day--selected,
@@ -1304,9 +1346,11 @@ a:hover {
   will-change: transform;
 }
 
-.eco-photo-card:hover .eco-photo-cover,
-.eco-photo-zoom:hover .eco-photo-cover {
-  transform: scale(1.06);
+@media (hover: hover) and (pointer: fine) {
+  .eco-photo-card:hover .eco-photo-cover,
+  .eco-photo-zoom:hover .eco-photo-cover {
+    transform: scale(1.06);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1449,8 +1493,10 @@ a:hover {
   transition: color 0.18s ease;
 }
 
-.eco-footer-link:hover {
-  color: var(--eco-primary);
+@media (hover: hover) and (pointer: fine) {
+  .eco-footer-link:hover {
+    color: var(--eco-primary);
+  }
 }
 
 /* Footer columns collapse gracefully on smaller screens */
