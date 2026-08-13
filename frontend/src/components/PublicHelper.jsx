@@ -48,7 +48,7 @@ const TOPICS = [
       'Seven categories: Transport, Electricity, Fuel, Diet, Waste, Water and Consumption. Click any of the category cards on this page to see exactly what each one measures and the factors behind it.',
   },
   {
-    keywords: ['goal', 'target', 'reduce', 'reduction'],
+    keywords: ['goal', 'goals', 'target', 'reduce', 'reduction'],
     question: 'How do goals work?',
     answer:
       'Goals are set per category — for example, "cut my transport emissions 25% by December". A per-category target tells you what to actually change, which a single overall target never does. The Goals page shows a live progress ring for each one.',
@@ -60,7 +60,7 @@ const TOPICS = [
       'A report is a written summary of any period you choose — this month, this year, or a custom range. It breaks down where your carbon went, names your heaviest day, and can be printed or saved as a PDF.',
   },
   {
-    keywords: ['free', 'cost', 'price', 'pay', 'money', 'subscription'],
+    keywords: ['free', 'cost', 'price', 'pay', 'payment', 'money', 'subscription'],
     question: 'Is it free?',
     answer:
       'Yes — EcoTrack is completely free. Create an account and start tracking.',
@@ -73,10 +73,44 @@ const TOPICS = [
       'Your data is yours alone. Sign-in is handled by Firebase Authentication, and every request to the server is verified against your identity before any data is read — so no one can see another person’s footprint.',
   },
   {
-    keywords: ['login', 'log in', 'sign in', 'existing'],
+    keywords: ['login', 'log in', 'sign in', 'existing', 'already', 'already have'],
     question: 'I already have an account',
     answer: 'Welcome back — head to the login page to pick up where you left off.',
     link: { to: '/login', label: 'Log in' },
+  },
+  {
+    keywords: ['donate', 'donation', 'give', 'giving', 'support', 'charity', 'contribute'],
+    question: 'How do I donate?',
+    answer:
+      'The Donate page forwards your gift straight to real climate organisations — One Tree Planted, Cool Earth, Clean Air Task Force and Gold Standard. EcoTrack keeps nothing. Card details go to Razorpay directly; EcoTrack never sees them.',
+    link: { to: '/donate', label: 'Support EcoTrack' },
+  },
+  {
+    keywords: ['estimate', 'guess', 'without an account', 'try it first', 'before i sign up', 'no account'],
+    question: 'Can I try it without an account?',
+    answer:
+      'Yes — the Estimate page gives you a rough footprint from four quick lifestyle questions, no login needed, in about 30 seconds. It is a rough guess, not the real thing: creating an account and logging actual activities in the Calculator gives you a precise, ongoing number instead.',
+    link: { to: '/estimate', label: 'Try the estimate' },
+  },
+  {
+    keywords: ['feedback', 'contact', 'suggestion', 'bug', 'complain', 'reach', 'get in touch'],
+    question: 'How do I send feedback?',
+    answer:
+      'The Feedback page takes a message and an optional star rating — no account needed, and a real person reads it.',
+    link: { to: '/feedback', label: 'Send feedback' },
+  },
+  {
+    keywords: ['forgot', 'reset password', 'locked out', "can't log in", 'cant log in', 'cannot log in'],
+    question: 'I forgot my password',
+    answer:
+      'The Login page has a "Forgot password?" link that emails you a reset link — it works even for an account you have not opened in a while.',
+    link: { to: '/login', label: 'Go to login' },
+  },
+  {
+    keywords: ['mobile app', 'phone app', 'android', 'ios', 'iphone', 'install', 'home screen', 'app store'],
+    question: 'Is there a mobile app?',
+    answer:
+      'EcoTrack works fully on mobile in your browser, and you can install it like a real app with no store and no download: open the site on your phone and choose "Add to Home Screen" (Safari) or the install prompt (Chrome). It gets its own icon and opens full-screen from there.',
   },
 ];
 
@@ -86,10 +120,48 @@ const OPENERS = [
   'How do I get started?',
   'How are emissions calculated?',
   'Is it free?',
+  'How do I donate?',
 ];
 
 /**
+ * Whether a single keyword counts as present in a query.
+ *
+ * THE BUG THIS FIXES: raw `query.includes(keyword)` treats a keyword as
+ * matching anywhere it appears, including buried inside an unrelated word.
+ * The keyword 'do' (meant to catch "what do you do") matched inside "how to
+ * DOnate", and because nothing else in the whole topic list scored higher,
+ * the bot confidently answered "What is EcoTrack?" for a donation question
+ * instead of admitting it did not know - a wrong answer stated with the same
+ * confidence as a right one, which is worse than the honest fallback.
+ *
+ * Short keywords (<=3 letters: 'do', 'kg', 'pdf', ...) are exactly where this
+ * bites, because a 2-3 letter fragment is likely to occur inside some
+ * unrelated word purely by chance. Longer keywords are mostly used here as
+ * deliberate word STEMS ('categor' for category/categories, 'calculat' for
+ * calculate/calculated), so they still need substring matching to work as
+ * intended - only the short, whole-word-only keywords get the stricter check.
+ */
+function keywordMatches(query, keyword) {
+  if (keyword.includes(' ') || keyword.length > 3) {
+    return query.includes(keyword);
+  }
+  return new RegExp(`\\b${keyword}\\b`, 'i').test(query);
+}
+
+/**
  * Find the best matching topic for a free-text question, or null if none match.
+ *
+ * Scored by SUMMED KEYWORD LENGTH, not match count. A plain match-count score
+ * (the original approach) treats a hit on 'do' the same as a hit on 'donate'
+ * or 'feedback' - so "how do I donate" scored the generic "what is EcoTrack"
+ * topic (which owns 'do') and the actual Donate topic (which owns 'donate')
+ * as an exact tie, and since ties went to whichever topic happened to sit
+ * earlier in the TOPICS array, the generic answer kept winning against
+ * clearly more relevant ones. Weighting by length means a specific word like
+ * 'donate' (6) or 'feedback' (8) outweighs a filler word like 'do' (2) or
+ * 'what' (4) that shows up in almost any phrasing of any question - verified
+ * against a real set of previously-misrouted questions before landing on
+ * this over the simpler count-based version.
  */
 function matchTopic(text) {
   const query = text.toLowerCase();
@@ -98,9 +170,8 @@ function matchTopic(text) {
   let bestScore = 0;
 
   for (const topic of TOPICS) {
-    // Score by how many of the topic's keywords appear in the question
     const score = topic.keywords.reduce(
-      (count, keyword) => (query.includes(keyword) ? count + 1 : count),
+      (total, keyword) => (keywordMatches(query, keyword) ? total + keyword.length : total),
       0
     );
     if (score > bestScore) {
@@ -144,7 +215,7 @@ export default function PublicHelper() {
       : {
           role: 'bot',
           answer:
-            'I can help with getting started, how emissions are calculated, the seven categories, goals, reports, privacy, and pricing. Try one of those, or the suggestions below.',
+            'I can help with getting started, how emissions are calculated, the seven categories, goals, reports, donations, the no-login estimate, feedback, privacy, and pricing. Try one of those, or the suggestions below.',
         };
 
     setMessages((current) => [...current, { role: 'user', text }, reply]);
