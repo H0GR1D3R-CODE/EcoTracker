@@ -12,10 +12,18 @@ import { AlertTriangle, RotateCw } from 'lucide-react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
-import Assistant from './components/Assistant';
 import PublicHelper from './components/PublicHelper';
 import CookieConsent from './components/CookieConsent';
 import { useTheme } from './context/ThemeContext';
+import { useAuth } from './context/AuthContext';
+
+// Lazy AND conditionally mounted (see the render below) rather than the
+// plain eager import this used to be. Pulling in react-markdown to render
+// its replies properly made this component's own weight big enough that it
+// no longer belonged in the bundle every visitor downloads just to load the
+// homepage - the same reasoning the page-level lazy() calls below already
+// follow, just applied to a component instead of a route.
+const Assistant = lazy(() => import('./components/Assistant'));
 
 import LoadingSpinner from './components/LoadingSpinner';
 
@@ -178,6 +186,7 @@ function MotionPage({ children }) {
 
 export default function App() {
   const location = useLocation();
+  const { user } = useAuth();
 
   // The thin loading bar across the top when moving between pages.
   // Route changes are instant in a single page app, so a brief flash of the bar
@@ -312,10 +321,16 @@ export default function App() {
       <Footer />
 
       {/* Two floating helpers, but only ever one on screen at a time:
-          - Assistant: the AI helper, for signed-in users (returns null otherwise)
+          - Assistant: the AI helper, for signed-in users - only mounted (and
+            its chunk only fetched) once `user` is actually truthy, so a
+            signed-out visitor never downloads it at all
           - PublicHelper: the rule-based guide, for signed-out visitors
           Each renders null unless it is the right one for the current visitor. */}
-      <Assistant />
+      {user && (
+        <Suspense fallback={null}>
+          <Assistant />
+        </Suspense>
+      )}
       <PublicHelper />
       <CookieConsent />
     </>

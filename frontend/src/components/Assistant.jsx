@@ -28,10 +28,147 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, Bot, Loader2, Send, Sparkles, User, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { assistantApi, getErrorMessage } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+
+// The assistant now genuinely answers anything (see the backend's own
+// ASSISTANT_INSTRUCTIONS), which means real code blocks, lists and tables in
+// its replies - plain text with pre-wrap could not show any of that as
+// anything but literal asterisks and pound signs. remark-gfm adds tables,
+// strikethrough and autolinks on top of core markdown. User-typed messages
+// deliberately are NOT run through this - there is no reason to interpret
+// someone's own question as markdown, and it avoids a stray "*" in a
+// question rendering oddly.
+const MARKDOWN_COMPONENTS = {
+  p: ({ children }) => <p style={{ margin: '0 0 0.6rem' }}>{children}</p>,
+  ul: ({ children }) => (
+    <ul style={{ margin: '0 0 0.6rem', paddingLeft: '1.2rem' }}>{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol style={{ margin: '0 0 0.6rem', paddingLeft: '1.2rem' }}>{children}</ol>
+  ),
+  li: ({ children }) => <li style={{ margin: '0.2rem 0' }}>{children}</li>,
+  strong: ({ children }) => (
+    <strong style={{ color: 'var(--eco-text)', fontWeight: 700 }}>{children}</strong>
+  ),
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--eco-primary)' }}>
+      {children}
+    </a>
+  ),
+  h1: ({ children }) => (
+    <div className="eco-display" style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0.4rem 0' }}>
+      {children}
+    </div>
+  ),
+  h2: ({ children }) => (
+    <div className="eco-display" style={{ fontSize: '1rem', fontWeight: 700, margin: '0.4rem 0' }}>
+      {children}
+    </div>
+  ),
+  h3: ({ children }) => (
+    <div className="eco-display" style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0.4rem 0' }}>
+      {children}
+    </div>
+  ),
+  // A fenced code block (```) arrives as <pre><code>; an inline `code` span
+  // arrives as just <code> with no <pre> parent - `inline` tells them apart.
+  code: ({ inline, className, children }) => {
+    if (inline) {
+      return (
+        <code
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.85em',
+            background: 'rgba(var(--eco-primary-rgb), 0.1)',
+            padding: '0.1em 0.35em',
+            borderRadius: 4,
+          }}
+        >
+          {children}
+        </code>
+      );
+    }
+    // The language-xxx class react-markdown attaches, shown as a small label
+    // above the block rather than run through a syntax highlighter - a real
+    // highlighter is a lot of extra weight for a chat panel this size.
+    const language = /language-(\w+)/.exec(className || '')?.[1];
+    return (
+      <div style={{ margin: '0 0 0.6rem' }}>
+        {language && (
+          <div
+            className="eco-marker"
+            style={{ fontSize: '0.65rem', marginBottom: '0.2rem', opacity: 0.7 }}
+          >
+            {language}
+          </div>
+        )}
+        <pre
+          style={{
+            margin: 0,
+            padding: '0.7rem 0.85rem',
+            borderRadius: 'var(--eco-radius-sm)',
+            background: 'var(--eco-bg)',
+            border: '1px solid var(--eco-border)',
+            overflowX: 'auto',
+          }}
+        >
+          <code
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.8rem',
+              lineHeight: 1.5,
+              whiteSpace: 'pre',
+            }}
+          >
+            {children}
+          </code>
+        </pre>
+      </div>
+    );
+  },
+  table: ({ children }) => (
+    <div style={{ overflowX: 'auto', margin: '0 0 0.6rem' }}>
+      <table style={{ borderCollapse: 'collapse', fontSize: '0.82rem', width: '100%' }}>
+        {children}
+      </table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th
+      style={{
+        textAlign: 'left',
+        padding: '0.35rem 0.6rem',
+        borderBottom: '2px solid var(--eco-border)',
+        fontWeight: 700,
+      }}
+    >
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td style={{ padding: '0.35rem 0.6rem', borderBottom: '1px solid var(--eco-border)' }}>
+      {children}
+    </td>
+  ),
+};
+
+function MessageContent({ role, content }) {
+  if (role === 'user') {
+    // Preserves real line breaks in what the person typed, same as before.
+    return <div style={{ whiteSpace: 'pre-wrap' }}>{content}</div>;
+  }
+
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+      {content}
+    </ReactMarkdown>
+  );
+}
 
 // Shown when the conversation is empty, to give people a way in
 const STARTER_QUESTIONS = [
@@ -335,7 +472,12 @@ export default function Assistant() {
 
                     <div
                       style={{
-                        maxWidth: '80%',
+                        // Wider than a user bubble needs, since a real reply
+                        // can now contain a code block or a table - a plain
+                        // sentence still wraps at whatever width its own text
+                        // needs, this is only ever a ceiling.
+                        maxWidth: isUser ? '80%' : '92%',
+                        minWidth: 0,
                         padding: '0.65rem 0.85rem',
                         borderRadius: 'var(--eco-radius-sm)',
                         background: isUser
@@ -343,13 +485,10 @@ export default function Assistant() {
                           : 'var(--eco-bg-alt)',
                         fontSize: '0.87rem',
                         lineHeight: 1.6,
-                        // The reply is plain text with real line breaks; this
-                        // preserves them without needing a markdown renderer
-                        whiteSpace: 'pre-wrap',
                         wordBreak: 'break-word',
                       }}
                     >
-                      {message.content}
+                      <MessageContent role={message.role} content={message.content} />
                     </div>
                   </motion.div>
                 );
@@ -408,7 +547,7 @@ export default function Assistant() {
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about your footprint…"
+                placeholder="Ask about your footprint, or anything else…"
                 rows={1}
                 disabled={sending}
                 style={{
