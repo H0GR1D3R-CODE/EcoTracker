@@ -206,6 +206,124 @@ def send_password_reset_email(recipient_email, reset_link):
 
 
 # ---------------------------------------------------------------------------
+# TWO-STEP VERIFICATION CODE
+#
+# Sent from routes/auth.py's login() when the signing-in account has 2FA
+# turned on (see Profile). No animation like the other two emails: the code
+# itself is the whole point of opening this email fast, so the design puts it
+# straight in a large mono readout - the exact same visual language
+# (--readout amber, tabular-nums) the live app uses for every measured
+# number - rather than making someone wait on an illustration first.
+# ---------------------------------------------------------------------------
+
+
+def _two_factor_email_html(code):
+    """The branded HTML body for a two-step verification code email."""
+    spaced_code = " ".join(code)  # "482913" -> "4 8 2 9 1 3", easier to read at a glance
+    return f"""\
+<!doctype html>
+<html>
+  <body style="margin:0; padding:32px 16px; background-color:#f5f3ec; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; margin:0 auto;">
+      <tr>
+        <td style="padding-bottom:28px; text-align:center;">
+          <span style="font-size:22px; font-weight:700; color:#1f7a44; letter-spacing:-0.02em;">
+            &#127807; EcoTrack
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="background-color:#fdfcf8; border:1px solid rgba(31,42,26,0.12); border-radius:14px; padding:36px 32px; text-align:center;">
+          <p style="margin:0 0 8px; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:#5f6b58;">
+            Two-step verification
+          </p>
+          <h1 style="margin:0 0 20px; font-size:24px; line-height:1.3; font-weight:700; color:#1e2a1d;">
+            Your sign-in code
+          </h1>
+          <p style="margin:0 0 24px; font-size:14px; line-height:1.6; color:#5f6b58;">
+            Enter this code on the sign-in screen to finish getting into your EcoTrack account.
+          </p>
+          <div style="margin:0 0 24px; padding:18px; background-color:#f5f3ec; border-radius:10px; font-family:'Courier New',Courier,monospace; font-size:34px; font-weight:700; letter-spacing:0.15em; color:#966000;">
+            {spaced_code}
+          </div>
+          <p style="margin:0; font-size:13px; line-height:1.6; color:#5f6b58;">
+            This code expires in 10 minutes and can only be used once. If you
+            did not just try to sign in to EcoTrack, you can safely ignore this
+            email - your account is still secure.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-top:24px; text-align:center;">
+          <p style="margin:0; font-size:12px; color:#5f6b58;">
+            EcoTrack &middot; measure your footprint, then bring it down &middot; built around UN SDG&nbsp;13
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+
+
+def _two_factor_email_text(code):
+    return (
+        f"Your EcoTrack sign-in code is: {code}\n\n"
+        f"Enter it on the sign-in screen to finish getting into your account. "
+        f"It expires in 10 minutes and can only be used once.\n\n"
+        f"If you did not just try to sign in to EcoTrack, you can safely ignore "
+        f"this email - your account is still secure."
+    )
+
+
+def send_two_factor_code_email(recipient_email, code):
+    """
+    Send a two-step verification code through Resend.
+
+    Same degrade-honestly shape as send_password_reset_email(): returns False
+    with no network call when RESEND_API_KEY is not set, and False on any send
+    failure. UNLIKE the other two emails, the caller (routes/auth.py's login())
+    does NOT treat False as "fall back to a different delivery path" - there is
+    no equivalent to Firebase's own reset email for a one-off numeric code, so
+    it treats False as "the code could not be delivered, do not gate this
+    sign-in on a code nobody can receive" and lets the sign-in through instead.
+    A half-delivered security feature that permanently locks someone out of
+    their own account is worse than the feature not applying that one time -
+    the same reasoning RECAPTCHA_SECRET_KEY and GEMINI_API_KEY already use
+    elsewhere in this backend.
+    """
+    if not Config.RESEND_API_KEY:
+        return False
+
+    payload = {
+        "from": Config.RESEND_FROM_EMAIL,
+        "to": [recipient_email],
+        "subject": f"{code} is your EcoTrack verification code",
+        "html": _two_factor_email_html(code),
+        "text": _two_factor_email_text(code),
+    }
+
+    try:
+        response = requests.post(
+            RESEND_API_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {Config.RESEND_API_KEY}"},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException:
+        return False
+
+    if response.status_code >= 200 and response.status_code < 300:
+        return True
+
+    print(
+        f"[EcoTrack] Resend could not send the verification code email "
+        f"(HTTP {response.status_code}): {response.text[:300]}"
+    )
+    return False
+
+
+# ---------------------------------------------------------------------------
 # DONATION THANK-YOU EMAIL
 #
 # Sent from routes/payments.py's verify_payment(), best-effort, only once a

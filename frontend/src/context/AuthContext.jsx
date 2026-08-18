@@ -70,6 +70,13 @@ function friendlyAuthError(error) {
   return messages[code] || error?.message || 'Authentication failed. Please try again.';
 }
 
+// Survives a page refresh mid-2FA-check: Firebase's own session is already
+// valid by that point (see the TWO-STEP VERIFICATION note below on why), so
+// without this a refresh on the "enter your code" screen would silently drop
+// the person straight past it. Keyed by uid so switching accounts on the same
+// browser can never carry a stale pending-2FA flag over to someone else.
+const TWO_FACTOR_PENDING_KEY = 'eco_2fa_pending_uid';
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);        // Firebase account
   const [profile, setProfile] = useState(null);  // Firestore profile from Flask
@@ -80,6 +87,19 @@ export function AuthProvider({ children }) {
   // this, a failed fetch would leave profile as null and ProtectedRoute would
   // show a loading spinner that never goes away.
   const [profileError, setProfileError] = useState(null);
+
+  // ---- two-step verification ----
+  // Firebase has already fully signed this person in by the time this
+  // becomes true - onAuthStateChanged fires the moment signInWithEmailAndPassword
+  // resolves, well before this app decides whether to hand over their
+  // profile. twoFactorPending is this app's OWN gate on top of that: while
+  // true, ProtectedRoute sends every protected page to /verify-2fa instead
+  // of rendering it, exactly like it already does for "no profile yet". This
+  // is convenience, not a security boundary of its own - see the matching
+  // comment on backend/routes/auth.py's verify_two_factor() for what it
+  // actually adds and what it does not.
+  const [twoFactorPending, setTwoFactorPending] = useState(false);
+  const [twoFactorEmail, setTwoFactorEmail] = useState('');
 
   /**
    * Fetch the Firestore profile for whoever is currently signed in.
@@ -121,9 +141,20 @@ export function AuthProvider({ children }) {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        await refreshProfile();
+        // A pending-2FA flag left over from before this refresh, for THIS
+        // exact account - restore the gate instead of fetching the profile,
+        // which would otherwise hand over full access without the code ever
+        // being checked.
+        if (sessionStorage.getItem(TWO_FACTOR_PENDING_KEY) === firebaseUser.uid) {
+          setTwoFactorPending(true);
+          setTwoFactorEmail(firebaseUser.email || '');
+        } else {
+          await refreshProfile();
+        }
       } else {
         setProfile(null);
+        setTwoFactorPending(false);
+        sessionStorage.removeItem(TWO_FACTOR_PENDING_KEY);
       }
 
       // Only now is it safe for ProtectedRoute to decide anything. Before this
@@ -174,7 +205,34 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
+   * Handle POST /api/auth/login's response, whichever shape it comes back in.
+   *
+   * Shared by login() and loginWithGoogle(): both reach this exact same fork
+   * once Firebase itself has already succeeded, so the two-step-verification
+   * branch only needs writing once. See the twoFactorPending state comment
+   * above for what the flag actually means.
+   */
+  const handleLoginResponse = useCallback((data, fallbackEmail) => {
+    if (data?.twoFactorRequired) {
+      const email = data.email || fallbackEmail || '';
+      setTwoFactorEmail(email);
+      setTwoFactorPending(true);
+      if (auth.currentUser) {
+        sessionStorage.setItem(TWO_FACTOR_PENDING_KEY, auth.currentUser.uid);
+      }
+      return { twoFactorRequired: true, email };
+    }
+
+    setProfile(data);
+    return { twoFactorRequired: false };
+  }, []);
+
+  /**
    * Sign in an existing user.
+   *
+   * Returns {twoFactorRequired: true} instead of the profile when the
+   * account has two-step verification on - Login.jsx checks this to decide
+   * whether to head to /dashboard or /verify-2fa next.
    */
   const login = useCallback(async ({ email, password }) => {
     let credential;
@@ -190,12 +248,11 @@ export function AuthProvider({ children }) {
     try {
       const idToken = await credential.user.getIdToken();
       const data = await authApi.login(idToken);
-      setProfile(data);
-      return data;
+      return handleLoginResponse(data, email);
     } catch (error) {
       throw new Error(getErrorMessage(error, 'Could not load your profile.'));
     }
-  }, []);
+  }, [handleLoginResponse]);
 
   /**
    * Sign in with Google, for both new and returning people.
@@ -229,10 +286,68 @@ export function AuthProvider({ children }) {
     try {
       const idToken = await credential.user.getIdToken();
       const data = await authApi.login(idToken);
+      return handleLoginResponse(data, credential.user.email);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Could not load your profile.'));
+    }
+  }, [handleLoginResponse]);
+
+  /**
+   * Submit the 6-digit code from the two-step-verification email.
+   *
+   * On success, this is the moment the profile withheld by login()/
+   * loginWithGoogle() finally arrives - clearing twoFactorPending is what lets
+   * ProtectedRoute through to the real app.
+   */
+  const verifyTwoFactorCode = useCallback(async (code) => {
+    try {
+      const data = await authApi.verifyTwoFactorCode(code);
+      setProfile(data);
+      setTwoFactorPending(false);
+      setTwoFactorEmail('');
+      sessionStorage.removeItem(TWO_FACTOR_PENDING_KEY);
+      return data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Could not verify that code.'));
+    }
+  }, []);
+
+  /** Ask for a fresh code - the last one issued (at login, or by a previous call to this) stops working. */
+  const resendTwoFactorCode = useCallback(async () => {
+    try {
+      const result = await authApi.resendTwoFactorCode();
+      return Boolean(result?.sent);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Could not send a new code.'));
+    }
+  }, []);
+
+  /**
+   * Give up on the code and back out entirely.
+   *
+   * There is no partial state to unwind to: Firebase already holds a fully
+   * valid session (see twoFactorPending's own comment), so the only honest
+   * way to actually stop being signed in is a real sign-out, not just
+   * clearing the pending flag - that would just silently drop the person into
+   * the app with the check skipped.
+   */
+  const cancelTwoFactor = useCallback(async () => {
+    sessionStorage.removeItem(TWO_FACTOR_PENDING_KEY);
+    setTwoFactorPending(false);
+    setTwoFactorEmail('');
+    await signOut(auth);
+  }, []);
+
+  /**
+   * Turn two-step verification on or off from Profile.
+   */
+  const setTwoFactorEnabled = useCallback(async (enabled) => {
+    try {
+      const data = await authApi.setTwoFactor(enabled);
       setProfile(data);
       return data;
     } catch (error) {
-      throw new Error(getErrorMessage(error, 'Could not load your profile.'));
+      throw new Error(getErrorMessage(error, 'Could not update two-step verification.'));
     }
   }, []);
 
@@ -323,6 +438,9 @@ export function AuthProvider({ children }) {
     try {
       await signOut(auth);
       setProfile(null);
+      setTwoFactorPending(false);
+      setTwoFactorEmail('');
+      sessionStorage.removeItem(TWO_FACTOR_PENDING_KEY);
     } catch (error) {
       throw new Error(friendlyAuthError(error));
     }
@@ -353,6 +471,8 @@ export function AuthProvider({ children }) {
       // Hiding the admin link is convenience, not security: every admin route
       // re-checks the admins collection server-side on every request.
       isAdmin: Boolean(profile?.isAdmin),
+      twoFactorPending,
+      twoFactorEmail,
       register,
       login,
       loginWithGoogle,
@@ -361,12 +481,18 @@ export function AuthProvider({ children }) {
       refreshProfile,
       resetPassword,
       changePassword,
+      verifyTwoFactorCode,
+      resendTwoFactorCode,
+      cancelTwoFactor,
+      setTwoFactorEnabled,
     }),
     [
       user,
       profile,
       loading,
       profileError,
+      twoFactorPending,
+      twoFactorEmail,
       register,
       login,
       loginWithGoogle,
@@ -374,6 +500,10 @@ export function AuthProvider({ children }) {
       updateProfile,
       refreshProfile,
       resetPassword,
+      verifyTwoFactorCode,
+      resendTwoFactorCode,
+      cancelTwoFactor,
+      setTwoFactorEnabled,
       changePassword,
     ]
   );

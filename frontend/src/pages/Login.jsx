@@ -18,7 +18,7 @@ import { isNativeApp } from '../utils/platform';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 
 export default function Login() {
-  const { login, resetPassword, user, loading, isAdmin } = useAuth();
+  const { login, resetPassword, user, loading, isAdmin, twoFactorPending } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,12 +48,17 @@ export default function Login() {
   const redirectTo = location.state?.from?.pathname || '/dashboard';
 
   // Someone already signed in has no reason to see this page. Admins go to
-  // their console, everyone else to wherever they were headed.
+  // their console, everyone else to wherever they were headed - unless a code
+  // is still outstanding, in which case Firebase already considers them
+  // signed in but this app does not yet: send them to finish that first.
   useEffect(() => {
-    if (!loading && user) {
-      navigate(isAdmin ? '/admin' : redirectTo, { replace: true });
+    if (loading || !user) return;
+    if (twoFactorPending) {
+      navigate('/verify-2fa', { replace: true });
+      return;
     }
-  }, [user, loading, isAdmin, navigate, redirectTo]);
+    navigate(isAdmin ? '/admin' : redirectTo, { replace: true });
+  }, [user, loading, isAdmin, twoFactorPending, navigate, redirectTo]);
 
   // --- validation, recalculated on every render so it is always current ---
   const errors = {
@@ -91,12 +96,16 @@ export default function Login() {
     setSubmitting(true);
 
     try {
-      const profile = await login({ email: form.email.trim(), password: form.password });
+      const result = await login({ email: form.email.trim(), password: form.password });
+      if (result?.twoFactorRequired) {
+        navigate('/verify-2fa', { replace: true });
+        return;
+      }
       // No "welcome back" toast here - the dashboard's own banner says exactly
       // that a moment later, and saying it twice in two different places felt
       // like two different systems greeting you rather than one.
       // The admin account is admin-only, so send it straight to the console
-      navigate(profile?.isAdmin ? '/admin' : redirectTo, { replace: true });
+      navigate(result?.isAdmin ? '/admin' : redirectTo, { replace: true });
     } catch (error) {
       // AuthContext has already turned Firebase's raw code into a readable message
       toast.error(error.message);
@@ -357,7 +366,9 @@ export default function Login() {
             perverse. It signs in existing accounts and creates new ones. */}
         <GoogleSignInButton
           label="Sign in with Google"
-          onDone={() => navigate(redirectTo, { replace: true })}
+          onDone={(result) =>
+            navigate(result?.twoFactorRequired ? '/verify-2fa' : redirectTo, { replace: true })
+          }
         />
 
         {!isNativeApp() && (

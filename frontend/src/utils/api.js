@@ -188,6 +188,12 @@ export const authApi = {
   // unavailable (no RESEND_API_KEY on the server); AuthContext.resetPassword()
   // treats that as the cue to fall back to Firebase's own email, not an error.
   forgotPassword: (email) => api.post('/api/auth/forgot-password', { email }).then(unwrap),
+
+  // Two-step verification - see AuthContext's own comment on how these three
+  // fit together with login()'s twoFactorRequired response.
+  setTwoFactor: (enabled) => api.put('/api/auth/2fa', { enabled }).then(unwrap),
+  resendTwoFactorCode: () => api.post('/api/auth/2fa/resend').then(unwrap),
+  verifyTwoFactorCode: (code) => api.post('/api/auth/2fa/verify', { code }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

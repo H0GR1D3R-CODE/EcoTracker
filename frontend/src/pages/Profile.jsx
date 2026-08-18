@@ -77,7 +77,7 @@ const REGIONS = [
 ];
 
 export default function Profile() {
-  const { user, profile, isAdmin, updateProfile, changePassword } = useAuth();
+  const { user, profile, isAdmin, updateProfile, changePassword, setTwoFactorEnabled } = useAuth();
   const {
     isDark,
     toggleTheme,
@@ -102,6 +102,23 @@ export default function Profile() {
   const [passwordTouched, setPasswordTouched] = useState({});
   const [showPasswords, setShowPasswords] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const [togglingTwoFactor, setTogglingTwoFactor] = useState(false);
+
+  const handleTwoFactorToggle = async () => {
+    if (togglingTwoFactor) return;
+    setTogglingTwoFactor(true);
+    try {
+      await setTwoFactorEnabled(!profile?.twoFactorEnabled);
+      toast.success(
+        profile?.twoFactorEnabled ? 'Two-step verification turned off.' : 'Two-step verification turned on.'
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setTogglingTwoFactor(false);
+    }
+  };
 
   // The at-a-glance figures shown above the edit form. Pulled from the same
   // dashboard summary the Dashboard page uses, so the two never disagree.
@@ -632,6 +649,43 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* ---------- Security: two-step verification ---------- */}
+      {/* Unlike Change password below, this applies to every account type -
+          Google sign-in included - since it is a second check on top of
+          however the first one happened, not a replacement for a password. */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.08 }}
+        className="eco-card"
+        style={{ marginTop: '1.3rem' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1.2rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.7rem' }}>
+            <Shield size={17} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.4rem' }}>
+                Two-step verification
+              </h3>
+              <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.6, maxWidth: '48ch' }}>
+                {profile?.twoFactorEnabled
+                  ? `On. A code is emailed to ${profile?.email || 'your address'} every time you sign in, in addition to your password.`
+                  : 'Off. Turn this on to require a one-time code, emailed to you, on top of your password every time you sign in.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleTwoFactorToggle}
+            disabled={togglingTwoFactor}
+            className={`eco-btn ${profile?.twoFactorEnabled ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+            style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', flexShrink: 0 }}
+          >
+            {togglingTwoFactor ? 'Saving…' : profile?.twoFactorEnabled ? 'On' : 'Off'}
+          </button>
+        </div>
+      </motion.div>
 
       {/* ---------- Security: change password ---------- */}
       {/* Only for an email/password account - a Google-only sign-in has no

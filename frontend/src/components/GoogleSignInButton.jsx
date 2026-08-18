@@ -59,9 +59,14 @@ export default function GoogleSignInButton({ label = 'Continue with Google', onD
     if (busy) return;
     setBusy(true);
     try {
-      const profile = await loginWithGoogle();
-      toast.success(`Welcome, ${profile?.name || 'there'}!`);
-      onDone?.(profile);
+      const result = await loginWithGoogle();
+      // Two-step verification pending: no profile to greet by name yet, and
+      // the caller's onDone is what sends them to enter the code instead of
+      // wherever a normal sign-in would go.
+      if (!result?.twoFactorRequired) {
+        toast.success(`Welcome, ${result?.name || 'there'}!`);
+      }
+      onDone?.(result);
     } catch (error) {
       // Closing the popup is a choice, not an error worth shouting about
       if (error.message === 'Sign-in cancelled.') {

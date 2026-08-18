@@ -27,7 +27,7 @@ import { useSlowLoadHint } from '../hooks/useSlowLoadHint';
 import LoadingSpinner from './LoadingSpinner';
 
 export default function ProtectedRoute({ children, adminOnly = false, userOnly = false }) {
-  const { user, profile, loading, isAdmin, profileError, refreshProfile, logout } = useAuth();
+  const { user, profile, loading, isAdmin, profileError, refreshProfile, logout, twoFactorPending } = useAuth();
   const location = useLocation();
   const [retrying, setRetrying] = useState(false);
 
@@ -73,6 +73,15 @@ export default function ProtectedRoute({ children, adminOnly = false, userOnly =
   // return them there instead of dumping everyone on the dashboard.
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // STEP 2b: signed in with Firebase, but this account has two-step
+  // verification on and the code has not been confirmed yet - same
+  // treatment as "no profile", just a different destination. See
+  // AuthContext's own comment on twoFactorPending for why Firebase already
+  // considers this a valid session while the app itself does not.
+  if (twoFactorPending) {
+    return <Navigate to="/verify-2fa" replace />;
   }
 
   // STEP 3: signed in, but the profile could not be fetched.

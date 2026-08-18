@@ -26,12 +26,16 @@ handles password hashing, storage and reset emails.
 All routes are mounted under /api/auth
 """
 
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
+
 from flask import Blueprint, g, request
 from firebase_admin import auth as firebase_auth
 from google.cloud import firestore as gcloud_firestore  # installed with firebase-admin
 
 from config import Config, get_db
-from email_service import send_password_reset_email
+from email_service import send_password_reset_email, send_two_factor_code_email
 from routes import (
     EMAIL_ERROR,
     api_error,
@@ -101,6 +105,7 @@ def _serialize_user(doc_id, data):
         "region": data.get("region", ""),
         # isoformat() only exists on datetime objects, so check before calling it
         "createdAt": created_at.isoformat() if created_at else None,
+        "twoFactorEnabled": bool(data.get("twoFactorEnabled", False)),
     }
 
 
@@ -312,7 +317,195 @@ def login():
     profile = _serialize_user(uid, user_doc.to_dict())
     profile["isAdmin"] = is_admin(uid, email)  # lets React decide whether to show admin links
 
+    # ---- two-step verification gate ----
+    # Firebase has already fully authenticated this person by the time this
+    # route runs (the token above proves it) - what this route decides is
+    # only whether the SPA hands them their profile and lets them into the
+    # app straight away, or makes them prove one more thing first. See
+    # _issue_two_factor_code()'s own docstring for what happens when the code
+    # cannot actually be delivered.
+    if profile["twoFactorEnabled"]:
+        issued = _issue_two_factor_code(uid, email)
+        if issued:
+            return api_success({"twoFactorRequired": True, "email": email})
+        # Could not send a code at all (no RESEND_API_KEY, Resend rejected it,
+        # rate-limited) - gating sign-in on a code nobody can receive would
+        # lock the user out of their own account, so let them straight
+        # through instead. Same "fail open" reasoning as verify_recaptcha().
+
     return api_success(profile, message="Login successful.")
+
+
+# ---------------------------------------------------------------------------
+# TWO-STEP VERIFICATION
+#
+# Enabled per-account from Profile (PUT /api/auth/2fa). Once on, login() above
+# does not hand over the profile until POST /api/auth/2fa/verify confirms a
+# short-lived, single-use code sent by email through send_two_factor_code_email().
+#
+# WHAT THIS DOES AND DOES NOT PROTECT AGAINST (worth knowing, not hiding)
+# Every route in this file - like every other route in the backend - is
+# protected by a valid Firebase ID token, which Firebase already issued the
+# moment sign-in succeeded in the browser, before this gate runs at all. This
+# feature does not, and architecturally cannot on top of Firebase's own
+# session model, stop a token holder from calling other API routes directly
+# without ever passing this check - the same "convenience, not security"
+# ceiling ProtectedRoute.jsx documents on the frontend. What it genuinely adds
+# is a second, time-boxed proof of email access before the SPA will show
+# anyone's data or let them navigate anywhere - which is the same value a
+# banking app's OTP step has always had: raising the bar past "knows the
+# password" to "knows the password AND can read this inbox right now."
+# ---------------------------------------------------------------------------
+
+TWO_FACTOR_CODE_TTL_MINUTES = 10
+TWO_FACTOR_MAX_ATTEMPTS = 5
+
+
+def _hash_code(code):
+    """One-way hash of a 6-digit code - never store the plain code at rest."""
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def _issue_two_factor_code(uid, email):
+    """
+    Generate a fresh 6-digit code, store its hash, and email it.
+
+    Returns True once Resend has accepted the email, False if the code could
+    not be sent for any reason (see login()'s own comment on what False means
+    to its caller). Overwrites any code already pending for this uid - only
+    the most recently sent code is ever valid, so requesting a new one
+    invalidates the last.
+    """
+    code = f"{secrets.randbelow(1_000_000):06d}"  # 000000-999999, zero-padded
+    now = datetime.now(timezone.utc)
+
+    db = get_db()
+    db.collection(Config.COLLECTION_TWO_FACTOR_CODES).document(uid).set({
+        "codeHash": _hash_code(code),
+        "expiresAt": now + timedelta(minutes=TWO_FACTOR_CODE_TTL_MINUTES),
+        "attempts": 0,
+    })
+
+    return send_two_factor_code_email(email, code)
+
+
+@auth_bp.route("/2fa", methods=["PUT"])
+@require_auth
+def set_two_factor():
+    """
+    Turn two-step verification on or off for the signed-in account.
+
+    Body: {"enabled": true}
+    """
+    body = request.get_json(silent=True) or {}
+    if "enabled" not in body or not isinstance(body.get("enabled"), bool):
+        return api_error("enabled (true or false) is required.", 400, code="invalid_body")
+
+    db = get_db()
+    user_ref = db.collection(Config.COLLECTION_USERS).document(g.uid)
+    if not user_ref.get().exists:
+        return api_error("No profile found for this account.", 404, code="profile_not_found")
+
+    user_ref.update({"twoFactorEnabled": body["enabled"]})
+
+    # Turning it off should also clear any code left mid-flow from a moment
+    # ago, so a stale one cannot be replayed against a future sign-in.
+    if not body["enabled"]:
+        db.collection(Config.COLLECTION_TWO_FACTOR_CODES).document(g.uid).delete()
+
+    refreshed = user_ref.get()
+    profile = _serialize_user(g.uid, refreshed.to_dict())
+    profile["isAdmin"] = is_admin(g.uid, g.email)
+
+    message = "Two-step verification turned on." if body["enabled"] else "Two-step verification turned off."
+    return api_success(profile, message=message)
+
+
+@auth_bp.route("/2fa/resend", methods=["POST"])
+@require_auth
+def resend_two_factor():
+    """
+    Send a fresh code, replacing whichever one was issued at login.
+
+    Rate-limited per account rather than per IP: this always follows a
+    successful password check, so the account, not the connection, is what
+    needs protecting from being hammered with emails.
+    """
+    if not check_rate_limit("2fa-resend", g.uid, max_attempts=3, window_seconds=600):
+        return api_error(
+            "Too many codes requested. Please wait a few minutes and try again.",
+            429,
+            code="rate_limited",
+        )
+
+    issued = _issue_two_factor_code(g.uid, g.email)
+    return api_success({"sent": issued})
+
+
+@auth_bp.route("/2fa/verify", methods=["POST"])
+@require_auth
+def verify_two_factor():
+    """
+    Check a submitted code and, on success, hand over the profile that
+    login() withheld.
+
+    Body: {"code": "482913"}
+    """
+    if not check_rate_limit("2fa-verify", g.uid, max_attempts=10, window_seconds=600):
+        return api_error(
+            "Too many attempts. Please wait a few minutes and try again.",
+            429,
+            code="rate_limited",
+        )
+
+    body = request.get_json(silent=True) or {}
+    code = _clean_text(body.get("code"))
+
+    if not code:
+        return api_error("code is required.", 400, code="missing_code")
+
+    db = get_db()
+    code_ref = db.collection(Config.COLLECTION_TWO_FACTOR_CODES).document(g.uid)
+    code_doc = code_ref.get()
+
+    if not code_doc.exists:
+        return api_error(
+            "That code has expired. Request a new one.",
+            400,
+            code="code_expired",
+        )
+
+    stored = code_doc.to_dict()
+    now = datetime.now(timezone.utc)
+
+    if now > stored.get("expiresAt"):
+        code_ref.delete()
+        return api_error("That code has expired. Request a new one.", 400, code="code_expired")
+
+    if stored.get("attempts", 0) >= TWO_FACTOR_MAX_ATTEMPTS:
+        code_ref.delete()
+        return api_error(
+            "Too many incorrect attempts. Request a new code.",
+            400,
+            code="too_many_attempts",
+        )
+
+    # secrets.compare_digest avoids leaking timing information about how much
+    # of the hash matched - the same reason password checks never use ==.
+    if not secrets.compare_digest(_hash_code(code), stored.get("codeHash", "")):
+        code_ref.update({"attempts": gcloud_firestore.Increment(1)})
+        return api_error("Incorrect code. Please try again.", 400, code="wrong_code")
+
+    # Correct and unused - consume it immediately so it cannot be replayed.
+    code_ref.delete()
+
+    user_doc = db.collection(Config.COLLECTION_USERS).document(g.uid).get()
+    if not user_doc.exists:
+        return api_error("No profile found for this account.", 404, code="profile_not_found")
+
+    profile = _serialize_user(g.uid, user_doc.to_dict())
+    profile["isAdmin"] = is_admin(g.uid, g.email)
+    return api_success(profile, message="Verified.")
 
 
 # ---------------------------------------------------------------------------

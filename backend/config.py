@@ -114,8 +114,11 @@ class Config:
     RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "EcoTrack <onboarding@resend.dev>")
 
     # The live frontend, used to build the link a reset/notification email
-    # sends the user back to once they are done.
-    PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "https://ecotrackapp.web.app")
+    # sends the user back to once they are done. ecotrackapp.web.app was the
+    # deploy target until 2026-08-18, when it moved to the shorter ecotrk.web.app
+    # (see firebase.json) - kept in sync here since this only affects the
+    # default; PUBLIC_APP_URL itself should still be set explicitly on Vercel.
+    PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "https://ecotrk.web.app")
 
     # --- Bot protection (Google reCAPTCHA v3) ---
     # Same optional pattern as GEMINI_API_KEY and RESEND_API_KEY above: every
@@ -138,6 +141,7 @@ class Config:
     COLLECTION_REPORTS = "reports"
     COLLECTION_EMISSION_FACTORS = "emissionFactors"
     COLLECTION_ADMINS = "admins"
+    COLLECTION_TWO_FACTOR_CODES = "twoFactorCodes"
 
     # The seven emission categories EcoTrack supports.
     # Routes validate incoming data against this list, and the ORDER here is the

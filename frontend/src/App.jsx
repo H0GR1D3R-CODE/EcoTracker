@@ -14,6 +14,7 @@ import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import Assistant from './components/Assistant';
 import PublicHelper from './components/PublicHelper';
+import CookieConsent from './components/CookieConsent';
 import { useTheme } from './context/ThemeContext';
 
 import LoadingSpinner from './components/LoadingSpinner';
@@ -36,6 +37,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import Home from './pages/Home';
 
 const Login = lazy(() => import('./pages/Login'));
+const VerifyTwoFactor = lazy(() => import('./pages/VerifyTwoFactor'));
 const Register = lazy(() => import('./pages/Register'));
 const About = lazy(() => import('./pages/About'));
 const Learn = lazy(() => import('./pages/Learn'));
@@ -230,6 +232,7 @@ export default function App() {
             {/* ---------- Public ---------- */}
             <Route path="/" element={<MotionPage><Home /></MotionPage>} />
             <Route path="/login" element={<MotionPage><Login /></MotionPage>} />
+            <Route path="/verify-2fa" element={<MotionPage><VerifyTwoFactor /></MotionPage>} />
             <Route path="/register" element={<MotionPage><Register /></MotionPage>} />
             <Route path="/about" element={<MotionPage><About /></MotionPage>} />
             <Route path="/learn" element={<MotionPage><Learn /></MotionPage>} />
@@ -314,6 +317,7 @@ export default function App() {
           Each renders null unless it is the right one for the current visitor. */}
       <Assistant />
       <PublicHelper />
+      <CookieConsent />
     </>
   );
 }
