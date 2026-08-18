@@ -323,6 +323,14 @@ export const assistantApi = {
 
   summarise: (periodStart, periodEnd) =>
     api.post('/api/assistant/summary', { periodStart, periodEnd }).then(unwrap),
+
+  // The signed-out counterparts, called by PublicHelper.jsx. No auth token
+  // exists to attach for these - the request interceptor above only adds one
+  // when auth.currentUser is set, so these already work unauthenticated with
+  // no special handling needed here.
+  getPublicStatus: () => api.get('/api/assistant/public-status').then(unwrap),
+  publicChat: (message, history = [], recaptchaToken = null) =>
+    api.post('/api/assistant/public-chat', { message, history, recaptchaToken }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

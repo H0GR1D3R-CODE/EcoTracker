@@ -12,18 +12,22 @@ import { AlertTriangle, RotateCw } from 'lucide-react';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
-import PublicHelper from './components/PublicHelper';
 import CookieConsent from './components/CookieConsent';
 import { useTheme } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
 
-// Lazy AND conditionally mounted (see the render below) rather than the
-// plain eager import this used to be. Pulling in react-markdown to render
-// its replies properly made this component's own weight big enough that it
-// no longer belonged in the bundle every visitor downloads just to load the
-// homepage - the same reasoning the page-level lazy() calls below already
-// follow, just applied to a component instead of a route.
+// Lazy (see the render below) rather than the plain eager imports these used
+// to be. Both now pull in react-markdown to render their replies properly,
+// which made each one's own weight too big to belong in the bundle every
+// visitor downloads just to load the homepage - the same reasoning the
+// page-level lazy() calls below already follow, just applied to a component
+// instead of a route. Assistant is additionally gated on `user` being
+// truthy (see the render below) since it is only ever shown signed in;
+// PublicHelper has no such gate to add - it is the one shown to a
+// signed-out visitor, which is most of this app's traffic, so there is no
+// smaller audience to defer it to.
 const Assistant = lazy(() => import('./components/Assistant'));
+const PublicHelper = lazy(() => import('./components/PublicHelper'));
 
 import LoadingSpinner from './components/LoadingSpinner';
 
@@ -331,7 +335,9 @@ export default function App() {
           <Assistant />
         </Suspense>
       )}
-      <PublicHelper />
+      <Suspense fallback={null}>
+        <PublicHelper />
+      </Suspense>
       <CookieConsent />
     </>
   );

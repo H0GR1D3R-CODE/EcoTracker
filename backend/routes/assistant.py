@@ -42,6 +42,8 @@ from config import Config, get_db
 from routes import (
     api_error,
     api_success,
+    check_rate_limit,
+    client_ip,
     fetch_user_records,
     group_by_category,
     is_admin,
@@ -50,6 +52,7 @@ from routes import (
     require_auth,
     shift_month,
     total_emission,
+    verify_recaptcha,
 )
 
 # Imported defensively so a missing dependency degrades to "assistant
@@ -355,14 +358,18 @@ Most recent entries:
 {chr(10).join(recent) if recent else '  (none yet)'}"""
 
 
-# The stable half of the system instruction. Kept separate from the user data
-# so it is obvious in the code which half is policy and which half is facts.
+# The stable half of the system instruction, shared by both the signed-in
+# assistant and the signed-out one below - identity, the calculation, and the
+# full map of the product. Kept separate from the per-audience JOB/RULES text
+# and from the user data so it is obvious in the code which part is which,
+# and so the two assistants cannot describe the app differently just because
+# one of them got edited and the other did not.
 #
 # This is deliberately a full map of the product, not just the calculation.
-# The assistant is the one place a user can ask "how do I..." about ANY part
+# The assistant is the one place a person can ask "how do I..." about ANY part
 # of EcoTrack and get a real answer instead of a guess - that only works if it
 # actually knows every screen exists, not just the ones with numbers on them.
-ASSISTANT_INSTRUCTIONS = """You are the EcoTrack Assistant, built into a carbon footprint tracking web app centred on UN Sustainable Development Goal 13: Climate Action.
+ASSISTANT_APP_KNOWLEDGE = """You are the EcoTrack Assistant, built into a carbon footprint tracking web app centred on UN Sustainable Development Goal 13: Climate Action.
 
 HOW THE CORE CALCULATION WORKS
 Users log everyday activities across seven categories - transport, electricity, fuel, diet, waste, water and consumption. Each entry is multiplied by a published emission factor to give kilograms of CO2:
@@ -382,12 +389,17 @@ Public pages (no account needed):
   - Donate: forwards money to real climate charities (One Tree Planted, Cool Earth, Clean Air Task Force, Gold Standard); EcoTrack keeps nothing
   - Login: has a "Forgot password?" link that emails a reset link via Firebase - works even if they never come back to ask you
   - Register: a three-step sign-up (details, password, region)
-Signed-in pages (what this user, who you are talking to, actually has open):
+Signed-in pages (need an account):
   - Dashboard: this month/year at a glance, a six-month trend, category breakdown, and plain-English insights
   - Calculator: where every entry is logged - pick a category, enter a quantity, see the live emission preview before saving
   - Goals: per-category reduction targets with a live progress ring. One goal per category at a time; achieved or expired goals move to a "Completed" list
   - Reports: a written summary of any period - Today, This week, This month, This year, or a custom range - with a category breakdown and the biggest single contributors
-  - Profile: edit name and region, a Preferences section (light/dark theme, and a reduce-motion toggle that adds calmer animation on top of whatever their operating system already asks for), and - only for an email/password account, not a Google sign-in - a Change password form
+  - Profile: edit name and region, a Preferences section (light/dark theme, and a reduce-motion toggle that adds calmer animation on top of whatever their operating system already asks for), a Two-step verification toggle, and - only for an email/password account, not a Google sign-in - a Change password form"""
+
+
+ASSISTANT_INSTRUCTIONS = (
+    ASSISTANT_APP_KNOWLEDGE
+    + """
 
 YOUR JOB
 Two things, and neither is secondary:
@@ -402,8 +414,35 @@ RULES - these matter more than being agreeable
 3. Match length and depth to the question. A quick fact gets a sentence or two. Something that genuinely needs room - working code, a multi-step explanation, a structured comparison - gets the room it needs; do not truncate a real answer just to stay short for its own sake.
 4. When discussing their own footprint, quote real numbers with units, and tie any suggested reduction to a factor: "a bus seat is 0.082 kg per km against 0.141 for a petrol car, so that swap saves about 40%."
 5. Never claim a trend from a single data point. If they have logged two entries, say the data is too thin to see a pattern.
-6. Format for what the content actually is - this renders through a real markdown reader, not a plain-text box, so use it properly: fenced code blocks with a language tag for any code, numbered or bulleted lists for steps or options, a table when comparing structured rows of data, **bold** for the one or two things that matter most, plain prose everywhere else. Do not decorate a two-sentence answer with headers and bullets it does not need.
+6. Format for what the content actually is - this renders through a real markdown reader, not a plain-text box, so use it properly: fenced code blocks with a language tag for any code, numbered or bulleted lists for steps or options, a table when comparing structured rows of data, **bold** for the one or two things that matter most, plain prose everywhere else. When you point at a specific EcoTrack page, write it as a real markdown link using its path, e.g. [Calculator](/calculator) or [Profile](/profile) - it renders as a clickable in-app link, not just a name to go look for. Do not decorate a two-sentence answer with headers and bullets it does not need.
 7. Refuse only what an honest assistant should refuse anywhere - content designed to harm someone, help commit a crime, or similar. Topic alone is never a reason to refuse."""
+)
+
+
+# The signed-out counterpart, used by /public-chat below. Same app knowledge
+# and the same "answer anything, refuse only genuine harm" posture as the
+# signed-in assistant - the difference is entirely about what data exists to
+# ground an answer in: there is no signed-in user here, so there is no
+# personal footprint to quote and nothing for rule 1's stricter half to apply
+# to. Kept as a fully separate constant rather than a runtime if-branch on
+# ASSISTANT_INSTRUCTIONS, so a normal user's prompt can never contain
+# "you are talking to a visitor with no account" phrasing and vice versa.
+PUBLIC_ASSISTANT_INSTRUCTIONS = (
+    ASSISTANT_APP_KNOWLEDGE
+    + """
+
+YOUR JOB
+You are talking to someone who has NOT signed in - there is no account, no logged data, nothing personal to read. Two things, and neither is secondary:
+  1. Answer questions about EcoTrack itself - what it does, how the calculation works, where to find something, whether it costs anything (it does not) - and point them to creating a free account when that is genuinely what they need next (to log real activities, not just estimate).
+  2. Beyond that, be a genuinely capable general-purpose assistant, the same as any other AI assistant would be. A visitor does not have to be asking about EcoTrack at all - code, maths, writing, explaining a concept, translating something, planning something - answer it properly.
+
+RULES - these matter more than being agreeable
+1. Never claim to know anything about "this person's" emissions, goals, or history - there is none to know. If asked about "my footprint", explain that nothing is logged yet because they are not signed in, and point to Register (real tracking) or Estimate (a rough 30-second guess, no account needed).
+2. You cannot create an account, log anything, or perform any action inside EcoTrack on someone's behalf - tell them which page and button to use instead.
+3. Match length and depth to the question, the same as any competent assistant - a quick fact gets a sentence or two, something that genuinely needs room gets the room it needs.
+4. Format for what the content actually is - this renders through a real markdown reader, not a plain-text box: fenced code blocks with a language tag for code, numbered or bulleted lists for steps or options, a table for structured comparisons, **bold** for the one or two things that matter most, plain prose everywhere else. When you point at a specific EcoTrack page, write it as a real markdown link using its path, e.g. [Register](/register) or [Estimate](/estimate) - it renders as a clickable in-app link, not just a name to go look for.
+5. Refuse only what an honest assistant should refuse anywhere - content designed to harm someone, help commit a crime, or similar. Topic alone is never a reason to refuse."""
+)
 
 
 # Appended to the system instruction ONLY when is_admin() has already returned
@@ -766,5 +805,169 @@ def status():
         "available": bool(GENAI_AVAILABLE and Config.GEMINI_API_KEY),
         "sdkInstalled": GENAI_AVAILABLE,
         "keyConfigured": bool(Config.GEMINI_API_KEY),
+        "model": Config.ASSISTANT_MODEL,
+    })
+
+
+# ---------------------------------------------------------------------------
+# PUBLIC / SIGNED-OUT VISITOR CHAT
+#
+# The "EcoTrack Guide" a signed-out visitor sees (frontend/src/components/
+# PublicHelper.jsx) used to be pure keyword matching against a fixed topic
+# list - no login, no API key, no per-request cost, nothing to abuse. This is
+# what replaced it: a real model, so a visitor can ask literally anything and
+# get a real answer, not just whichever of a dozen canned topics happened to
+# match their wording.
+#
+# That capability has a cost this app did not have before: every request here
+# has NO Firebase token to key anything on, because the whole point is that
+# nobody has signed in yet. IP address is the only identity available, the
+# same situation /register and /forgot-password are already in - and the same
+# fix applies: a tight rate limit plus, when RECAPTCHA_SECRET_KEY is set, a
+# score check. Deliberately tighter than the signed-in assistant's effectively
+# unlimited use, because there is no account here to hold accountable and
+# every message still costs a real Gemini API call against this project's
+# shared free-tier quota.
+# ---------------------------------------------------------------------------
+
+PUBLIC_MAX_REPLY_TOKENS = 1536
+
+
+@assistant_bp.route("/public-status", methods=["GET"])
+def public_status():
+    """The signed-out counterpart to /status - same shape, no token required."""
+    return api_success({
+        "available": bool(GENAI_AVAILABLE and Config.GEMINI_API_KEY),
+        "sdkInstalled": GENAI_AVAILABLE,
+        "keyConfigured": bool(Config.GEMINI_API_KEY),
+        "model": Config.ASSISTANT_MODEL,
+    })
+
+
+@assistant_bp.route("/public-chat", methods=["POST"])
+def public_chat():
+    """
+    Ask the signed-out guide a question. No @require_auth - there is no
+    account to verify a token against.
+
+    Body: {"message": "...", "history": [...], "recaptchaToken": "..."}
+    Same message/history shape as POST /api/assistant/chat.
+    """
+    client, error = _get_client()
+    if error:
+        return error
+
+    body = request.get_json(silent=True) or {}
+    message = str(body.get("message", "")).strip()
+
+    if not message:
+        return api_error("Please type a question.", 400, code="empty_message")
+
+    if len(message) > MAX_MESSAGE_LENGTH:
+        return api_error(
+            f"Message too long. Please keep it under {MAX_MESSAGE_LENGTH} characters.",
+            400,
+            code="message_too_long",
+        )
+
+    # Two limits for two different abuse shapes, same reasoning as
+    # forgot_password(): one connection hammering this endpoint, or the same
+    # message flooding in from a rotating-IP source - checked before anything
+    # else runs, so a rate-limited request never reaches Gemini at all.
+    ip = client_ip()
+    if not check_rate_limit("public-assistant-ip", ip, max_attempts=20, window_seconds=3600):
+        return api_error(
+            "Too many messages from this connection. Please wait a while and try again.",
+            429,
+            code="rate_limited",
+        )
+
+    recaptcha_ok, _reason = verify_recaptcha(body.get("recaptchaToken"), "public_assistant")
+    if not recaptcha_ok:
+        return api_error(
+            "Could not verify you're not a bot. Please refresh the page and try again.",
+            403,
+            code="recaptcha_failed",
+        )
+
+    history = body.get("history") or []
+    contents = []
+
+    if isinstance(history, list):
+        for entry in history[-MAX_HISTORY_MESSAGES:]:
+            if not isinstance(entry, dict):
+                continue
+            role = entry.get("role")
+            text = str(entry.get("content", "")).strip()
+            if role not in ("user", "assistant") or not text:
+                continue
+            contents.append(
+                genai_types.Content(
+                    role="model" if role == "assistant" else "user",
+                    parts=[genai_types.Part.from_text(text=text[:MAX_MESSAGE_LENGTH])],
+                )
+            )
+
+    while contents and contents[0].role != "user":
+        contents.pop(0)
+
+    contents.append(
+        genai_types.Content(role="user", parts=[genai_types.Part.from_text(text=message)])
+    )
+
+    try:
+        response = client.models.generate_content(
+            model=Config.ASSISTANT_MODEL,
+            contents=contents,
+            config=genai_types.GenerateContentConfig(
+                # No user/admin data blocks - there is nothing signed in to
+                # read. PUBLIC_ASSISTANT_INSTRUCTIONS is a complete, separate
+                # system instruction, not this one with something appended.
+                system_instruction=[PUBLIC_ASSISTANT_INSTRUCTIONS],
+                max_output_tokens=PUBLIC_MAX_REPLY_TOKENS,
+                temperature=0.3,
+                thinking_config=genai_types.ThinkingConfig(
+                    thinking_budget=ASSISTANT_THINKING_BUDGET
+                ),
+            ),
+        )
+    except genai_errors.ClientError as client_error:
+        status_code = getattr(client_error, "code", 400)
+        if status_code == 429:
+            return api_error(
+                "The assistant has hit its free-tier rate limit. "
+                "Wait a minute and try again.",
+                429,
+                code="assistant_rate_limited",
+            )
+        return api_error(
+            "The assistant rejected the request. Please try again.",
+            503,
+            code="assistant_config_error",
+        )
+    except genai_errors.ServerError:
+        return api_error(
+            "The assistant service is having problems. Please try again shortly.",
+            502,
+            code="assistant_error",
+        )
+    except genai_errors.APIError:
+        return api_error(
+            "Could not reach the assistant service.", 503, code="assistant_unreachable"
+        )
+
+    reply = _extract_reply(response)
+
+    if reply is None:
+        return api_success({
+            "reply": "I can't help with that one. Try rephrasing it, or ask "
+                     "something else.",
+            "refused": True,
+        })
+
+    return api_success({
+        "reply": reply,
+        "refused": False,
+        "usage": _usage_of(response),
         "model": Config.ASSISTANT_MODEL,
     })

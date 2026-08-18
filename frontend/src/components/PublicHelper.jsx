@@ -1,120 +1,31 @@
 // EcoTrack/frontend/src/components/PublicHelper.jsx
 //
-// The navigation helper shown to SIGNED-OUT visitors on the public pages.
+// The "EcoTrack Guide" shown to SIGNED-OUT visitors on the public pages.
 //
-// This is deliberately NOT the AI assistant. The AI assistant (Assistant.jsx)
-// reads the signed-in user's real data and needs a login, so it cannot run for
-// a visitor. This helper answers "what is this / how do I start / how does it
-// work" from a fixed set of topics - no login, no API key, no per-request cost,
-// and nothing to abuse. It is a guide, not a chatbot pretending to be one.
+// Used to be pure keyword matching against a fixed topic list - no login, no
+// API key, no per-request cost. Now calls the same Gemini model the signed-in
+// Assistant does, through a separate PUBLIC route (POST /api/assistant/
+// public-chat) that needs no token, since there is no account here to hold
+// one - see that route's own comment in backend/routes/assistant.py for how
+// it is rate-limited instead. A visitor can now ask literally anything, the
+// same as a signed-in user can, just without anything personal to read.
 //
 // Which helper a person sees is decided in App.jsx: this one for logged-out
-// visitors, the real AI assistant for logged-in users. Only ever one at a time.
+// visitors, the real signed-in Assistant for logged-in users. Only ever one
+// at a time.
 
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Bot, HelpCircle, Send, Sparkles, User, X } from 'lucide-react';
+import { AlertCircle, Bot, HelpCircle, Loader2, Send, Sparkles, User, X } from 'lucide-react';
 
+import { assistantApi, getErrorMessage } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { executeRecaptcha } from '../utils/recaptcha';
+import ChatMarkdown from './ChatMarkdown';
 
-// The knowledge base. Each topic has keywords (matched against free text), the
-// question shown as a suggestion chip, the answer, and an optional link.
-const TOPICS = [
-  {
-    keywords: ['what', 'about', 'ecotrack', 'purpose', 'do'],
-    question: 'What is EcoTrack?',
-    answer:
-      'EcoTrack turns your everyday activities — travel, electricity, meals, and more — into kilograms of CO₂, so you can see your carbon footprint, watch it over time, and bring it down. It is built around UN Sustainable Development Goal 13: Climate Action.',
-  },
-  {
-    keywords: ['start', 'begin', 'get started', 'sign up', 'register', 'account', 'how do i use'],
-    question: 'How do I get started?',
-    answer:
-      'Create a free account, then open the Calculator and log one activity — a car trip, an electricity bill, a meal. That single entry brings your whole Dashboard to life. It takes about thirty seconds.',
-    link: { to: '/register', label: 'Create a free account' },
-  },
-  {
-    keywords: ['calculate', 'calculated', 'factor', 'number', 'kg', 'co2', 'work', 'science', 'how does'],
-    question: 'How are emissions calculated?',
-    answer:
-      'Every activity is multiplied by a published emission factor: emission = quantity × factor. For example, 30 km in a petrol car is 30 × 0.141 = 4.23 kg CO₂. The factors come from DEFRA, the IPCC, the Central Electricity Authority of India, and Our World in Data — never invented numbers.',
-  },
-  {
-    keywords: ['categor', 'transport', 'electricity', 'fuel', 'diet', 'waste', 'water', 'consumption', 'seven'],
-    question: 'What can I track?',
-    answer:
-      'Seven categories: Transport, Electricity, Fuel, Diet, Waste, Water and Consumption. Click any of the category cards on this page to see exactly what each one measures and the factors behind it.',
-  },
-  {
-    keywords: ['goal', 'goals', 'target', 'reduce', 'reduction'],
-    question: 'How do goals work?',
-    answer:
-      'Goals are set per category — for example, "cut my transport emissions 25% by December". A per-category target tells you what to actually change, which a single overall target never does. The Goals page shows a live progress ring for each one.',
-  },
-  {
-    keywords: ['report', 'summary', 'summarise', 'pdf', 'download', 'export'],
-    question: 'What are reports?',
-    answer:
-      'A report is a written summary of any period you choose — this month, this year, or a custom range. It breaks down where your carbon went, names your heaviest day, and can be printed or saved as a PDF.',
-  },
-  {
-    keywords: ['free', 'cost', 'price', 'pay', 'payment', 'money', 'subscription'],
-    question: 'Is it free?',
-    answer:
-      'Yes — EcoTrack is completely free. Create an account and start tracking.',
-    link: { to: '/register', label: 'Start tracking free' },
-  },
-  {
-    keywords: ['data', 'privacy', 'safe', 'secure', 'security', 'protect'],
-    question: 'Is my data private?',
-    answer:
-      'Your data is yours alone. Sign-in is handled by Firebase Authentication, and every request to the server is verified against your identity before any data is read — so no one can see another person’s footprint.',
-  },
-  {
-    keywords: ['login', 'log in', 'sign in', 'existing', 'already', 'already have'],
-    question: 'I already have an account',
-    answer: 'Welcome back — head to the login page to pick up where you left off.',
-    link: { to: '/login', label: 'Log in' },
-  },
-  {
-    keywords: ['donate', 'donation', 'give', 'giving', 'support', 'charity', 'contribute'],
-    question: 'How do I donate?',
-    answer:
-      'The Donate page forwards your gift straight to real climate organisations — One Tree Planted, Cool Earth, Clean Air Task Force and Gold Standard. EcoTrack keeps nothing. Card details go to Razorpay directly; EcoTrack never sees them.',
-    link: { to: '/donate', label: 'Support EcoTrack' },
-  },
-  {
-    keywords: ['estimate', 'guess', 'without an account', 'try it first', 'before i sign up', 'no account'],
-    question: 'Can I try it without an account?',
-    answer:
-      'Yes — the Estimate page gives you a rough footprint from four quick lifestyle questions, no login needed, in about 30 seconds. It is a rough guess, not the real thing: creating an account and logging actual activities in the Calculator gives you a precise, ongoing number instead.',
-    link: { to: '/estimate', label: 'Try the estimate' },
-  },
-  {
-    keywords: ['feedback', 'contact', 'suggestion', 'bug', 'complain', 'reach', 'get in touch'],
-    question: 'How do I send feedback?',
-    answer:
-      'The Feedback page takes a message and an optional star rating — no account needed, and a real person reads it.',
-    link: { to: '/feedback', label: 'Send feedback' },
-  },
-  {
-    keywords: ['forgot', 'reset password', 'locked out', "can't log in", 'cant log in', 'cannot log in'],
-    question: 'I forgot my password',
-    answer:
-      'The Login page has a "Forgot password?" link that emails you a reset link — it works even for an account you have not opened in a while.',
-    link: { to: '/login', label: 'Go to login' },
-  },
-  {
-    keywords: ['mobile app', 'phone app', 'android', 'ios', 'iphone', 'install', 'home screen', 'app store'],
-    question: 'Is there a mobile app?',
-    answer:
-      'EcoTrack works fully on mobile in your browser, and you can install it like a real app with no store and no download: open the site on your phone and choose "Add to Home Screen" (Safari) or the install prompt (Chrome). It gets its own icon and opens full-screen from there.',
-  },
-];
-
-// The greeting shown before any question is asked
+// Shown before any question is asked - still useful as quick prompts even
+// though a typed question is no longer limited to matching one of these.
 const OPENERS = [
   'What is EcoTrack?',
   'How do I get started?',
@@ -123,114 +34,86 @@ const OPENERS = [
   'How do I donate?',
 ];
 
-/**
- * Whether a single keyword counts as present in a query.
- *
- * THE BUG THIS FIXES: raw `query.includes(keyword)` treats a keyword as
- * matching anywhere it appears, including buried inside an unrelated word.
- * The keyword 'do' (meant to catch "what do you do") matched inside "how to
- * DOnate", and because nothing else in the whole topic list scored higher,
- * the bot confidently answered "What is EcoTrack?" for a donation question
- * instead of admitting it did not know - a wrong answer stated with the same
- * confidence as a right one, which is worse than the honest fallback.
- *
- * Short keywords (<=3 letters: 'do', 'kg', 'pdf', ...) are exactly where this
- * bites, because a 2-3 letter fragment is likely to occur inside some
- * unrelated word purely by chance. Longer keywords are mostly used here as
- * deliberate word STEMS ('categor' for category/categories, 'calculat' for
- * calculate/calculated), so they still need substring matching to work as
- * intended - only the short, whole-word-only keywords get the stricter check.
- */
-function keywordMatches(query, keyword) {
-  if (keyword.includes(' ') || keyword.length > 3) {
-    return query.includes(keyword);
-  }
-  return new RegExp(`\\b${keyword}\\b`, 'i').test(query);
-}
-
-/**
- * Find the best matching topic for a free-text question, or null if none match.
- *
- * Scored by SUMMED KEYWORD LENGTH, not match count. A plain match-count score
- * (the original approach) treats a hit on 'do' the same as a hit on 'donate'
- * or 'feedback' - so "how do I donate" scored the generic "what is EcoTrack"
- * topic (which owns 'do') and the actual Donate topic (which owns 'donate')
- * as an exact tie, and since ties went to whichever topic happened to sit
- * earlier in the TOPICS array, the generic answer kept winning against
- * clearly more relevant ones. Weighting by length means a specific word like
- * 'donate' (6) or 'feedback' (8) outweighs a filler word like 'do' (2) or
- * 'what' (4) that shows up in almost any phrasing of any question - verified
- * against a real set of previously-misrouted questions before landing on
- * this over the simpler count-based version.
- */
-function matchTopic(text) {
-  const query = text.toLowerCase();
-
-  let best = null;
-  let bestScore = 0;
-
-  for (const topic of TOPICS) {
-    const score = topic.keywords.reduce(
-      (total, keyword) => (keywordMatches(query, keyword) ? total + keyword.length : total),
-      0
-    );
-    if (score > bestScore) {
-      bestScore = score;
-      best = topic;
-    }
-  }
-
-  return bestScore > 0 ? best : null;
-}
-
 export default function PublicHelper() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { prefersReducedMotion } = useTheme();
 
+  const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Ask once whether the model is actually configured server-side. If not,
+  // the button never appears - same reasoning as the signed-in Assistant.
+  useEffect(() => {
+    if (user) return; // this widget is for signed-out visitors only
+    let cancelled = false;
+    assistantApi
+      .getPublicStatus()
+      .then((status) => {
+        if (!cancelled) setAvailable(Boolean(status?.available));
+      })
+      .catch(() => {
+        if (!cancelled) setAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages]);
+  }, [messages, sending]);
 
   useEffect(() => {
     if (open && inputRef.current) inputRef.current.focus();
   }, [open]);
 
-  // Answer a question (from a chip or from typed text)
-  const ask = (rawText) => {
-    const text = (rawText ?? input).trim();
-    if (!text) return;
+  const send = async (text) => {
+    const question = (text ?? input).trim();
+    if (!question || sending) return;
 
     setInput('');
-    const topic = matchTopic(text);
+    setError(null);
 
-    const reply = topic
-      ? { role: 'bot', answer: topic.answer, link: topic.link }
-      : {
-          role: 'bot',
-          answer:
-            'I can help with getting started, how emissions are calculated, the seven categories, goals, reports, donations, the no-login estimate, feedback, privacy, and pricing. Try one of those, or the suggestions below.',
-        };
+    const nextMessages = [...messages, { role: 'user', content: question }];
+    setMessages(nextMessages);
+    setSending(true);
 
-    setMessages((current) => [...current, { role: 'user', text }, reply]);
-  };
-
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      ask();
+    try {
+      // Not configured (VITE_RECAPTCHA_SITE_KEY unset) resolves to null
+      // rather than throwing - the backend treats a missing token the same
+      // way, so this works identically whether or not reCAPTCHA is turned on.
+      const recaptchaToken = await executeRecaptcha('public_assistant');
+      const data = await assistantApi.publicChat(question, messages, recaptchaToken);
+      setMessages([...nextMessages, { role: 'assistant', content: data.reply }]);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, 'Could not answer that one.'));
+      // Drop the unanswered question so the conversation does not end on a
+      // user turn with no reply
+      setMessages(messages);
+      setInput(question);
+    } finally {
+      setSending(false);
     }
   };
 
-  // Only for signed-out visitors. While auth is still resolving, render nothing
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      send();
+    }
+  };
+
+  // Only for signed-out visitors, and only once the server confirms the
+  // model is actually usable. While auth is still resolving, render nothing
   // so the button does not flash in and back out.
-  if (loading || user) return null;
+  if (authLoading || user || !available) return null;
 
   return (
     <>
@@ -298,9 +181,29 @@ export default function PublicHelper() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>EcoTrack Guide</div>
                 <div className="eco-text-muted" style={{ fontSize: '0.74rem' }}>
-                  Ask how EcoTrack works
+                  Ask anything - no account needed
                 </div>
               </div>
+
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMessages([]);
+                    setError(null);
+                  }}
+                  className="eco-text-muted"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.76rem',
+                    padding: '0.2rem 0.4rem',
+                  }}
+                >
+                  Clear
+                </button>
+              )}
             </div>
 
             {/* messages */}
@@ -318,10 +221,10 @@ export default function PublicHelper() {
                 gap: '0.85rem',
               }}
             >
-              {messages.length === 0 && (
+              {messages.length === 0 && !sending && (
                 <div>
                   <p style={{ fontSize: '0.92rem', marginBottom: '0.3rem' }}>
-                    Hi! I can show you around EcoTrack.
+                    Hi! I can show you around EcoTrack - or help with anything else.
                   </p>
                   <p className="eco-text-muted" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>
                     Pick a question, or type your own.
@@ -331,7 +234,8 @@ export default function PublicHelper() {
                       <button
                         key={question}
                         type="button"
-                        onClick={() => ask(question)}
+                        onClick={() => send(question)}
+                        className="eco-assistant-starter-btn"
                         style={{
                           textAlign: 'left',
                           padding: '0.6rem 0.75rem',
@@ -341,6 +245,7 @@ export default function PublicHelper() {
                           color: 'var(--eco-text)',
                           fontSize: '0.84rem',
                           cursor: 'pointer',
+                          transition: 'border-color 0.2s ease, background-color 0.2s ease',
                         }}
                       >
                         {question}
@@ -354,7 +259,7 @@ export default function PublicHelper() {
                 const isUser = message.role === 'user';
                 return (
                   <motion.div
-                    key={index}
+                    key={`${index}-${message.content.slice(0, 20)}`}
                     initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25 }}
@@ -382,37 +287,62 @@ export default function PublicHelper() {
                       {isUser ? <User size={14} /> : <Bot size={14} />}
                     </div>
 
-                    <div style={{ maxWidth: '82%' }}>
-                      <div
-                        style={{
-                          padding: '0.65rem 0.85rem',
-                          borderRadius: 'var(--eco-radius-sm)',
-                          background: isUser
-                            ? 'rgba(var(--eco-primary-rgb), 0.1)'
-                            : 'var(--eco-bg-alt)',
-                          fontSize: '0.87rem',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        {isUser ? message.text : message.answer}
-                      </div>
-
-                      {/* an answer can offer a direct action, e.g. "Create an account" */}
-                      {message.link && (
-                        <Link
-                          to={message.link.to}
-                          onClick={() => setOpen(false)}
-                          className="eco-btn eco-btn-primary"
-                          style={{ marginTop: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 0.85rem' }}
-                        >
-                          {message.link.label}
-                          <ArrowRight size={14} />
-                        </Link>
-                      )}
+                    <div
+                      style={{
+                        maxWidth: isUser ? '80%' : '92%',
+                        minWidth: 0,
+                        padding: '0.65rem 0.85rem',
+                        borderRadius: 'var(--eco-radius-sm)',
+                        background: isUser
+                          ? 'rgba(var(--eco-primary-rgb), 0.1)'
+                          : 'var(--eco-bg-alt)',
+                        fontSize: '0.87rem',
+                        lineHeight: 1.6,
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      <ChatMarkdown role={message.role} content={message.content} />
                     </div>
                   </motion.div>
                 );
               })}
+
+              {sending && (
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'rgba(var(--eco-primary-rgb), 0.15)',
+                      color: 'var(--eco-primary)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Bot size={14} />
+                  </div>
+                  <span
+                    className="eco-text-muted"
+                    style={{ fontSize: '0.84rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Loader2 size={13} style={{ animation: 'eco-spin 0.9s linear infinite' }} />
+                    Thinking…
+                  </span>
+                </div>
+              )}
+
+              {error && (
+                <div
+                  className="eco-field-error"
+                  style={{ alignItems: 'flex-start', fontSize: '0.82rem' }}
+                >
+                  <AlertCircle size={13} style={{ marginTop: 2, flexShrink: 0 }} />
+                  {error}
+                </div>
+              )}
             </div>
 
             {/* input */}
@@ -422,17 +352,21 @@ export default function PublicHelper() {
                 borderTop: '1px solid var(--eco-border)',
                 display: 'flex',
                 gap: '0.5rem',
-                alignItems: 'center',
+                alignItems: 'flex-end',
               }}
             >
-              <input
+              <textarea
                 ref={inputRef}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about EcoTrack…"
+                placeholder="Ask about EcoTrack, or anything else…"
+                rows={1}
+                disabled={sending}
                 style={{
                   flex: 1,
+                  resize: 'none',
+                  maxHeight: 96,
                   padding: '0.6rem 0.75rem',
                   borderRadius: 'var(--eco-radius-sm)',
                   border: '1px solid var(--eco-border)',
@@ -441,18 +375,30 @@ export default function PublicHelper() {
                   // 1rem, not 0.87rem: iOS Safari force-zooms the page on
                   // focus for any text input under 16px.
                   fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  lineHeight: 1.5,
                   outline: 'none',
+                }}
+                onFocus={(event) => {
+                  event.currentTarget.style.borderColor = 'var(--eco-primary)';
+                }}
+                onBlur={(event) => {
+                  event.currentTarget.style.borderColor = 'var(--eco-border)';
                 }}
               />
               <button
                 type="button"
-                onClick={() => ask()}
-                disabled={!input.trim()}
+                onClick={() => send()}
+                disabled={sending || !input.trim()}
                 aria-label="Send"
                 className="eco-btn eco-btn-primary"
-                style={{ padding: '0.6rem 0.75rem', minHeight: 40 }}
+                style={{ padding: '0.6rem 0.8rem', minHeight: 40 }}
               >
-                <Send size={16} />
+                {sending ? (
+                  <Loader2 size={16} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+                ) : (
+                  <Send size={16} />
+                )}
               </button>
             </div>
           </motion.div>
