@@ -17,20 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import {
-  AlertCircle,
-  Car,
-  CheckCircle2,
-  Droplets,
-  Flame,
-  Info,
-  Loader2,
-  Plus,
-  ShoppingBag,
-  Trash2,
-  UtensilsCrossed,
-  Zap,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info, Loader2, Plus } from 'lucide-react';
 
 import { carbonApi, factorsApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
@@ -40,6 +27,9 @@ import SelectField from '../components/SelectField';
 import SkeletonCard from '../components/SkeletonCard';
 import PageBanner from '../components/PageBanner';
 import Reveal from '../components/Reveal';
+import QuickLogChips from '../components/QuickLogChips';
+import BillScanner from '../components/BillScanner';
+import { CATEGORY_ICONS } from '../utils/categoryIcons';
 import {
   CATEGORY_META,
   CATEGORY_ORDER,
@@ -56,19 +46,6 @@ import {
   formatSubType,
   todayISO,
 } from '../utils/formatters';
-
-// Mapping the seven categories to their icons here, rather than importing all
-// of lucide-react and looking them up by name, keeps the bundle small - only
-// these seven icons end up in the build.
-const CATEGORY_ICONS = {
-  transport: Car,
-  electricity: Zap,
-  fuel: Flame,
-  diet: UtensilsCrossed,
-  waste: Trash2,
-  water: Droplets,
-  consumption: ShoppingBag,
-};
 
 // Quick amounts offered under the quantity box, keyed by the FACTOR'S unit
 // rather than the category: the sensible jumps depend on what is being counted,
@@ -378,6 +355,10 @@ export default function Calculator() {
         })}
       </div>
 
+      {/* One-tap re-logging for anything you do often, plus habit-mined
+          suggestions - see components/QuickLogChips.jsx. */}
+      <QuickLogChips onLogged={loadRecords} />
+
       {/* ============ FORM + LIVE PREVIEW ============ */}
       <div
         style={{
@@ -404,6 +385,16 @@ export default function Calculator() {
           <p className="eco-text-muted" style={{ fontSize: '0.86rem', marginBottom: '1.5rem' }}>
             {meta.description}
           </p>
+
+          <BillScanner
+            onExtracted={({ category: extractedCategory, subType: extractedSubType, quantity: extractedQuantity }) => {
+              if (extractedCategory && extractedCategory !== category) {
+                handleCategoryChange(extractedCategory);
+              }
+              if (extractedSubType) setSubType(extractedSubType);
+              if (extractedQuantity) setQuantity(String(extractedQuantity));
+            }}
+          />
 
           <form className="eco-form" onSubmit={handleSubmit} noValidate>
             {/* Sub-type. The factor goes in the hint line rather than the label,

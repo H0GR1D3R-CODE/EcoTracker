@@ -47,6 +47,8 @@ import ImpactEquivalents from '../components/ImpactEquivalents';
 import PageBanner from '../components/PageBanner';
 import Reveal from '../components/Reveal';
 import GlobalPictureSection from '../components/GlobalPictureSection';
+import ForecastGauge from '../components/ForecastGauge';
+import StreakFlame from '../components/StreakFlame';
 import {
   CategoryDoughnutChart,
   ComparisonBarChart,
@@ -397,6 +399,36 @@ export default function Dashboard() {
           hint={summary?.activeGoals ? 'In progress right now' : 'No goals set yet'}
           delay={0.18}
         />
+      </div>
+
+      {/* ============ 2b. FORECAST & STREAK (compact, links to /insights) ============ */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '1.8rem',
+          marginBottom: '2.5rem',
+        }}
+      >
+        <div className="eco-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <span className="eco-marker">This month's forecast</span>
+            <Link to="/insights" className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
+              Full forecast →
+            </Link>
+          </div>
+          <ForecastGauge compact />
+        </div>
+
+        <div className="eco-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <span className="eco-marker">Logging streak</span>
+            <Link to="/insights" className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
+              Swap ideas →
+            </Link>
+          </div>
+          <StreakFlame compact />
+        </div>
       </div>
 
       {/* ============ 3. THE BIGGER PICTURE ============ */}

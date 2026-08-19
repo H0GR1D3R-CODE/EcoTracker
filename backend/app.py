@@ -38,6 +38,10 @@ from routes.admin import admin_bp
 from routes.assistant import assistant_bp
 from routes.feedback import feedback_bp
 from routes.payments import payments_bp
+from routes.insights import insights_bp
+from routes.templates import templates_bp
+from routes.engagement import engagement_bp
+from routes.ingest import ingest_bp
 
 
 def create_app():
@@ -74,6 +78,10 @@ def create_app():
     app.register_blueprint(assistant_bp)   # /api/assistant/*
     app.register_blueprint(feedback_bp)    # /api/feedback  (public)
     app.register_blueprint(payments_bp)    # /api/create-order, /api/verify-payment  (public)
+    app.register_blueprint(insights_bp)    # /api/insights/*  (forecast, swaps, simulate, cohort)
+    app.register_blueprint(templates_bp)   # /api/templates/*  (quick-log)
+    app.register_blueprint(engagement_bp)  # /api/engagement/*  (interventions, streak, challenges)
+    app.register_blueprint(ingest_bp)      # /api/ingest/bill  (Gemini photo extraction)
 
     # -----------------------------------------------------------------------
     # Security headers, on every response

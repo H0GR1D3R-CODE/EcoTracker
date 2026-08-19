@@ -143,6 +143,18 @@ class Config:
     COLLECTION_ADMINS = "admins"
     COLLECTION_TWO_FACTOR_CODES = "twoFactorCodes"
 
+    # --- Insights / closed-loop feedback (forecast, swaps, templates, streaks) ---
+    COLLECTION_ACTIVITY_TEMPLATES = "activityTemplates"
+    # The evaluation harness spine: every recommendation the app shows anyone
+    # is logged here, along with whether they acted on it. Without this,
+    # "did the swap engine work" is a matter of opinion; with it, it is a
+    # query. See insights_engine.py and routes/engagement.py.
+    COLLECTION_INTERVENTIONS = "interventions"
+    COLLECTION_CHALLENGES = "challenges"
+    # Cached aggregate only - {region}_{YYYY-MM} documents holding deciles and
+    # a count, never a single user's figure. See routes/insights.py:_get_cohort_stats.
+    COLLECTION_COHORT_STATS = "cohortStats"
+
     # The seven emission categories EcoTrack supports.
     # Routes validate incoming data against this list, and the ORDER here is the
     # order the Calculator page shows its tabs in - so keep it stable.

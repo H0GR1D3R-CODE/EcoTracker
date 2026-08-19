@@ -137,71 +137,64 @@ def _daily_average(uid):
 # POST /api/carbon/calculate
 # ---------------------------------------------------------------------------
 
-@carbon_bp.route("/calculate", methods=["POST"])
-@require_auth
-def calculate():
+def save_calculated_record(uid, category, sub_type, quantity_raw, unit, recorded_date_raw):
     """
-    Calculate an emission, save it, and return it with display context.
+    Validate, calculate, and save one emission record - THE shared path.
 
-    Body: {"category": "transport", "subType": "petrol_car",
-           "quantity": 30, "unit": "km", "recordedDate": "2026-07-24"}
+    Extracted out of the /calculate route below so a second caller (the
+    quick-log templates route, routes/templates.py:log_from_template) can
+    save a record through the exact same validation and the exact same
+    formula, rather than a second copy of this logic drifting out of sync
+    with it. Returns (result_dict, None) on success or (None, error_response)
+    on failure - the same tuple shape _find_emission_factor already uses in
+    this file, so callers here and in templates.py handle it identically.
     """
-    body = request.get_json(silent=True) or {}
+    category = str(category or "").strip().lower()
+    sub_type = str(sub_type or "").strip().lower()
+    unit = str(unit or "").strip()
+    recorded_date_raw = recorded_date_raw or today_string()
 
-    category = str(body.get("category", "")).strip().lower()
-    sub_type = str(body.get("subType", "")).strip().lower()
-    unit = str(body.get("unit", "")).strip()
-    recorded_date_raw = body.get("recordedDate") or today_string()
-
-    # --- validate category and subType ---
     if category not in Config.CATEGORIES:
-        return api_error(
+        return None, api_error(
             f"Invalid category. Choose one of: {', '.join(Config.CATEGORIES)}.",
             400,
             code="invalid_category",
         )
 
     if not sub_type:
-        return api_error("subType is required.", 400, code="missing_sub_type")
+        return None, api_error("subType is required.", 400, code="missing_sub_type")
 
-    # --- validate quantity ---
     try:
-        # float() accepts both 30 and "30", which keeps the frontend simple
-        quantity = float(body.get("quantity"))
+        quantity = float(quantity_raw)
     except (TypeError, ValueError):
-        return api_error("Quantity must be a number.", 400, code="invalid_quantity")
+        return None, api_error("Quantity must be a number.", 400, code="invalid_quantity")
 
     if quantity <= 0:
-        return api_error("Quantity must be greater than zero.", 400, code="invalid_quantity")
+        return None, api_error("Quantity must be greater than zero.", 400, code="invalid_quantity")
 
     if quantity > MAX_QUANTITY:
-        return api_error(
+        return None, api_error(
             f"Quantity looks too large. Please enter a value under {MAX_QUANTITY:,}.",
             400,
             code="quantity_too_large",
         )
 
-    # --- validate the date ---
     recorded_date, date_error = parse_date_string(recorded_date_raw, "recordedDate")
     if date_error:
-        return api_error(date_error, 400, code="invalid_date")
+        return None, api_error(date_error, 400, code="invalid_date")
 
     if recorded_date > date.today():
-        return api_error("You cannot log emissions for a future date.", 400, code="future_date")
+        return None, api_error("You cannot log emissions for a future date.", 400, code="future_date")
 
     if recorded_date.isoformat() < EARLIEST_DATE:
-        return api_error(f"Date must be on or after {EARLIEST_DATE}.", 400, code="date_too_early")
+        return None, api_error(f"Date must be on or after {EARLIEST_DATE}.", 400, code="date_too_early")
 
-    # --- look up the factor and do the maths ---
-    factor, factor_error = _find_emission_factor(category, sub_type, _user_region(g.uid))
+    factor, factor_error = _find_emission_factor(category, sub_type, _user_region(uid))
     if factor_error:
-        return api_error(factor_error, 404, code="factor_not_found")
+        return None, api_error(factor_error, 404, code="factor_not_found")
 
-    # If the frontend sent a unit, it must agree with the factor's unit.
-    # Catching this stops silently wrong data - for example a quantity entered
-    # in miles being multiplied by a per-kilometre factor.
     if unit and factor["unit"] and unit.lower() != factor["unit"].lower():
-        return api_error(
+        return None, api_error(
             f"Unit mismatch: {category}/{sub_type} is measured in "
             f"'{factor['unit']}', not '{unit}'.",
             400,
@@ -211,11 +204,10 @@ def calculate():
     # THE CALCULATION
     emission = round(quantity * factor["factorValue"], 3)
 
-    # --- save the record ---
     db = get_db()
     record_ref = db.collection(Config.COLLECTION_CARBON_RECORDS).document()
     record_ref.set({
-        "userId": g.uid,  # taken from the verified token, never from the request body
+        "userId": uid,  # taken from the verified token, never from the request body
         "category": category,
         "subType": sub_type,
         "quantity": quantity,
@@ -227,23 +219,47 @@ def calculate():
 
     saved = serialize_record(record_ref.get())
 
-    # --- extra context for the animated result card ---
-    daily_average = _daily_average(g.uid)
+    daily_average = _daily_average(uid)
     percent_of_average = (
         round((emission / daily_average) * 100, 1) if daily_average > 0 else None
     )
 
+    return {
+        "record": saved,
+        "emissionKgco2": emission,
+        "factorUsed": factor["factorValue"],
+        "factorSource": factor["source"],
+        "severity": _severity_for(emission),
+        "dailyAverage": daily_average,
+        "percentOfDailyAverage": percent_of_average,
+    }, None
+
+
+@carbon_bp.route("/calculate", methods=["POST"])
+@require_auth
+def calculate():
+    """
+    Calculate an emission, save it, and return it with display context.
+
+    Body: {"category": "transport", "subType": "petrol_car",
+           "quantity": 30, "unit": "km", "recordedDate": "2026-07-24"}
+    """
+    body = request.get_json(silent=True) or {}
+
+    result, error = save_calculated_record(
+        g.uid,
+        body.get("category"),
+        body.get("subType"),
+        body.get("quantity"),
+        body.get("unit"),
+        body.get("recordedDate"),
+    )
+    if error:
+        return error
+
     return api_success(
-        {
-            "record": saved,
-            "emissionKgco2": emission,
-            "factorUsed": factor["factorValue"],
-            "factorSource": factor["source"],
-            "severity": _severity_for(emission),
-            "dailyAverage": daily_average,
-            "percentOfDailyAverage": percent_of_average,
-        },
-        message=f"Logged {emission} kg CO2 for {sub_type.replace('_', ' ')}.",
+        result,
+        message=f"Logged {result['emissionKgco2']} kg CO2 for {result['record']['subType'].replace('_', ' ')}.",
         status=201,
     )
 

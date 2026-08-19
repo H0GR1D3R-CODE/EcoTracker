@@ -21,8 +21,10 @@ import {
   BarChart3,
   Calendar,
   Database,
+  Download,
   Eye,
   FileText,
+  FlaskConical,
   HeartHandshake,
   Leaf,
   MapPin,
@@ -72,6 +74,7 @@ export default function AdminDashboard() {
   // never four scrolls away. The drill-down and delete dialogs sit outside the
   // tabs because they are overlays - they must open from any panel.
   const [tab, setTab] = useState('overview');
+  const [exportingResearch, setExportingResearch] = useState(false);
 
   const [search, setSearch] = useState('');
   // The user currently queued for deletion, held while the confirm dialog is open
@@ -615,6 +618,7 @@ export default function AdminDashboard() {
           { id: 'donations', label: 'Donations', icon: HeartHandshake, count: donations.length },
           { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: feedback.length },
           { id: 'system', label: 'System', icon: Activity, count: null, dot: system?.overall },
+          { id: 'research', label: 'Research', icon: FlaskConical, count: null },
         ].map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
@@ -1956,6 +1960,63 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
+        </div>
+      </motion.div>
+      )}
+
+      {tab === 'research' && (
+      <motion.div
+        key="tab-research"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+            <FlaskConical size={17} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Research export</h2>
+          </div>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.85rem', maxWidth: '64ch' }}>
+            Every recommendation the app has shown anyone - a forecast, a swap idea, a cohort
+            comparison, a quick-log suggestion - and whether they acted on it. This is the
+            evaluation-harness data the adoption-rate figures come from. User ids are hashed
+            with a server-side secret before export; no name or email is included.
+          </p>
+
+          <button
+            type="button"
+            className="eco-btn eco-btn-primary"
+            disabled={exportingResearch}
+            onClick={async () => {
+              setExportingResearch(true);
+              try {
+                const data = await adminApi.getResearchExport();
+                const blob = new Blob([data.csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = data.filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                toast.success(`Exported ${data.rowCount} intervention${data.rowCount === 1 ? '' : 's'}.`);
+              } catch (error) {
+                toast.error(getErrorMessage(error, 'Could not build the export.'));
+              } finally {
+                setExportingResearch(false);
+              }
+            }}
+          >
+            <Download size={16} />
+            {exportingResearch ? 'Building CSV…' : 'Download interventions.csv'}
+          </button>
+
+          <p className="eco-text-muted" style={{ marginTop: '1.4rem', fontSize: '0.78rem' }}>
+            Forecast accuracy (MAE/MAPE against a naive baseline) is a separate, heavier
+            walk-forward backtest - run <code>python evaluate_forecast.py</code> from the
+            backend folder to produce that table.
+          </p>
         </div>
       </motion.div>
       )}

@@ -302,14 +302,19 @@ export const adminApi = {
   // Live status of Firestore, Razorpay, the assistant and the API itself.
   // Returns booleans and the PUBLIC Razorpay key id only - never a secret.
   getSystem: () => api.get('/api/admin/system').then(unwrap),
+
+  // The evaluation-harness data behind the paper's adoption-rate numbers -
+  // anonymised, hashed user ids only. Returns {csv, filename, rowCount};
+  // the caller builds the download itself (see AdminDashboard.jsx's Research tab).
+  getResearchExport: () => api.get('/api/admin/research/export').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
 // ASSISTANT
 //
-// The Anthropic API key lives only on the Flask server. The browser never
-// holds it and never calls Anthropic directly - every request below goes to
-// our own backend, which verifies the Firebase token before spending anything.
+// The Gemini API key lives only on the Flask server. The browser never holds
+// it and never calls Google directly - every request below goes to our own
+// backend, which verifies the Firebase token before spending anything.
 // ---------------------------------------------------------------------------
 
 export const assistantApi = {
@@ -360,6 +365,85 @@ export const paymentsApi = {
   // amount/currency/name/email recorded alongside the verified donation.
   // Returns the whole envelope so the caller can show the server's message.
   verifyPayment: (payload) => api.post('/api/verify-payment', payload).then((r) => r.data),
+};
+
+// ---------------------------------------------------------------------------
+// INSIGHTS (forecast, counterfactual swaps, the what-if sandbox, cohort)
+//
+// See backend/insights_engine.py for the maths behind every one of these.
+// simulate() is the AUTHORITATIVE recompute behind the sandbox sliders -
+// frontend/src/utils/scenarioMath.js mirrors the same arithmetic for an
+// instant client-side preview while dragging, exactly the way
+// emissionHelpers.js mirrors the Calculator's formula.
+// ---------------------------------------------------------------------------
+
+export const insightsApi = {
+  getForecast: () => api.get('/api/insights/forecast').then(unwrap),
+
+  getSwaps: (month) =>
+    api.get('/api/insights/swaps', { params: month ? { month } : {} }).then(unwrap),
+
+  // sliders: {swapId: fraction 0-1}
+  simulate: (sliders, month) =>
+    api.post('/api/insights/simulate', { sliders, month }).then(unwrap),
+
+  getCohort: () => api.get('/api/insights/cohort').then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// TEMPLATES (quick-log chips + habit-mined suggestions)
+// ---------------------------------------------------------------------------
+
+export const templatesApi = {
+  getAll: () => api.get('/api/templates').then(unwrap),
+
+  // {label, category, subType, quantity, unit, weekdays: number[], source?}
+  create: (payload) => api.post('/api/templates', payload).then(unwrap),
+
+  remove: (templateId) => api.delete(`/api/templates/${templateId}`).then(unwrap),
+
+  // One-tap log from a saved template - goes through the same server-side
+  // formula as the Calculator (see backend/routes/carbon.py:save_calculated_record)
+  logOne: (templateId, recordedDate) =>
+    api.post(`/api/templates/${templateId}/log`, recordedDate ? { recordedDate } : {}).then(unwrap),
+
+  // Habit-mined candidates the user has not yet turned into a template
+  getSuggestions: () => api.get('/api/templates/suggestions').then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// ENGAGEMENT (the evaluation-harness intervention log, streaks, challenges)
+// ---------------------------------------------------------------------------
+
+export const engagementApi = {
+  // Called by useIntervention.js when a client-rendered nudge is shown -
+  // server-generated recommendations (forecast/swaps/cohort) log themselves,
+  // see insightsApi above, so this is only for things with no API call of
+  // their own to piggyback the log onto.
+  logIntervention: (payload) => api.post('/api/engagement/interventions', payload).then(unwrap),
+
+  updateIntervention: (interventionId, payload) =>
+    api.patch(`/api/engagement/interventions/${interventionId}`, payload).then(unwrap),
+
+  getStreak: () => api.get('/api/engagement/streak').then(unwrap),
+
+  getChallenges: () => api.get('/api/engagement/challenges').then(unwrap),
+
+  claimChallenge: (challengeId) =>
+    api.post(`/api/engagement/challenges/${challengeId}/claim`).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// INGEST (Gemini bill/receipt photo extraction - see routes/ingest.py)
+//
+// Nothing here saves a record. The response is a proposed extraction only;
+// the caller confirms it and then calls carbonApi.calculate() itself, same
+// as any other Calculator entry.
+// ---------------------------------------------------------------------------
+
+export const ingestApi = {
+  // {imageBase64: string (no "data:" prefix), mimeType: 'image/jpeg' | 'image/png' | 'image/webp'}
+  scanBill: (payload) => api.post('/api/ingest/bill', payload).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

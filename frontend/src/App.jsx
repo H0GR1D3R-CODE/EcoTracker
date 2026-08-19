@@ -59,6 +59,7 @@ const Feedback = lazy(() => import('./pages/Feedback'));
 const Donate = lazy(() => import('./pages/Donate'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const CalculatorPage = lazy(() => import('./pages/Calculator'));
+const Insights = lazy(() => import('./pages/Insights'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Profile = lazy(() => import('./pages/Profile'));
@@ -272,6 +273,14 @@ export default function App() {
               element={
                 <ProtectedRoute userOnly>
                   <MotionPage><CalculatorPage /></MotionPage>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/insights"
+              element={
+                <ProtectedRoute userOnly>
+                  <MotionPage><Insights /></MotionPage>
                 </ProtectedRoute>
               }
             />

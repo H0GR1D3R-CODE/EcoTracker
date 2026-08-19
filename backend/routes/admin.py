@@ -25,6 +25,9 @@ hole. Do it by hand once:
 Mounted at /api/admin
 """
 
+import csv
+import hashlib
+import io
 import time
 from datetime import date, datetime, timezone
 
@@ -821,4 +824,78 @@ def system_health():
         "checks": checks,
         "overall": worst,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/research/export
+# ---------------------------------------------------------------------------
+
+def _hashed_uid(uid):
+    """
+    A stable, one-way, per-deployment pseudonym for a user id.
+
+    SHA-256 of the raw uid would still let anyone with a list of registered
+    uids (an admin, notably) recover the mapping by hashing each one and
+    comparing - a "hash it yourself and see if it matches" attack works
+    against any unsalted hash. Salting with SECRET_KEY (never shipped to the
+    browser, unlike everything in this CSV) closes that off: the export is
+    anonymised against the person who downloads and shares it, not just
+    against whoever it's shared with.
+    """
+    salted = f"{Config.SECRET_KEY}:{uid}"
+    return hashlib.sha256(salted.encode("utf-8")).hexdigest()[:16]
+
+
+@admin_bp.route("/research/export", methods=["GET"])
+@require_admin
+def research_export():
+    """
+    Anonymised CSV of every logged intervention - the evaluation-harness data
+    the paper's adoption-rate and behaviour-delta numbers come from. See
+    backend/routes/insights.py and routes/engagement.py for what writes to
+    the `interventions` collection and when.
+
+    SCOPE, deliberately: this exports what is cheap to read live (one
+    collection scan, same cost class as GET /admin/stats). Forecast accuracy
+    (MAE/MAPE) is a walk-forward BACKTEST across historical months, which is
+    a genuinely different, heavier computation - that stays in
+    evaluate_forecast.py, a script you run from your own machine, rather
+    than being recomputed on every hit of an admin-console button.
+
+    No email, no name, no raw uid - only the hashed pseudonym above. This is
+    a real anonymisation property of the export, not a cosmetic one: a
+    column rename would not be enough if the raw uid were still in the file,
+    since uids are also the join key into every OTHER collection.
+    """
+    db = get_db()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "userHash", "type", "variant", "action", "projectedSavingKg",
+        "observedDeltaKg", "shownAt", "actedAt",
+    ])
+
+    row_count = 0
+    for doc in db.collection(Config.COLLECTION_INTERVENTIONS).stream():
+        data = doc.to_dict()
+        shown_at = data.get("shownAt")
+        acted_at = data.get("actedAt")
+        writer.writerow([
+            _hashed_uid(data.get("userId", "")),
+            data.get("type", ""),
+            data.get("variant", ""),
+            data.get("action", "shown"),
+            data.get("projectedSavingKg", ""),
+            data.get("observedDeltaKg", ""),
+            shown_at.isoformat() if shown_at else "",
+            acted_at.isoformat() if acted_at else "",
+        ])
+        row_count += 1
+
+    return api_success({
+        "csv": output.getvalue(),
+        "filename": f"ecotrack-interventions-{date.today().isoformat()}.csv",
+        "rowCount": row_count,
     })

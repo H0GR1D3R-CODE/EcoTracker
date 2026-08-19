@@ -24,6 +24,31 @@ The app then shows that number as a trend over time, breaks it down by category,
 measures it against reduction goals you set, and turns it into comparisons a
 person can actually picture — *"the same as driving 30 km"*.
 
+### Closing the loop: predict, prescribe, verify
+
+Past that, the `/insights` page closes the loop from measurement to action:
+
+- **Forecast** — a month-end projection with an 80% prediction interval, built
+  from an exponentially-weighted average of your own weekday/weekend habits
+  (`backend/insights_engine.py`). `evaluate_forecast.py` backtests it against a
+  naive baseline across your real history.
+- **Counterfactual swaps** — ranked, explainable "swap X for Y, save Z kg"
+  recommendations, every one carrying the two DEFRA/IPCC/CEA factor values and
+  citations it was computed from, plus a marginal-abatement curve and a
+  what-if sandbox with instant client-side sliders.
+- **Quick-log templates & habit mining** — one-tap re-logging for what you do
+  often, and suggestions mined from patterns already in your history.
+- **Streaks & challenges**, computed live from your logged dates - no stored,
+  driftable streak state.
+- **Cohort comparison** — your percentile against others in your region,
+  k-anonymised below 10 people, with a boomerang-effect-aware framing.
+- **Bill/receipt scanning** — photograph an electricity bill and Gemini
+  extracts the quantity for you to confirm before it ever saves anything.
+
+Every recommendation shown anywhere in the app is logged to Firestore's
+`interventions` collection (never with an email or name attached) - the
+evaluation harness behind an admin's Research tab CSV export.
+
 ### The seven categories
 
 | Category | Sub-types | Unit |
@@ -105,10 +130,13 @@ The app runs at `http://localhost:5173`.
 
 ## API
 
-Base URL: `http://localhost:5000` locally, your Render URL in production.
+Base URL: `http://localhost:5000` locally, the Vercel deployment in
+production (`backend/vercel.json` - the backend moved off Render; see
+`render.yaml`'s own comments if you're wondering why that file is still here).
 
-Every route requires a Firebase ID token in the `Authorization` header, with
-exactly three deliberate exceptions marked **public** below.
+Every route requires a Firebase ID token in the `Authorization` header
+except the ones marked **public** below - a visitor can register, browse the
+published emission factors, send feedback, and donate without an account.
 
 | Method | Endpoint | Purpose |
 |---|---|---|
@@ -116,6 +144,9 @@ exactly three deliberate exceptions marked **public** below.
 | POST | `/api/auth/register` | **Public.** Create account (no token can exist yet) |
 | POST | `/api/auth/login` | Exchange a Firebase ID token for a profile |
 | GET / PUT | `/api/auth/profile` | Read / update the signed-in user's profile |
+| POST | `/api/auth/forgot-password` | **Public.** Send a password reset email |
+| PUT | `/api/auth/2fa` | Turn optional email-code 2FA on/off |
+| POST | `/api/auth/2fa/resend`, `/api/auth/2fa/verify` | The 2FA sign-in step |
 | GET | `/api/factors` | **Public.** Emission factors, grouped by category |
 | GET | `/api/factors/:category/:subType` | A single factor, for the live preview |
 | POST | `/api/carbon/calculate` | Calculate and save an emission record |
@@ -128,8 +159,33 @@ exactly three deliberate exceptions marked **public** below.
 | PUT / DELETE | `/api/goals/:id` | Update status / delete a goal |
 | POST | `/api/reports/generate` | Generate a report for a date range |
 | GET | `/api/reports`, `/api/reports/:id` | List / open reports |
+| GET | `/api/insights/forecast` | Month-end forecast with an 80% prediction interval |
+| GET | `/api/insights/swaps` | Ranked, cited counterfactual swaps + a MACC curve |
+| POST | `/api/insights/simulate` | Authoritative recompute behind the what-if sandbox |
+| GET | `/api/insights/cohort` | Percentile vs. your region (k-anonymised, n≥10 only) |
+| GET / POST | `/api/templates` | List / create quick-log templates |
+| DELETE | `/api/templates/:id` | Delete a template |
+| POST | `/api/templates/:id/log` | One-tap log from a saved template |
+| GET | `/api/templates/suggestions` | Habit-mined template proposals from your history |
+| GET | `/api/engagement/streak` | Current logging streak |
+| GET | `/api/engagement/challenges` | This week's self-relative challenges |
+| POST | `/api/engagement/challenges/:id/claim` | Claim a completed challenge |
+| POST | `/api/engagement/interventions` | Log a client-rendered recommendation as shown |
+| PATCH | `/api/engagement/interventions/:id` | Record accept/dismiss on a shown recommendation |
+| POST | `/api/ingest/bill` | Gemini-vision extraction from a bill/receipt photo (saves nothing) |
+| POST | `/api/assistant/chat` | Ask the AI assistant a question, grounded in your data |
+| POST | `/api/assistant/summary` | AI-written summary of a report's period |
+| GET | `/api/assistant/status` | Whether the assistant is configured |
+| GET | `/api/assistant/public-status`, POST `/api/assistant/public-chat` | **Public.** Signed-out visitor version |
+| POST | `/api/feedback` | **Public.** Send feedback |
+| POST | `/api/create-order`, `/api/verify-payment` | **Public.** Razorpay donation flow |
 | GET | `/api/admin/users`, `/api/admin/stats` | **Admin only.** |
+| GET | `/api/admin/users/:id` | **Admin only.** Full drill-down on one user |
 | DELETE | `/api/admin/users/:id` | **Admin only.** Delete a user and all their data |
+| GET | `/api/admin/feedback`, `/api/admin/donations` | **Admin only.** |
+| DELETE | `/api/admin/feedback/:id`, `/api/admin/donations/:id` | **Admin only.** |
+| GET | `/api/admin/system` | **Admin only.** Live health of every dependency |
+| GET | `/api/admin/research/export` | **Admin only.** Anonymised CSV of every logged intervention |
 
 ---
 

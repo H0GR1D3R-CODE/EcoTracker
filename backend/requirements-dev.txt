@@ -1,0 +1,9 @@
+# EcoTrack/backend/requirements-dev.txt
+# Development-only dependencies - never installed on Vercel, kept separate
+# from requirements.txt so the deployed function stays as small as it can.
+#
+# Install with:  pip install -r requirements-dev.txt   (pulls requirements.txt in too)
+
+-r requirements.txt
+
+pytest>=8.0.0

@@ -61,6 +61,7 @@ export const PHOTOS = {
   goalsVista: '1515344905723-babc01aac23d', // wind farm on grass   (Goals banner)
   reportsPath: '1559770968-53924e9b32de', // road through a forest  (Reports banner)
   profileCompass: '1641291773855-ef1d83c41d93', // a compass close up in the dark (Profile banner)
+  foggyForecast: '1485236715568-ddc5ee6ca227', // narrow road through thick morning fog (Insights banner)
 
   // estimator question headers — distinct + darker-toned so they blend with the UI
   nightTraffic: '1542705959-878ca346eb20', // car light-trails at night (Estimate: transport)

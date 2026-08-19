@@ -21,6 +21,7 @@ import {
   LogOut,
   Menu,
   Shield,
+  Sparkles,
   Target,
   User,
   X,
@@ -40,6 +41,7 @@ const SCROLL_THRESHOLD = 80;
 const APP_LINKS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/calculator', label: 'Calculator', icon: Calculator },
+  { to: '/insights', label: 'Insights', icon: Sparkles },
   { to: '/goals', label: 'Goals', icon: Target },
   { to: '/reports', label: 'Reports', icon: FileText },
 ];
