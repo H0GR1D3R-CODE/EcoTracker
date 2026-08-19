@@ -64,7 +64,15 @@ def create_app():
         app,
         resources={r"/api/*": {"origins": Config.CORS_ORIGINS}},
         allow_headers=["Content-Type", "Authorization"],
-        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        # PATCH is here for /api/engagement/interventions/<id> - the
+        # accept/dismiss half of the evaluation harness. Missing it does not
+        # error loudly: the browser's CORS preflight silently rejects the
+        # PATCH, and useIntervention.js's accept()/dismiss() are deliberately
+        # fire-and-forget (a broken log must never break the UI someone is
+        # looking at) - so every "accept" click LOOKED like it worked while
+        # writing nothing. Caught by directly reading Firestore after
+        # clicking Accept in the live app and finding action still "shown".
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     )
 
     # --- register route groups ---
