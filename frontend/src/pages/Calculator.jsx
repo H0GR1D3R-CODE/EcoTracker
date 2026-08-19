@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AlertCircle, CheckCircle2, Info, Loader2, Plus } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info, Loader2, Plus, Trash2 } from 'lucide-react';
 
 import { carbonApi, factorsApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
