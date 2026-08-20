@@ -56,15 +56,18 @@
    =========================================================================== */
 
 :root {
-  /* Bricolage Grotesque is a variable grotesque with genuine quirks in its
-     wider optical sizes - it is doing the characterful work here, so it is
-     used big and used sparingly. Space Grotesk has been removed outright
-     rather than left in the stack: it was the "temporary" second display face
-     that half the app was still reaching for directly, which is exactly the
-     inconsistency this rebuild exists to end. With it gone, any straggler
-     falls back visibly and gets caught. */
-  --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  /* Both display and "mono" now resolve to the same face, Inter - see
+     index.html's font-loading comment for why the two-face system (a
+     characterful display grotesque plus an amber monospace for every
+     measured value) was dropped. Both variable NAMES are kept rather than
+     collapsed into one, because dozens of components already reference
+     var(--font-display) and var(--font-mono) directly for their own
+     weight/size choices - changing what each resolves to updates every one
+     of them at once; renaming would have meant editing every call site for
+     no visual gain. font-variant-numeric: tabular-nums (see .eco-readout)
+     keeps numbers column-aligned without needing an actual monospace face. */
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-mono: 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* Display type is set tight on both axes. Headlines lock up as a shape
@@ -173,16 +176,22 @@
   --org-goldstandard: #6a5480;
 }
 
-/* A measured value. Mono, tight, amber - the same everywhere it appears. */
+/* A measured value - tight tracking and tabular figures so a column of
+   numbers still lines up, but the same colour as surrounding text. This
+   used to be --readout (a dedicated amber), which read as a sci-fi
+   instrument panel rather than a formal number on a real screen. --readout
+   itself is untouched and still amber where it is doing a genuinely
+   different job elsewhere - a status accent (a progress ring's mid band, a
+   star rating, a section rule) rather than a value's own colour. */
 .eco-readout {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  color: var(--readout);
+  letter-spacing: -0.01em;
+  color: var(--eco-text);
 }
 
-/* The small uppercase mono marker that labels a section. Structural, not
-   decorative: it says what kind of thing follows. */
+/* The small uppercase tracked-out marker that labels a section. Structural,
+   not decorative: it says what kind of thing follows. */
 .eco-marker {
   font-family: var(--font-mono);
   font-size: 0.72rem;

@@ -64,7 +64,7 @@ export default function ScenarioSandbox({ swaps, baselineTotal, month }) {
               <span>
                 {formatSubType(swap.fromSubType)} → {formatSubType(swap.toSubType)}
               </span>
-              <span className="eco-readout" style={{ color: 'var(--readout)' }}>
+              <span className="eco-readout">
                 {Math.round((positions[swap.id] || 0) * 100)}%
               </span>
             </div>
