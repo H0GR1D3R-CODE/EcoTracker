@@ -36,9 +36,12 @@ from firebase_admin import auth as firebase_auth
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
+from email_service import send_admin_invite_email
 from routes import (
+    EMAIL_ERROR,
     api_error,
     api_success,
+    is_valid_email,
     month_bounds,
     month_key_of,
     require_admin,
@@ -1049,3 +1052,45 @@ def research_stats():
         ],
         "dailyTrend": daily_trend,
     })
+
+
+# ---------------------------------------------------------------------------
+# POST /api/admin/invite
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/invite", methods=["POST"])
+@require_admin
+def invite_admin():
+    """
+    Send a branded invitation email to a new admin.
+
+    Body: {"email": "new-admin@example.com", "name": "Optional Name"}
+
+    IMPORTANT SCOPE: this sends an email. It does NOT itself grant access -
+    Config.ADMIN_EMAILS is read once from the environment when the process
+    starts (see config.py), so there is no runtime API that could add to it
+    without a real deployment. Actually granting access is a separate,
+    deliberate step (updating ADMIN_EMAILS in the Vercel dashboard and
+    redeploying) that only someone with access to that dashboard can take -
+    exactly the same reasoning as this file's own module docstring on why
+    there is no "make me an admin" route. This endpoint's job ends at
+    telling the right person that access is coming.
+    """
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email", "")).strip().lower()
+    name = str(body.get("name", "")).strip() or None
+
+    if not is_valid_email(email):
+        return api_error(EMAIL_ERROR, 400, code="invalid_email")
+
+    sent = send_admin_invite_email(email, invited_by_email=g.email, invited_name=name)
+
+    if not sent:
+        return api_error(
+            "Could not send the invite email - RESEND_API_KEY may not be configured, "
+            "or Resend rejected the request. Tell them yourself in the meantime.",
+            502,
+            code="invite_send_failed",
+        )
+
+    return api_success({"email": email, "sent": True}, message=f"Invite sent to {email}.")

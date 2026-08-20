@@ -556,3 +556,211 @@ def send_donation_thank_you_email(recipient_email, name, amount_paise, currency,
         f"(HTTP {response.status_code}): {response.text[:300]}"
     )
     return False
+
+
+# ---------------------------------------------------------------------------
+# ADMIN INVITATION EMAIL
+#
+# Sent from routes/admin.py's invite_admin() - an existing admin adding
+# someone new to ADMIN_EMAILS and telling them so, in one action. Unlike the
+# other three emails, there is no Firebase-generated link and no fallback:
+# this one is purely informational, so if RESEND_API_KEY is not set the
+# route just says the address was granted access and to tell them yourself.
+# ---------------------------------------------------------------------------
+
+# Same two photos already curated for the site itself (frontend/src/utils/
+# photos.js) - the console's own banner (PageBanner photo="adminBanner" on
+# AdminDashboard.jsx) as the hero, so the email visually matches the exact
+# page the recipient is about to open, then Earth from space (Dashboard's
+# own "the bigger picture" framing) as the closing image - the console is
+# instrumentation FOR that picture, not the point in itself.
+_ADMIN_INVITE_HERO_PHOTO = (
+    "https://images.unsplash.com/photo-1609609018625-afef0a259159"
+    "?auto=format&fit=crop&w=1200&q=70"
+)
+_ADMIN_INVITE_MISSION_PHOTO = (
+    "https://images.unsplash.com/photo-1451187580459-43490279c0fa"
+    "?auto=format&fit=crop&w=800&q=70"
+)
+
+# What ADMIN_CONSOLE_GUIDE in routes/assistant.py tells the in-app assistant
+# about the console's own seven tabs - kept short and skimmable here, not
+# copied verbatim, since an invite is read once and skimmed, not consulted.
+_ADMIN_CONSOLE_CAPABILITIES = [
+    "Platform-wide stats - users, records, emissions, goal success rate",
+    "Growth trends - sign-ups over time, regions, the most active users",
+    "One combined activity feed - every sign-up, donation and feedback message",
+    "The full user directory, with a drill-down into any one account",
+    "Feedback, donations, and a live health check of every service EcoTrack depends on",
+    "The research dashboard - real adoption-rate figures from the evaluation harness",
+]
+
+
+def _greeting_name(name=None):
+    """
+    The invite's opening line, personalised only when a real name was
+    actually given.
+
+    Deliberately does NOT guess a name from the email's local part -
+    tried exactly that against "kaustubhgr05@gmail.com" while building
+    this, and a plain "first run of letters" match absorbed what are
+    almost certainly surname initials into "Kaustubhgr", which is worse
+    than no name at all. A wrong guess in a formal invite reads as
+    careless in a way a generic-but-correct greeting does not.
+    """
+    if name and name.strip():
+        return f", {name.strip().split()[0]}"
+    return ""
+
+
+def _admin_invite_email_html(recipient_email, invited_name, invited_by_email):
+    """
+    The branded HTML body for an admin-invitation email.
+
+    Same email-safe constraints as every other template in this file (inline
+    styles only, light-theme colours, no custom @font-face) - see
+    _reset_email_html's own docstring for why.
+    """
+    greeting_name = _greeting_name(invited_name)
+    login_url = f"{Config.PUBLIC_APP_URL}/login"
+    register_url = f"{Config.PUBLIC_APP_URL}/register"
+
+    capability_rows = "".join(
+        f"""
+          <tr>
+            <td style="padding:9px 0; border-top:1px solid rgba(31,42,26,0.1); font-size:13px; line-height:1.55; color:#5f6b58;">
+              <span style="color:#1f7a44;">&#10003;</span>&nbsp; {capability}
+            </td>
+          </tr>"""
+        for capability in _ADMIN_CONSOLE_CAPABILITIES
+    )
+
+    return f"""\
+<!doctype html>
+<html>
+  <body style="margin:0; padding:32px 16px; background-color:#f5f3ec; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; margin:0 auto;">
+      <tr>
+        <td style="padding-bottom:28px; text-align:center;">
+          <span style="font-size:22px; font-weight:700; color:#1f7a44; letter-spacing:-0.02em;">
+            &#127807; EcoTrack
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="background-color:#fdfcf8; border:1px solid rgba(31,42,26,0.12); border-radius:14px; padding:0; overflow:hidden;">
+          <img src="{_ADMIN_INVITE_HERO_PHOTO}" width="480" alt="Aerial view of a city lit up at night"
+               style="display:block; width:100%; height:180px; object-fit:cover; border:0;" />
+          <div style="padding:32px;">
+            <p style="margin:0 0 8px; text-align:center; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:#5f6b58;">
+              Admin access granted
+            </p>
+            <h1 style="margin:0 0 16px; text-align:center; font-size:26px; line-height:1.2; font-weight:700; color:#1e2a1d;">
+              You're invited to help run EcoTrack{greeting_name}.
+            </h1>
+            <p style="margin:0 0 20px; font-size:15px; line-height:1.6; color:#5f6b58;">
+              <strong style="color:#1e2a1d;">{invited_by_email}</strong> has added
+              <strong style="color:#1e2a1d;">{recipient_email}</strong> as an administrator
+              on EcoTrack - the carbon-tracking platform measuring real footprints against
+              published DEFRA, IPCC and CEA emission factors, built around UN SDG&nbsp;13.
+              As an admin you'll have access to:
+            </p>
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 24px;">
+              {capability_rows}
+            </table>
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
+              <tr>
+                <td style="border-radius:10px; background-color:#1f7a44;">
+                  <a href="{login_url}"
+                     style="display:inline-block; padding:14px 28px; font-size:15px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:10px;">
+                    Sign in to the console
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0; text-align:center; font-size:12px; line-height:1.6; color:#5f6b58;">
+              New here? <a href="{register_url}" style="color:#1f7a44;">Create an account</a>
+              at this exact address first - admin access applies the moment you sign in
+              with it, nothing further to set up.
+            </p>
+          </div>
+          <img src="{_ADMIN_INVITE_MISSION_PHOTO}" width="480" alt="The Earth seen from space"
+               style="display:block; width:100%; height:150px; object-fit:cover; border:0;" />
+          <div style="padding:24px 32px 32px;">
+            <p style="margin:0; font-size:13px; line-height:1.6; color:#5f6b58;">
+              Admin access is scoped to the console only - it cannot see anyone's password,
+              and every action taken there is logged. If this was not something you expected,
+              you can simply ignore this email; nothing further happens automatically.
+            </p>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-top:24px; text-align:center;">
+          <p style="margin:0; font-size:12px; color:#5f6b58;">
+            EcoTrack &middot; measure your footprint, then bring it down &middot; built around UN SDG&nbsp;13
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+
+
+def _admin_invite_email_text(recipient_email, invited_name, invited_by_email):
+    greeting_name = _greeting_name(invited_name)
+    capability_lines = "\n".join(f"- {c}" for c in _ADMIN_CONSOLE_CAPABILITIES)
+    return (
+        f"You're invited to help run EcoTrack{greeting_name}.\n\n"
+        f"{invited_by_email} has added {recipient_email} as an administrator on "
+        f"EcoTrack. As an admin you'll have access to:\n\n"
+        f"{capability_lines}\n\n"
+        f"Sign in: {Config.PUBLIC_APP_URL}/login\n"
+        f"New here? Create an account at this exact address first - admin access "
+        f"applies the moment you sign in with it: {Config.PUBLIC_APP_URL}/register\n\n"
+        f"Admin access is scoped to the console only and every action taken there "
+        f"is logged. If this was not something you expected, you can ignore this "
+        f"email; nothing further happens automatically.\n"
+    )
+
+
+def send_admin_invite_email(recipient_email, invited_by_email, invited_name=None):
+    """
+    Send the branded admin-invitation email through Resend.
+
+    Unlike the other three send_* functions, a False return here is surfaced
+    to the admin who triggered it (see routes/admin.py's invite_admin) rather
+    than silently swallowed - there is no working fallback path for this one
+    (Firebase has no equivalent built-in email), so the admin needs to know
+    to tell the new admin some other way.
+    """
+    if not Config.RESEND_API_KEY:
+        return False
+
+    payload = {
+        "from": Config.RESEND_FROM_EMAIL,
+        "to": [recipient_email],
+        "subject": "You've been added as an EcoTrack admin",
+        "html": _admin_invite_email_html(recipient_email, invited_name, invited_by_email),
+        "text": _admin_invite_email_text(recipient_email, invited_name, invited_by_email),
+    }
+
+    try:
+        response = requests.post(
+            RESEND_API_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {Config.RESEND_API_KEY}"},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException:
+        return False
+
+    if response.status_code >= 200 and response.status_code < 300:
+        return True
+
+    print(
+        f"[EcoTrack] Resend could not send the admin invite email "
+        f"(HTTP {response.status_code}): {response.text[:300]}"
+    )
+    return False
