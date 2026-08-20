@@ -21,6 +21,7 @@ import MaccChart from '../components/MaccChart';
 import ScenarioSandbox from '../components/ScenarioSandbox';
 import StreakFlame from '../components/StreakFlame';
 import ActivityHeatmap from '../components/ActivityHeatmap';
+import ChallengeList from '../components/ChallengeList';
 import CohortCurve from '../components/CohortCurve';
 import { currentMonthISO } from '../utils/formatters';
 
@@ -87,6 +88,13 @@ export default function Insights() {
           <div>
             <ActivityHeatmap />
           </div>
+        </div>
+
+        <div style={{ marginTop: '1.6rem', paddingTop: '1.2rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.2rem' }}>
+            This week's challenges
+          </span>
+          <ChallengeList />
         </div>
       </Section>
 
