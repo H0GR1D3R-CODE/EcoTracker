@@ -23,6 +23,12 @@ import { formatEmission, formatSubType } from '../utils/formatters';
 
 function SuggestionCard({ suggestion, onResolved }) {
   const [creating, setCreating] = useState(false);
+  // Belt-and-braces against a double click or a slow parent re-render:
+  // this card removes ITSELF from view the instant a decision is made,
+  // rather than only trusting the parent's array update to eventually
+  // stop rendering it. Caught live: a stuck suggestion let repeated clicks
+  // create duplicate templates before this existed.
+  const [resolvedLocally, setResolvedLocally] = useState(false);
   const { accept, dismiss } = useIntervention({
     type: 'quick_log_suggestion',
     variant: 'mined_template',
@@ -32,6 +38,7 @@ function SuggestionCard({ suggestion, onResolved }) {
   const meta = CATEGORY_META[suggestion.category];
 
   const handleAccept = async () => {
+    if (creating || resolvedLocally) return; // guards a double-click too, not just a slow parent update
     setCreating(true);
     try {
       await templatesApi.create({
@@ -45,6 +52,7 @@ function SuggestionCard({ suggestion, onResolved }) {
       });
       accept();
       toast.success('Added as a quick-log chip.');
+      setResolvedLocally(true);
       onResolved();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not save that template.'));
@@ -55,8 +63,11 @@ function SuggestionCard({ suggestion, onResolved }) {
 
   const handleDismiss = () => {
     dismiss();
+    setResolvedLocally(true);
     onResolved();
   };
+
+  if (resolvedLocally) return null;
 
   return (
     <motion.div
@@ -140,7 +151,12 @@ export default function QuickLogChips({ onLogged }) {
   };
 
   const resolveSuggestion = (suggestion) => {
-    setSuggestions((current) => current.filter((s) => s !== suggestion));
+    // Keyed by category+subType rather than object identity - the same key
+    // already used for React's own `key` prop below, and not dependent on
+    // `suggestion` staying the exact same reference across whatever render
+    // happened between this card mounting and its own async accept() resolving.
+    const key = `${suggestion.category}_${suggestion.subType}`;
+    setSuggestions((current) => current.filter((s) => `${s.category}_${s.subType}` !== key));
     loadTemplates();
   };
 

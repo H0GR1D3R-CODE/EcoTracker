@@ -105,6 +105,26 @@ def create_template():
     source = "mined" if body.get("source") == "mined" else "manual"
 
     db = get_db()
+
+    # A duplicate guard at the one place that actually writes, rather than
+    # relying only on the frontend never showing an already-templated
+    # suggestion twice (GET /suggestions already excludes these - see that
+    # route's existing_keys) - a repeated click, a retried request, or any
+    # future caller that skips the suggestions flow entirely should still
+    # never end up with two templates for the same habit. Idempotent: the
+    # existing template is returned rather than erroring, since from the
+    # caller's point of view "the template exists" is what they wanted.
+    existing = list(
+        db.collection(Config.COLLECTION_ACTIVITY_TEMPLATES)
+        .where(filter=gcloud_firestore.FieldFilter("userId", "==", g.uid))
+        .where(filter=gcloud_firestore.FieldFilter("category", "==", category))
+        .where(filter=gcloud_firestore.FieldFilter("subType", "==", sub_type))
+        .limit(1)
+        .stream()
+    )
+    for doc in existing:
+        return api_success(_serialize_template(doc), message="Template already exists.", status=200)
+
     ref = db.collection(Config.COLLECTION_ACTIVITY_TEMPLATES).document()
     ref.set({
         "userId": g.uid,
