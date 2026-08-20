@@ -312,6 +312,11 @@ export const adminApi = {
   // and the boomerang-effect variant counts - see backend/routes/admin.py's
   // research_stats() docstring for what this can and cannot claim.
   getResearchStats: () => api.get('/api/admin/research/stats').then(unwrap),
+
+  // Sends the branded admin-invitation email - see routes/admin.py's
+  // invite_admin(). Does not itself grant access; that is still a manual
+  // Vercel-dashboard step.
+  inviteAdmin: (email, name) => api.post('/api/admin/invite', { email, name }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

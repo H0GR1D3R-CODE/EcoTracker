@@ -31,6 +31,7 @@ import {
   MessageSquare,
   RefreshCw,
   Search,
+  Send,
   Shield,
   Star,
   Target,
@@ -117,6 +118,14 @@ export default function AdminDashboard() {
   // The Research tab's adoption-rate/impact stats, lazy-loaded the same way.
   const [researchStats, setResearchStats] = useState(null);
   const [researchStatsLoading, setResearchStatsLoading] = useState(false);
+
+  // The System tab's "invite an admin" form. Deliberately sends from
+  // whichever real admin is signed in and clicking the button - see
+  // routes/admin.py's invite_admin() docstring on why this cannot be
+  // triggered any other way (the email's "invited by" line has to be true).
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviting, setInviting] = useState(false);
 
   // The per-user drill-down: which user's full detail is open, the loaded data,
   // and whether it is still loading / failed
@@ -1996,6 +2005,67 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
+        </div>
+
+        <div style={{ paddingTop: '1.6rem', marginTop: '1.8rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.3rem' }}>Invite an admin</h2>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.2rem', fontSize: '0.85rem', maxWidth: '64ch' }}>
+            Sends a branded email explaining what admin access includes and how to sign in.
+            This does not grant access by itself - add the address to ADMIN_EMAILS in the
+            Vercel dashboard and redeploy first, or they'll be signed in with nothing to see.
+          </p>
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (inviting) return;
+              setInviting(true);
+              try {
+                await adminApi.inviteAdmin(inviteEmail.trim(), inviteName.trim() || undefined);
+                toast.success(`Invite sent to ${inviteEmail.trim()}.`);
+                setInviteEmail('');
+                setInviteName('');
+              } catch (error) {
+                toast.error(getErrorMessage(error, 'Could not send the invite.'));
+              } finally {
+                setInviting(false);
+              }
+            }}
+            style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap', alignItems: 'flex-end' }}
+          >
+            <div style={{ flex: '1 1 220px' }}>
+              <label htmlFor="invite-email" className="eco-marker" style={{ display: 'block', marginBottom: '0.35rem' }}>
+                Email
+              </label>
+              <input
+                id="invite-email"
+                type="email"
+                required
+                value={inviteEmail}
+                onChange={(event) => setInviteEmail(event.target.value)}
+                placeholder="new-admin@example.com"
+                className="form-control"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ flex: '1 1 160px' }}>
+              <label htmlFor="invite-name" className="eco-marker" style={{ display: 'block', marginBottom: '0.35rem' }}>
+                Name (optional)
+              </label>
+              <input
+                id="invite-name"
+                type="text"
+                value={inviteName}
+                onChange={(event) => setInviteName(event.target.value)}
+                placeholder="Their name"
+                className="form-control"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <button type="submit" className="eco-btn eco-btn-primary" disabled={inviting || !inviteEmail.trim()}>
+              <Send size={16} />
+              {inviting ? 'Sending…' : 'Send invite'}
+            </button>
+          </form>
         </div>
       </motion.div>
       )}
