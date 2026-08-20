@@ -7,7 +7,8 @@ Google AI Studio offers a genuinely free API tier with no card required, which
 is what makes this feature possible on a student budget. The provider is the
 only thing that is specific to Google: the routes, the grounding logic, and the
 entire React chat panel are provider-agnostic. Swapping to a different model
-service later means rewriting only the two _call_model blocks in this file.
+service later means rewriting only _get_client() and _call_gemini() below -
+every route calls through those two, not the SDK directly.
 
 HOW THIS IS WIRED, AND WHY IT MATTERS FOR SECURITY
 ---------------------------------------------------
@@ -33,6 +34,7 @@ ability to write, edit, or delete anything at all.
 Mounted at /api/assistant
 """
 
+import time
 from datetime import date
 
 from flask import Blueprint, g, request
@@ -138,6 +140,34 @@ def _get_client():
     # Passing the key explicitly rather than relying on the ambient environment
     # keeps this behaving the same way locally and on Render
     return genai.Client(api_key=Config.GEMINI_API_KEY), None
+
+
+# One retry, after a short pause, and only for a ServerError - reproduced
+# directly against the live API while chasing a user report of "the
+# assistant service is having problems": the exact same request, byte for
+# byte, succeeded on one attempt and failed with 503 UNAVAILABLE ("This
+# model is currently experiencing high demand") on the next. That is a
+# genuine, transient capacity limit on Gemini's free tier, not a bug in the
+# prompt or the admin-context data - retrying is the correct response, not
+# a fix to code that was never broken. Not retried for ClientError (a bad
+# key or bad request will fail identically every time) or a second
+# ServerError (Vercel's own 60s function budget means a request already
+# waiting on Gemini cannot afford to wait through more than one retry).
+GEMINI_RETRY_DELAY_SECONDS = 1.5
+
+
+def _call_gemini(client, **generate_content_kwargs):
+    """
+    client.models.generate_content(...), transparently retried once on a
+    transient server error. Raises exactly what the SDK itself raises
+    (ClientError, ServerError, APIError) - every caller's own except block,
+    which maps each to its own user-facing message, is unchanged by this.
+    """
+    try:
+        return client.models.generate_content(**generate_content_kwargs)
+    except genai_errors.ServerError:
+        time.sleep(GEMINI_RETRY_DELAY_SECONDS)
+        return client.models.generate_content(**generate_content_kwargs)
 
 
 def _build_admin_context():
@@ -579,7 +609,8 @@ def chat():
 
     # --- call Gemini ---
     try:
-        response = client.models.generate_content(
+        response = _call_gemini(
+            client,
             model=Config.ASSISTANT_MODEL,
             contents=contents,
             config=genai_types.GenerateContentConfig(
@@ -730,7 +761,8 @@ Biggest contributors:
 {chr(10).join(f"  - {k.split('/')[1].replace('_', ' ')} ({k.split('/')[0]}): {v['emission']:.2f} kg across {v['count']} entries" for k, v in top_activities)}"""
 
     try:
-        response = client.models.generate_content(
+        response = _call_gemini(
+            client,
             model=Config.ASSISTANT_MODEL,
             contents=[
                 genai_types.Content(
@@ -765,6 +797,12 @@ Biggest contributors:
             "The assistant rejected the request. Check your backend/.env settings.",
             503,
             code="assistant_config_error",
+        )
+    except genai_errors.ServerError:
+        return api_error(
+            "The assistant service is having problems. Please try again shortly.",
+            502,
+            code="assistant_error",
         )
     except genai_errors.APIError:
         return api_error(
@@ -916,7 +954,8 @@ def public_chat():
     )
 
     try:
-        response = client.models.generate_content(
+        response = _call_gemini(
+            client,
             model=Config.ASSISTANT_MODEL,
             contents=contents,
             config=genai_types.GenerateContentConfig(

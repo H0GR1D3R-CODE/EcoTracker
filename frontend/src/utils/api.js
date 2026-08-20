@@ -341,12 +341,20 @@ export const assistantApi = {
   // server has no API key configured
   getStatus: () => api.get('/api/assistant/status').then(unwrap),
 
+  // skipErrorToast on all three Gemini-backed calls below: Assistant.jsx,
+  // PublicHelper.jsx and Reports.jsx each already show the specific reason
+  // inline (rate-limited, Gemini's own server error, unreachable) - without
+  // this, a 5xx from Gemini shows that specific message AND the interceptor's
+  // generic "Server error" toast stacked on top for the same one failure.
+
   // history is [{role: 'user'|'assistant', content: string}]
   chat: (message, history = []) =>
-    api.post('/api/assistant/chat', { message, history }).then(unwrap),
+    api.post('/api/assistant/chat', { message, history }, { skipErrorToast: true }).then(unwrap),
 
   summarise: (periodStart, periodEnd) =>
-    api.post('/api/assistant/summary', { periodStart, periodEnd }).then(unwrap),
+    api
+      .post('/api/assistant/summary', { periodStart, periodEnd }, { skipErrorToast: true })
+      .then(unwrap),
 
   // The signed-out counterparts, called by PublicHelper.jsx. No auth token
   // exists to attach for these - the request interceptor above only adds one
@@ -354,7 +362,13 @@ export const assistantApi = {
   // no special handling needed here.
   getPublicStatus: () => api.get('/api/assistant/public-status').then(unwrap),
   publicChat: (message, history = [], recaptchaToken = null) =>
-    api.post('/api/assistant/public-chat', { message, history, recaptchaToken }).then(unwrap),
+    api
+      .post(
+        '/api/assistant/public-chat',
+        { message, history, recaptchaToken },
+        { skipErrorToast: true }
+      )
+      .then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
