@@ -45,7 +45,12 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import StatCard from '../components/StatCard';
-import { CategoryDoughnutChart, TrendLineChart } from '../components/EmissionChart';
+import {
+  AdoptionRateBarChart,
+  CategoryDoughnutChart,
+  InterventionTrendChart,
+  TrendLineChart,
+} from '../components/EmissionChart';
 import { SkeletonStatCard, SkeletonTable } from '../components/SkeletonCard';
 import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
 import {
@@ -54,11 +59,22 @@ import {
   formatEmission,
   formatNumber,
   formatRelativeDate,
+  formatSubType,
   getInitials,
   truncate,
 } from '../utils/formatters';
 import Photo from '../components/Photo';
 import { PHOTOS } from '../utils/photos';
+
+// Human labels for the `interventions.type` values - see
+// backend/routes/admin.py's research_stats() for where these come from.
+const INTERVENTION_TYPE_LABELS = {
+  swap_item: 'Swap suggestions',
+  quick_log_suggestion: 'Quick-log suggestions',
+  forecast: 'Forecast',
+  swap: 'Swap list (overview)',
+  cohort: 'Cohort comparison',
+};
 
 export default function AdminDashboard() {
   const { profile, user } = useAuth();
@@ -97,6 +113,10 @@ export default function AdminDashboard() {
   // is measuring would slow every dashboard load to prove a point.
   const [system, setSystem] = useState(null);
   const [systemLoading, setSystemLoading] = useState(false);
+
+  // The Research tab's adoption-rate/impact stats, lazy-loaded the same way.
+  const [researchStats, setResearchStats] = useState(null);
+  const [researchStatsLoading, setResearchStatsLoading] = useState(false);
 
   // The per-user drill-down: which user's full detail is open, the loaded data,
   // and whether it is still loading / failed
@@ -175,6 +195,22 @@ export default function AdminDashboard() {
   // would be noise.
   useEffect(() => {
     if (tab === 'system' && !system && !systemLoading) loadSystem();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const loadResearchStats = async () => {
+    setResearchStatsLoading(true);
+    try {
+      setResearchStats(await adminApi.getResearchStats());
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not load the research stats.'));
+    } finally {
+      setResearchStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'research' && !researchStats && !researchStatsLoading) loadResearchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -1972,15 +2008,148 @@ export default function AdminDashboard() {
         transition={{ duration: 0.32 }}
       >
         <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FlaskConical size={17} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Adoption &amp; impact</h2>
+            </div>
+            <button
+              type="button"
+              onClick={loadResearchStats}
+              disabled={researchStatsLoading}
+              className="eco-btn eco-btn-ghost"
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
+            >
+              <RefreshCw
+                size={14}
+                style={researchStatsLoading ? { animation: 'eco-spin 0.9s linear infinite' } : undefined}
+              />
+              Re-check
+            </button>
+          </div>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.85rem', maxWidth: '64ch' }}>
+            The evaluation harness, turned into the numbers the project's central claim rests
+            on: not "we log recommendations" but the measured rate people actually acted on them.
+          </p>
+
+          {!researchStats && researchStatsLoading && (
+            <p className="eco-text-muted" style={{ fontSize: '0.9rem' }}>Computing…</p>
+          )}
+
+          {researchStats && (
+            <>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '1.6rem',
+                  marginBottom: '2rem',
+                }}
+              >
+                <StatCard
+                  icon={FlaskConical}
+                  label="Interventions shown"
+                  value={researchStats.totalInterventions}
+                  decimals={0}
+                  accent="var(--cat-transport)"
+                  hint="Every forecast, swap idea, cohort card and quick-log suggestion, logged once each"
+                />
+                <StatCard
+                  icon={Target}
+                  label="Actionable adoption rate"
+                  value={researchStats.actionableAdoptionRate}
+                  unit="%"
+                  decimals={1}
+                  accent="var(--eco-primary)"
+                  hint={`${researchStats.actionableShown} shown were things a person could actually accept or dismiss`}
+                />
+                <StatCard
+                  icon={TrendingUp}
+                  label="Projected saving, accepted"
+                  value={researchStats.totalProjectedSavingKg}
+                  unit="kg CO₂/mo"
+                  decimals={2}
+                  accent="var(--org-goldstandard)"
+                  hint="Summed across every swap someone actually said yes to"
+                />
+              </div>
+
+              {researchStats.byType.some((t) => t.actionable) && (
+                <div className="eco-card" style={{ marginBottom: '1.6rem' }}>
+                  <span className="eco-marker" style={{ display: 'block', marginBottom: '1rem' }}>
+                    Adoption rate by type
+                  </span>
+                  <AdoptionRateBarChart
+                    labels={researchStats.byType
+                      .filter((t) => t.actionable)
+                      .map((t) => INTERVENTION_TYPE_LABELS[t.type] || formatSubType(t.type))}
+                    data={researchStats.byType.filter((t) => t.actionable).map((t) => t.adoptionRate)}
+                    height={Math.max(120, researchStats.byType.filter((t) => t.actionable).length * 60)}
+                  />
+                  <p className="eco-text-muted" style={{ fontSize: '0.78rem', marginTop: '0.8rem', marginBottom: 0 }}>
+                    A forecast, the swap list itself, and a cohort comparison are informational
+                    and have no accept/dismiss control, so they are left out of this chart rather
+                    than shown at a misleading 0%.
+                  </p>
+                </div>
+              )}
+
+              {researchStats.dailyTrend.some((d) => d.shown > 0) && (
+                <div className="eco-card" style={{ marginBottom: '1.6rem' }}>
+                  <span className="eco-marker" style={{ display: 'block', marginBottom: '1rem' }}>
+                    Shown vs. accepted, last 14 days
+                  </span>
+                  <InterventionTrendChart
+                    labels={researchStats.dailyTrend.map((d) => formatDate(d.date, 'dd MMM'))}
+                    shown={researchStats.dailyTrend.map((d) => d.shown)}
+                    accepted={researchStats.dailyTrend.map((d) => d.accepted)}
+                  />
+                </div>
+              )}
+
+              {researchStats.cohortVariants.length > 0 && (
+                <div className="eco-card" style={{ marginBottom: '1.6rem' }}>
+                  <span className="eco-marker" style={{ display: 'block', marginBottom: '0.8rem' }}>
+                    Boomerang-effect instrumentation
+                  </span>
+                  <p className="eco-text-muted" style={{ fontSize: '0.85rem', marginTop: 0, marginBottom: '1rem', maxWidth: '68ch' }}>
+                    Cohort comparisons are framed two ways depending on the viewer's own
+                    position: <strong>injunctive approval</strong> for someone already below
+                    their region's mean (an approving tone, guarding against the boomerang
+                    effect documented by Schultz et al. 2007 - a low emitter drifting up after
+                    learning they are already doing well), or a plain{' '}
+                    <strong>descriptive comparison</strong> otherwise. Assignment is deterministic
+                    from the user's own data, not a randomised trial, so this table reports how
+                    often each framing was shown - not yet a causal test of whether it worked.
+                    That needs a longitudinal join against emissions logged in the following
+                    weeks, across more users than a live snapshot can responsibly claim.
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                    {researchStats.cohortVariants.map((v) => (
+                      <div key={v.variant}>
+                        <div className="eco-readout" style={{ fontSize: '1.4rem', fontWeight: 500 }}>{v.count}</div>
+                        <div className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
+                          {v.variant === 'injunctive_approval' ? 'Injunctive approval' : 'Descriptive comparison'} shown
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div style={{ paddingTop: '1.6rem', marginTop: '0.4rem', borderTop: '1px solid var(--rule-strong)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
             <FlaskConical size={17} style={{ color: 'var(--eco-text-muted)' }} />
             <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Research export</h2>
           </div>
           <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.85rem', maxWidth: '64ch' }}>
             Every recommendation the app has shown anyone - a forecast, a swap idea, a cohort
-            comparison, a quick-log suggestion - and whether they acted on it. This is the
-            evaluation-harness data the adoption-rate figures come from. User ids are hashed
-            with a server-side secret before export; no name or email is included.
+            comparison, a quick-log suggestion - and whether they acted on it. This is the raw
+            data the numbers above are computed from. User ids are hashed with a server-side
+            secret before export; no name or email is included.
           </p>
 
           <button

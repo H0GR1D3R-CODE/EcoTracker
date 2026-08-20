@@ -29,7 +29,7 @@ import csv
 import hashlib
 import io
 import time
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from flask import Blueprint, g, request
 from firebase_admin import auth as firebase_auth
@@ -898,4 +898,154 @@ def research_export():
         "csv": output.getvalue(),
         "filename": f"ecotrack-interventions-{date.today().isoformat()}.csv",
         "rowCount": row_count,
+    })
+
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/research/stats
+# ---------------------------------------------------------------------------
+
+# Only these two intervention types ever show an Accept/Dismiss control -
+# see frontend/src/components/SwapCard.jsx and QuickLogChips.jsx, the only
+# two files in the app that call useIntervention's accept()/dismiss(). A
+# forecast, the ranked swap list itself, and a cohort comparison are shown
+# but nothing to "adopt" - reporting an adoption rate for those would silently
+# imply 0% engagement on features that were never actionable in the first
+# place, which is a worse number than no number.
+ACTIONABLE_INTERVENTION_TYPES = {"swap_item", "quick_log_suggestion"}
+
+# How many days of daily shown/accepted counts the trend chart covers.
+RESEARCH_TREND_DAYS = 14
+
+
+def _adoption_rate(accepted, shown):
+    return round((accepted / shown) * 100, 1) if shown else 0.0
+
+
+@admin_bp.route("/research/stats", methods=["GET"])
+@require_admin
+def research_stats():
+    """
+    Turns the raw `interventions` log into the actual numbers the project's
+    central claim rests on: not "we log recommendations" but "here is the
+    measured rate at which people acted on them."
+
+    ONE PASS, same cost class as research_export() just above - both read
+    the same collection once rather than running a separate query per figure
+    (see backend/routes/dashboard.py's module docstring for why that
+    matters at all).
+
+    THE BOOMERANG-EFFECT INSTRUMENTATION, AND ITS HONEST LIMIT
+    routes/insights.py's /cohort route assigns each user a variant
+    deterministically from their own position (below the cohort mean ->
+    "injunctive_approval", at or above it -> "descriptive_comparison") - see
+    that route's own comment for the citation. That is NOT a randomised
+    controlled trial: there is no below-mean user who received the plain
+    descriptive framing to compare against, so this endpoint can report how
+    often each variant was shown, but cannot itself claim to have measured
+    whether the injunctive framing prevented a boomerang increase. Testing
+    that causally needs a longitudinal join against carbonRecords (did this
+    user's emissions rise in the weeks after seeing the comparison) across
+    enough users for statistical power - future work, not a live snapshot.
+    Reporting the honest partial number here beats reporting a number that
+    overclaims what a single admin-console request can actually prove.
+    """
+    db = get_db()
+
+    by_type = {}
+    cohort_variants = {}
+    daily = {}
+    total_saving_kg = 0.0
+    total_shown = total_accepted = total_dismissed = 0
+
+    window_start = date.today() - timedelta(days=RESEARCH_TREND_DAYS - 1)
+    window_start_iso = window_start.isoformat()
+
+    for doc in db.collection(Config.COLLECTION_INTERVENTIONS).stream():
+        data = doc.to_dict()
+        intervention_type = data.get("type", "unknown")
+        action = data.get("action", "shown")
+        variant = data.get("variant", "")
+
+        bucket = by_type.setdefault(intervention_type, {"shown": 0, "accepted": 0, "dismissed": 0})
+        bucket["shown"] += 1
+        total_shown += 1
+
+        if action == "accepted":
+            bucket["accepted"] += 1
+            total_accepted += 1
+            # observedDeltaKg is negative for a reduction (see SwapCard.jsx's
+            # accept(-swap.savingKg)) - only count real reductions, in case a
+            # future intervention type ever records a positive delta for a
+            # different reason.
+            delta = data.get("observedDeltaKg")
+            if isinstance(delta, (int, float)) and delta < 0:
+                total_saving_kg += -delta
+        elif action == "dismissed":
+            bucket["dismissed"] += 1
+            total_dismissed += 1
+
+        if intervention_type == "cohort" and variant:
+            cohort_variants[variant] = cohort_variants.get(variant, 0) + 1
+
+        shown_at = data.get("shownAt")
+        if shown_at:
+            day = shown_at.date().isoformat()
+            if day >= window_start_iso:
+                point = daily.setdefault(day, {"shown": 0, "accepted": 0})
+                point["shown"] += 1
+                if action == "accepted":
+                    point["accepted"] += 1
+
+    by_type_list = [
+        {
+            "type": intervention_type,
+            "shown": counts["shown"],
+            "accepted": counts["accepted"],
+            "dismissed": counts["dismissed"],
+            "actionable": intervention_type in ACTIONABLE_INTERVENTION_TYPES,
+            "adoptionRate": (
+                _adoption_rate(counts["accepted"], counts["shown"])
+                if intervention_type in ACTIONABLE_INTERVENTION_TYPES
+                else None
+            ),
+        }
+        for intervention_type, counts in sorted(by_type.items())
+    ]
+
+    actionable_shown = sum(
+        counts["shown"] for t, counts in by_type.items() if t in ACTIONABLE_INTERVENTION_TYPES
+    )
+    actionable_accepted = sum(
+        counts["accepted"] for t, counts in by_type.items() if t in ACTIONABLE_INTERVENTION_TYPES
+    )
+
+    # Every day in the window, oldest first, gaps filled with zero rather than
+    # skipped - the same reasoning as dashboard.py's _build_trend: a quiet day
+    # is a real data point, not a day to compress out of the line.
+    daily_trend = []
+    cursor = window_start
+    today = date.today()
+    while cursor <= today:
+        key = cursor.isoformat()
+        point = daily.get(key, {"shown": 0, "accepted": 0})
+        daily_trend.append({"date": key, "shown": point["shown"], "accepted": point["accepted"]})
+        cursor += timedelta(days=1)
+
+    return api_success({
+        "totalInterventions": total_shown,
+        "overall": {
+            "shown": total_shown,
+            "accepted": total_accepted,
+            "dismissed": total_dismissed,
+            "notActedOn": total_shown - total_accepted - total_dismissed,
+        },
+        "actionableAdoptionRate": _adoption_rate(actionable_accepted, actionable_shown),
+        "actionableShown": actionable_shown,
+        "byType": by_type_list,
+        "totalProjectedSavingKg": round(total_saving_kg, 2),
+        "cohortVariants": [
+            {"variant": variant, "count": count} for variant, count in sorted(cohort_variants.items())
+        ],
+        "dailyTrend": daily_trend,
     })

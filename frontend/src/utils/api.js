@@ -307,6 +307,11 @@ export const adminApi = {
   // anonymised, hashed user ids only. Returns {csv, filename, rowCount};
   // the caller builds the download itself (see AdminDashboard.jsx's Research tab).
   getResearchExport: () => api.get('/api/admin/research/export').then(unwrap),
+
+  // The same interventions log, pre-aggregated into adoption rates, impact,
+  // and the boomerang-effect variant counts - see backend/routes/admin.py's
+  // research_stats() docstring for what this can and cannot claim.
+  getResearchStats: () => api.get('/api/admin/research/stats').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

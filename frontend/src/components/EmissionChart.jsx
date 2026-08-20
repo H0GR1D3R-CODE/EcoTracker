@@ -347,4 +347,129 @@ export function ComparisonBarChart({
   );
 }
 
+// ---------------------------------------------------------------------------
+// ADOPTION RATE BAR CHART - the admin Research tab's headline chart: what
+// share of each actionable recommendation type gets accepted. Percentages,
+// not kg CO2, so it needs its own tooltip/axis formatting rather than
+// reusing ComparisonBarChart's.
+// ---------------------------------------------------------------------------
+
+export function AdoptionRateBarChart({ labels = [], data = [], height = 260 }) {
+  const baseOptions = useBaseOptions();
+  const { theme } = useTheme();
+
+  const chartData = useMemo(() => {
+    const primary = readCssVariable('--eco-primary', '#4fbe80');
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Adoption rate',
+          data,
+          backgroundColor: `${primary}99`,
+          borderColor: primary,
+          borderWidth: 1,
+          borderRadius: 6,
+          borderSkipped: false,
+        },
+      ],
+    };
+  }, [labels, data, theme]);
+
+  const options = useMemo(
+    () => ({
+      ...baseOptions,
+      indexAxis: 'y',
+      scales: {
+        ...baseOptions.scales,
+        x: { ...baseOptions.scales.y, max: 100, ticks: { ...baseOptions.scales.y.ticks, callback: (v) => `${v}%` } },
+        y: { ...baseOptions.scales.x },
+      },
+      plugins: {
+        ...baseOptions.plugins,
+        tooltip: {
+          ...baseOptions.plugins.tooltip,
+          callbacks: { label: (item) => ` ${item.parsed.x}% accepted` },
+        },
+      },
+    }),
+    [baseOptions]
+  );
+
+  return (
+    <div style={{ height }}>
+      <Bar data={chartData} options={options} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// INTERVENTION TREND CHART - shown vs. accepted, per day, over the trend
+// window - two lines rather than TrendLineChart's one, and counts rather
+// than kg CO2.
+// ---------------------------------------------------------------------------
+
+export function InterventionTrendChart({ labels = [], shown = [], accepted = [], height = 260 }) {
+  const baseOptions = useBaseOptions();
+  const { theme } = useTheme();
+
+  const chartData = useMemo(() => {
+    const muted = readCssVariable('--eco-text-muted', '#93a58c');
+    const primary = readCssVariable('--eco-primary', '#4fbe80');
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Shown',
+          data: shown,
+          borderColor: muted,
+          borderWidth: 2,
+          borderDash: [4, 4],
+          fill: false,
+          tension: 0.3,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+        },
+        {
+          label: 'Accepted',
+          data: accepted,
+          borderColor: primary,
+          borderWidth: 2.5,
+          backgroundColor: (context) => makeAreaGradient(context, primary),
+          fill: true,
+          tension: 0.3,
+          pointBackgroundColor: primary,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+        },
+      ],
+    };
+  }, [labels, shown, accepted, theme]);
+
+  const options = useMemo(
+    () => ({
+      ...baseOptions,
+      plugins: {
+        ...baseOptions.plugins,
+        legend: { display: true, position: 'top', align: 'end', labels: { boxWidth: 10, color: readCssVariable('--eco-text-muted', '#93a58c'), font: { family: 'Inter, sans-serif', size: 11 } } },
+        tooltip: {
+          ...baseOptions.plugins.tooltip,
+          callbacks: { label: (item) => ` ${item.dataset.label}: ${item.parsed.y}` },
+        },
+      },
+      scales: {
+        ...baseOptions.scales,
+        y: { ...baseOptions.scales.y, ticks: { ...baseOptions.scales.y.ticks, precision: 0 } },
+      },
+    }),
+    [baseOptions]
+  );
+
+  return (
+    <div style={{ height }}>
+      <Line data={chartData} options={options} />
+    </div>
+  );
+}
+
 export default TrendLineChart;
