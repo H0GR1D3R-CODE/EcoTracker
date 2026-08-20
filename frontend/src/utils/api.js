@@ -128,9 +128,14 @@ api.interceptors.response.use(
       if (window.location.pathname.startsWith('/admin')) {
         window.location.assign('/dashboard');
       }
-    } else if (status >= 500) {
+    } else if (status >= 500 && !error.config?.skipErrorToast) {
       // Never crash the app on a server error - show a toast and let the
-      // component decide what to render instead
+      // component decide what to render instead. skipErrorToast lets a
+      // specific call opt out when its own catch block already shows a more
+      // specific message than this generic one - without it, a route like
+      // POST /api/admin/invite that fails with a real, useful 502 message
+      // ("Resend rejected the request...") shows that AND this generic one
+      // stacked on top, which reads as two different errors for one failure.
       toast.error('Server error. Please try again in a moment.');
     }
     // 400 and 404 are deliberately NOT toasted here. They are usually validation
@@ -316,7 +321,11 @@ export const adminApi = {
   // Sends the branded admin-invitation email - see routes/admin.py's
   // invite_admin(). Does not itself grant access; that is still a manual
   // Vercel-dashboard step.
-  inviteAdmin: (email, name) => api.post('/api/admin/invite', { email, name }).then(unwrap),
+  // skipErrorToast: the caller's own form already shows the specific reason
+  // (RESEND_API_KEY missing, or Resend's own rejection message) - see
+  // AdminDashboard.jsx's invite form.
+  inviteAdmin: (email, name) =>
+    api.post('/api/admin/invite', { email, name }, { skipErrorToast: true }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
