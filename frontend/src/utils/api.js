@@ -485,6 +485,17 @@ export const ingestApi = {
 };
 
 // ---------------------------------------------------------------------------
+// NOTIFICATIONS (FCM push token registration - see utils/pushNotifications.js)
+// ---------------------------------------------------------------------------
+
+export const notificationsApi = {
+  registerToken: (token) => api.post('/api/notifications/register-token', { token }).then(unwrap),
+
+  removeToken: (token) =>
+    api.delete('/api/notifications/register-token', { data: { token } }).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
 // HEALTH (public - used to check whether the backend is awake)
 // ---------------------------------------------------------------------------
 

@@ -5,5 +5,8 @@
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/api/cron/streak-reminders", "schedule": "0 15 * * *" }
   ]
 }

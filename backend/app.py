@@ -42,6 +42,8 @@ from routes.insights import insights_bp
 from routes.templates import templates_bp
 from routes.engagement import engagement_bp
 from routes.ingest import ingest_bp
+from routes.notifications import notifications_bp
+from routes.cron import cron_bp
 
 
 def create_app():
@@ -90,6 +92,8 @@ def create_app():
     app.register_blueprint(templates_bp)   # /api/templates/*  (quick-log)
     app.register_blueprint(engagement_bp)  # /api/engagement/*  (interventions, streak, challenges)
     app.register_blueprint(ingest_bp)      # /api/ingest/bill  (Gemini photo extraction)
+    app.register_blueprint(notifications_bp)  # /api/notifications/*  (FCM token register/unregister)
+    app.register_blueprint(cron_bp)        # /api/cron/*  (Vercel Cron only - see routes/cron.py)
 
     # -----------------------------------------------------------------------
     # Security headers, on every response

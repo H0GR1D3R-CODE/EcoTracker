@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 import {
   Activity,
   AlertCircle,
+  Bell,
   CalendarDays,
   Check,
   Database,
@@ -43,6 +44,13 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { dashboardApi, getErrorMessage } from '../utils/api';
+import {
+  disablePushNotifications,
+  enablePushNotifications,
+  pushNotificationsConfigured,
+  pushNotificationsEnabled,
+  pushNotificationsSupported,
+} from '../utils/pushNotifications';
 import SelectField from '../components/SelectField';
 import PageBanner from '../components/PageBanner';
 import { formatCategory, formatDate, formatEmission, formatNumber, getInitials } from '../utils/formatters';
@@ -117,6 +125,33 @@ export default function Profile() {
       toast.error(error.message);
     } finally {
       setTogglingTwoFactor(false);
+    }
+  };
+
+  // --- push notifications ---
+  // pushEnabled starts from localStorage synchronously (no flash of "off"
+  // before an effect runs) - see utils/pushNotifications.js for why a token
+  // saved there is the source of truth for "is this browser registered".
+  const [pushEnabled, setPushEnabled] = useState(pushNotificationsEnabled);
+  const [togglingPush, setTogglingPush] = useState(false);
+
+  const handlePushToggle = async () => {
+    if (togglingPush) return;
+    setTogglingPush(true);
+    try {
+      if (pushEnabled) {
+        await disablePushNotifications();
+        setPushEnabled(false);
+        toast.success('Notifications turned off.');
+      } else {
+        await enablePushNotifications();
+        setPushEnabled(true);
+        toast.success('Notifications turned on.');
+      }
+    } catch (error) {
+      toast.error(error.message || 'Could not update notifications.');
+    } finally {
+      setTogglingPush(false);
     }
   };
 
@@ -649,6 +684,47 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* ---------- Push notifications ---------- */}
+      {/* Only rendered once this deployment actually has a VAPID key - see
+          utils/pushNotifications.js. Not shown at all rather than shown
+          disabled, since "off and cannot be turned on" for every visitor
+          on a deployment still missing the one Firebase Console step is
+          worse than simply not mentioning it yet. */}
+      {pushNotificationsConfigured() && pushNotificationsSupported() && (
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.06 }}
+          className="eco-card"
+          style={{ marginTop: '1.3rem' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1.2rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.7rem' }}>
+              <Bell size={17} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.4rem' }}>
+                  Push notifications
+                </h3>
+                <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.6, maxWidth: '48ch' }}>
+                  {pushEnabled
+                    ? 'On for this browser. You’ll get a nudge if your logging streak is about to reset.'
+                    : 'Off. Turn this on to get a reminder here if you have an active streak and have not logged anything yet today.'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handlePushToggle}
+              disabled={togglingPush}
+              className={`eco-btn ${pushEnabled ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+              style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', flexShrink: 0 }}
+            >
+              {togglingPush ? 'Saving…' : pushEnabled ? 'On' : 'Off'}
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       {/* ---------- Security: two-step verification ---------- */}
       {/* Unlike Change password below, this applies to every account type -

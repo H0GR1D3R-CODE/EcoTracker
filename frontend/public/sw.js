@@ -84,3 +84,60 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// ---------------------------------------------------------------------------
+// PUSH NOTIFICATIONS (see src/utils/pushNotifications.js for the other half)
+//
+// Deliberately NOT the Firebase Messaging SDK's own onBackgroundMessage -
+// that needs importScripts('https://www.gstatic.com/firebasejs/.../
+// firebase-messaging-compat.js') to run inside this worker, and a failed
+// importScripts call (offline, that CDN blocked, a flaky connection right
+// as this worker installs) throws and fails the ENTIRE service worker
+// registration - which would take the offline app shell above down with
+// it for a completely unrelated reason. FCM delivers a standard Push API
+// event to whichever service worker owns this scope regardless of which
+// SDK is or is not loaded inside it, so a plain `push` listener is both
+// simpler and cannot break offline support if push ever misbehaves.
+// ---------------------------------------------------------------------------
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    return; // Not JSON - nothing this worker knows how to show
+  }
+
+  // FCM's webpush notification payload shape (see backend/notifications.py's
+  // messaging.Notification) - title/body land under `notification`.
+  const title = payload.notification?.title || 'EcoTrack';
+  const body = payload.notification?.body || '';
+  const link = payload.fcmOptions?.link || payload.data?.link || '/';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: '/icons/icon-192.webp',
+      badge: '/icons/icon-96.webp',
+      data: { link },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const link = event.notification.data?.link || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // Focus an already-open tab rather than piling up a new one, if one exists
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(link);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(link);
+    })
+  );
+});

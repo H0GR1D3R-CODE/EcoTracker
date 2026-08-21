@@ -134,6 +134,22 @@ class Config:
     # certainly human). 0.5 is Google's own documented starting point.
     RECAPTCHA_MIN_SCORE = float(os.getenv("RECAPTCHA_MIN_SCORE", "0.5"))
 
+    # --- Push notifications (Firebase Cloud Messaging + Vercel Cron) ---
+    # Sending a push needs no secret of its own - firebase_admin.messaging
+    # rides on the same service-account credentials get_db() already
+    # authenticates with. The one thing this deployment is actually missing
+    # is a way to tell a real Vercel Cron request apart from anyone else who
+    # discovers the URL and POSTs it themselves to spam every user's phone.
+    # Vercel signs every cron invocation with this value as a Bearer token
+    # automatically once it is set as a Vercel env var - see routes/cron.py.
+    # Generate one the same way SECRET_KEY's own comment suggests:
+    #   python -c "import secrets; print(secrets.token_hex(32))"
+    # Blank means the cron route refuses every request rather than silently
+    # running unauthenticated - same fail-closed reasoning as the rest of
+    # this file's optional secrets, just inverted, because an unauthenticated
+    # bulk-notification endpoint is a worse failure mode than a disabled one.
+    CRON_SECRET = os.getenv("CRON_SECRET", "")
+
     # Firestore collection names kept in one place so a typo can only happen once.
     COLLECTION_USERS = "users"
     COLLECTION_CARBON_RECORDS = "carbonRecords"
