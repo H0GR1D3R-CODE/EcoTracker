@@ -11,11 +11,16 @@ recommendation shown into the `interventions` collection so its real-world
 effect is measurable later (see routes/engagement.py and
 backend/routes/admin.py's research export).
 
+Also mounts the weather route: separating "the weather changed" from
+"behaviour changed" in a user's electricity - see weather_engine.py's own
+module docstring for the full reasoning.
+
 Mounted at /api/insights
 """
 
 from datetime import date, datetime, timedelta, timezone
 
+import requests
 from flask import Blueprint, g, request
 from google.cloud import firestore as gcloud_firestore
 
@@ -30,7 +35,17 @@ from insights_engine import (
     macc_curve,
     simulate_scenario,
 )
-from routes import api_error, api_success, fetch_user_records, parse_month_string, require_auth
+from routes import api_error, api_success, fetch_user_records, parse_month_string, require_auth, shift_month
+from weather_engine import (
+    BASE_TEMP_C,
+    city_label_for_region,
+    coordinates_for_region,
+    daily_cooling_degree_days,
+    monthly_cdd_totals,
+    monthly_mean_temp,
+    weather_adjusted_electricity,
+    weather_context,
+)
 
 insights_bp = Blueprint("insights", __name__, url_prefix="/api/insights")
 
@@ -40,6 +55,14 @@ insights_bp = Blueprint("insights", __name__, url_prefix="/api/insights")
 # the same "Firestore as shared state" pattern already used for rate
 # limiting in routes/__init__.py.
 COHORT_CACHE_HOURS = 6
+
+# Weather barely changes hour to hour, so a coarser cache than the cohort's
+# is fine - and it means every user sharing a region triggers at most one
+# Open-Meteo call every 12 hours between them, not one per page load.
+OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+WEATHER_CACHE_HOURS = 12
+WEATHER_HISTORY_DAYS = 90  # matches insights_engine.FORECAST_WINDOW_DAYS
+WEATHER_REQUEST_TIMEOUT_SECONDS = 10
 
 
 # ---------------------------------------------------------------------------
@@ -352,4 +375,137 @@ def cohort():
         "belowMean": below_mean,
         "variant": variant,
         "interventionId": intervention_id,
+    })
+
+
+# ---------------------------------------------------------------------------
+# GET /api/insights/weather
+# ---------------------------------------------------------------------------
+
+def _fetch_daily_temperatures(region):
+    """
+    [(date, mean_temp_c)] for the trailing WEATHER_HISTORY_DAYS at a
+    region's approximate coordinates (see weather_engine.REGION_COORDINATES),
+    cached in Firestore per region.
+
+    Fails closed, not loud: any problem reaching Open-Meteo, or a response
+    shaped differently than expected, returns a stale cache if one exists,
+    or an empty list if not - never an exception. A missing weather context
+    should make one panel on /insights quietly absent, not break the page
+    the way a factor lookup failure genuinely should (that one changes what
+    a saved record means; this one is supporting context for it).
+    """
+    db = get_db()
+    doc_ref = db.collection(Config.COLLECTION_WEATHER_CACHE).document(region)
+    doc = doc_ref.get()
+    cached = doc.to_dict() if doc.exists else None
+
+    if cached:
+        fetched_at = cached.get("fetchedAt")
+        if fetched_at and (datetime.now(timezone.utc) - fetched_at) < timedelta(hours=WEATHER_CACHE_HOURS):
+            return [(date.fromisoformat(item["date"]), item["temp"]) for item in cached.get("series", [])]
+
+    lat, lon = coordinates_for_region(region)
+    try:
+        response = requests.get(
+            OPEN_METEO_URL,
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "daily": "temperature_2m_mean",
+                "timezone": "Asia/Kolkata",
+                # past_days + a minimal forecast_days covers the whole
+                # trailing window in the one call Open-Meteo's free,
+                # keyless forecast endpoint supports - no separate
+                # "archive" call needed for anything within ~90 days.
+                "past_days": WEATHER_HISTORY_DAYS,
+                "forecast_days": 1,
+            },
+            timeout=WEATHER_REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        days = payload["daily"]["time"]
+        temps = payload["daily"]["temperature_2m_mean"]
+        series = [{"date": d, "temp": t} for d, t in zip(days, temps) if t is not None]
+    except (requests.RequestException, KeyError, ValueError, TypeError):
+        if cached:
+            return [(date.fromisoformat(item["date"]), item["temp"]) for item in cached.get("series", [])]
+        return []
+
+    # Firestore rejects arrays-of-arrays outright ("Nested arrays are not
+    # allowed"), so each day is stored as a {date, temp} map rather than a
+    # [date, temp] pair.
+    doc_ref.set({
+        "region": region,
+        "series": series,
+        "fetchedAt": gcloud_firestore.SERVER_TIMESTAMP,
+    })
+
+    return [(date.fromisoformat(item["date"]), item["temp"]) for item in series]
+
+
+@insights_bp.route("/weather", methods=["GET"])
+@require_auth
+def weather():
+    """
+    Weather-normalised electricity - separating "the weather changed" from
+    "behaviour changed" in the category most sensitive to it. See
+    weather_engine.py's module docstring for the full reasoning and its
+    two-phase design (an always-available comparison, plus a real
+    regression once there is enough history to fit one honestly).
+
+    Query parameter: ?month=2026-08 (defaults to the current month)
+    """
+    month_param = (request.args.get("month") or "").strip()
+    if month_param:
+        parsed, error = parse_month_string(month_param)
+        if error:
+            return api_error(error, 400, code="invalid_month")
+        year, month = parsed
+    else:
+        today = date.today()
+        year, month = today.year, today.month
+
+    this_month_key = f"{year}-{month:02d}"
+    previous_year, previous_month = shift_month(year, month, -1)
+    previous_month_key = f"{previous_year}-{previous_month:02d}"
+
+    region = _user_region(g.uid) or "India"
+    daily_temps = _fetch_daily_temperatures(region)
+
+    if not daily_temps:
+        return api_success({"status": "weather_unavailable", "region": region})
+
+    daily_cdd = daily_cooling_degree_days(daily_temps)
+    cdd_by_month = monthly_cdd_totals(daily_cdd)
+    temp_by_month = monthly_mean_temp(daily_temps)
+
+    electricity_by_month = {}
+    for record in fetch_user_records(g.uid):
+        if record["category"] != "electricity":
+            continue
+        key = record["recordedDate"][:7]
+        electricity_by_month[key] = electricity_by_month.get(key, 0.0) + record["emissionKgco2"]
+    electricity_by_month = {k: round(v, 2) for k, v in electricity_by_month.items()}
+
+    context = weather_context(
+        electricity_by_month, cdd_by_month, temp_by_month, this_month_key, previous_month_key
+    )
+    regression = weather_adjusted_electricity(electricity_by_month, cdd_by_month)
+
+    if context is None:
+        status = "insufficient_data"
+    elif regression is not None:
+        status = "regression"
+    else:
+        status = "context_only"
+
+    return api_success({
+        "status": status,
+        "region": region,
+        "cityLabel": city_label_for_region(region),
+        "baseTempC": BASE_TEMP_C,
+        "context": context,
+        "regression": regression,
     })

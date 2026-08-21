@@ -154,6 +154,11 @@ class Config:
     # Cached aggregate only - {region}_{YYYY-MM} documents holding deciles and
     # a count, never a single user's figure. See routes/insights.py:_get_cohort_stats.
     COLLECTION_COHORT_STATS = "cohortStats"
+    # Cached daily temperature series per region - see weather_engine.py and
+    # routes/insights.py's weather route. One document per region is shared
+    # by every user in it, the same "Firestore as shared cache" reasoning as
+    # COLLECTION_COHORT_STATS just above.
+    COLLECTION_WEATHER_CACHE = "weatherCache"
 
     # The seven emission categories EcoTrack supports.
     # Routes validate incoming data against this list, and the ORDER here is the
