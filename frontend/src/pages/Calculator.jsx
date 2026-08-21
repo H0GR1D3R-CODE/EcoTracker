@@ -17,9 +17,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AlertCircle, CheckCircle2, Info, Loader2, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CloudOff, Info, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 import { carbonApi, factorsApi, getErrorMessage } from '../utils/api';
+import { flushOutbox, getQueuedRecords, queueRecord, removeQueuedRecord } from '../utils/offlineOutbox';
 import { useTheme } from '../context/ThemeContext';
 import GoalRing from '../components/GoalRing';
 import ImpactEquivalents from '../components/ImpactEquivalents';
@@ -70,6 +71,51 @@ const QUICK_AMOUNTS = {
 // month, with no claim about how long the activity took.
 const MONTHLY_BUDGET_KG = 2000 / 12;
 
+// Emission factors barely change (an admin edits them, not a user), so
+// caching the last successful fetch in localStorage is what lets the
+// Calculator's form - category, sub-type, quantity, the live preview -
+// still work with no connection at all, not just the submit step. Read back
+// only when a real fetch fails; a stale factor is still far better than a
+// blank form offline, and the next successful fetch overwrites it anyway.
+const FACTORS_CACHE_KEY = 'ecotrack-factors-cache';
+
+function cacheFactors(data) {
+  try {
+    localStorage.setItem(FACTORS_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // Storage full or unavailable (private browsing) - the cache is a nice-to-have
+  }
+}
+
+function readCachedFactors() {
+  try {
+    const raw = localStorage.getItem(FACTORS_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True for a request that never reached the server - the browser is
+ * genuinely offline, not a real 4xx/5xx the server sent back on purpose. */
+function isConnectivityFailure(error) {
+  return !navigator.onLine || !error?.response;
+}
+
+/** An outbox entry, reshaped to render in the same table as a real record. */
+function pendingToDisplayRecord(entry) {
+  return {
+    id: entry.tempId,
+    category: entry.payload.category,
+    subType: entry.payload.subType,
+    quantity: entry.payload.quantity,
+    unit: entry.payload.unit,
+    emissionKgco2: entry.localEmissionKg,
+    recordedDate: entry.payload.recordedDate,
+    pending: true,
+  };
+}
+
 export default function Calculator() {
   const { prefersReducedMotion } = useTheme();
 
@@ -106,10 +152,20 @@ export default function Calculator() {
         if (cancelled) return;
         setFactors(data);
         setFactorsError(null);
+        cacheFactors(data);
       })
       .catch((error) => {
         if (cancelled) return;
-        setFactorsError(getErrorMessage(error, 'Could not load emission factors.'));
+        // Offline with a previous successful fetch cached: use it silently
+        // rather than blocking the form on a network error the user cannot
+        // do anything about right now.
+        const cached = isConnectivityFailure(error) ? readCachedFactors() : null;
+        if (cached) {
+          setFactors(cached);
+          setFactorsError(null);
+        } else {
+          setFactorsError(getErrorMessage(error, 'Could not load emission factors.'));
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingFactors(false);
@@ -141,6 +197,46 @@ export default function Calculator() {
     loadRecords();
     // Runs once on mount; loadRecords is re-created each render but we only
     // ever want the initial fetch here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------------------------------------------------------------------
+  // Offline outbox - entries logged with no connection, waiting to sync.
+  // See utils/offlineOutbox.js for why this is safe to trust: the queued
+  // figure is the same calculateEmission() result the live preview already
+  // shows, and the backend recomputes its own answer the moment it syncs.
+  // ---------------------------------------------------------------------
+  const [pendingRecords, setPendingRecords] = useState([]);
+  const [syncing, setSyncing] = useState(false);
+
+  const refreshPending = () => {
+    getQueuedRecords()
+      .then(setPendingRecords)
+      .catch(() => {});
+  };
+
+  const syncPending = async () => {
+    setSyncing(true);
+    try {
+      const { synced } = await flushOutbox(carbonApi.calculate);
+      if (synced > 0) {
+        toast.success(synced === 1 ? '1 offline entry synced.' : `${synced} offline entries synced.`);
+        loadRecords();
+      }
+    } finally {
+      refreshPending();
+      setSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshPending();
+    // A queue left over from a previous offline session - try it once the
+    // page opens, in case connectivity came back while the app was closed.
+    syncPending();
+
+    window.addEventListener('online', syncPending);
+    return () => window.removeEventListener('online', syncPending);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -194,14 +290,16 @@ export default function Calculator() {
 
     setSubmitting(true);
 
+    const payload = {
+      category,
+      subType,
+      quantity: parseFloat(quantity),
+      unit: selectedFactor.unit,
+      recordedDate,
+    };
+
     try {
-      const data = await carbonApi.calculate({
-        category,
-        subType,
-        quantity: parseFloat(quantity),
-        unit: selectedFactor.unit,
-        recordedDate,
-      });
+      const data = await carbonApi.calculate(payload);
 
       setResult(data);
       toast.success(`Logged ${formatEmission(data.emissionKgco2)}`);
@@ -214,7 +312,19 @@ export default function Calculator() {
 
       loadRecords();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not save that entry.'));
+      if (isConnectivityFailure(error)) {
+        // Not a real rejection - the request never reached the server, so
+        // this is queued rather than lost. localEmissionKg is the exact
+        // same figure the live preview already showed for this entry.
+        const localEmissionKg = calculateEmission(quantity, selectedFactor.factorValue);
+        await queueRecord(payload, localEmissionKg);
+        toast.success(`Saved offline (${formatEmission(localEmissionKg)}) - will sync once you're back online.`);
+        setQuantity('');
+        setTouched({});
+        refreshPending();
+      } else {
+        toast.error(getErrorMessage(error, 'Could not save that entry.'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -235,10 +345,27 @@ export default function Calculator() {
     }
   };
 
+  // A pending entry only exists in the browser's own outbox - never sent
+  // yet, so there is nothing on the server to call deleteRecord on.
+  const handleCancelPending = async (tempId) => {
+    setDeletingId(tempId);
+    try {
+      await removeQueuedRecord(tempId);
+      toast.success('Removed.');
+      refreshPending();
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const fieldClass = (field) => {
     if (!touched[field]) return '';
     return errors[field] ? 'is-invalid' : 'is-valid';
   };
+
+  // Pending entries first - they are what the user just did, and syncing
+  // removes them from this list the moment the real record replaces them.
+  const displayRecords = [...pendingRecords.map(pendingToDisplayRecord), ...recentRecords];
 
   const meta = CATEGORY_META[category];
 
@@ -820,7 +947,7 @@ export default function Calculator() {
             display: 'flex',
             alignItems: 'baseline',
             justifyContent: 'space-between',
-            marginBottom: '1.3rem',
+            marginBottom: pendingRecords.length > 0 ? '0.8rem' : '1.3rem',
             flexWrap: 'wrap',
             gap: '0.5rem',
           }}
@@ -828,12 +955,48 @@ export default function Calculator() {
           <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: 0 }}>
             This month&rsquo;s entries
           </h2>
-          {recentRecords.length > 0 && (
+          {displayRecords.length > 0 && (
             <span className="eco-readout" style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-              {String(recentRecords.length).padStart(2, '0')}
+              {String(displayRecords.length).padStart(2, '0')}
             </span>
           )}
         </div>
+
+        {/* Only appears once something is actually queued - not a permanent
+            fixture of the page, since most sessions never need it. */}
+        {pendingRecords.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.8rem',
+              flexWrap: 'wrap',
+              padding: '0.7rem 0.9rem',
+              marginBottom: '1.1rem',
+              border: '1px dashed var(--rule-strong)',
+              borderRadius: 'var(--eco-radius-sm)',
+              background: 'var(--eco-card)',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+              <CloudOff size={15} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
+              {pendingRecords.length === 1
+                ? '1 entry saved offline, waiting to sync.'
+                : `${pendingRecords.length} entries saved offline, waiting to sync.`}
+            </span>
+            <button
+              type="button"
+              onClick={syncPending}
+              disabled={syncing}
+              className="eco-btn-ghost"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', padding: '0.4rem 0.7rem' }}
+            >
+              <RefreshCw size={13} style={syncing ? { animation: 'eco-spin 0.8s linear infinite' } : undefined} />
+              {syncing ? 'Syncing…' : 'Sync now'}
+            </button>
+          </div>
+        )}
 
         {loadingRecords ? (
           <div style={{ display: 'grid', gap: '0.6rem' }}>
@@ -845,7 +1008,7 @@ export default function Calculator() {
               />
             ))}
           </div>
-        ) : recentRecords.length === 0 ? (
+        ) : displayRecords.length === 0 ? (
           <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
             Nothing logged this month yet. Your first entry will appear here.
           </p>
@@ -862,18 +1025,34 @@ export default function Calculator() {
                 </tr>
               </thead>
               <tbody>
-                {recentRecords.slice(0, 10).map((record) => {
+                {displayRecords.slice(0, 10).map((record) => {
                   const RecordIcon = CATEGORY_ICONS[record.category] || Car;
                   const recordColor = CATEGORY_META[record.category]?.color || '#8888aa';
+                  const isDeleting = deletingId === record.id;
 
                   return (
-                    <tr key={record.id}>
+                    <tr key={record.id} style={record.pending ? { opacity: 0.7 } : undefined}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                           <span style={{ color: recordColor, display: 'flex' }}>
                             <RecordIcon size={16} />
                           </span>
                           <span>{formatSubType(record.subType)}</span>
+                          {record.pending && (
+                            <span
+                              className="eco-marker"
+                              title="Saved on this device, not sent to the server yet"
+                              style={{
+                                fontSize: '0.62rem',
+                                color: 'var(--eco-text-muted)',
+                                border: '1px solid var(--rule-strong)',
+                                borderRadius: 4,
+                                padding: '0.1rem 0.35rem',
+                              }}
+                            >
+                              Pending sync
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="eco-text-muted">
@@ -889,9 +1068,11 @@ export default function Calculator() {
                       <td style={{ textAlign: 'right' }}>
                         <button
                           type="button"
-                          onClick={() => handleDelete(record.id)}
-                          disabled={deletingId === record.id}
-                          aria-label="Delete entry"
+                          onClick={() =>
+                            record.pending ? handleCancelPending(record.id) : handleDelete(record.id)
+                          }
+                          disabled={isDeleting}
+                          aria-label={record.pending ? 'Remove pending entry' : 'Delete entry'}
                           style={{
                             background: 'transparent',
                             border: 'none',
@@ -906,7 +1087,7 @@ export default function Calculator() {
                             borderRadius: 6,
                           }}
                         >
-                          {deletingId === record.id ? (
+                          {isDeleting ? (
                             <Loader2
                               size={15}
                               style={{ animation: 'eco-spin 0.8s linear infinite' }}

@@ -40,3 +40,20 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Registered after render, not before - the service worker is what makes
+// the app shell (and, via src/utils/offlineOutbox.js, logging a new entry)
+// work with no connection, but it should never delay or block the first
+// paint on the connection the visitor already has right now. Skipped in dev
+// (import.meta.env.DEV) so editing public/sw.js does not require a hard
+// refresh to see the change - Vite's own dev server already does its own,
+// better job of instant reloads.
+if ('serviceWorker' in navigator && !import.meta.env.DEV) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Offline-first is a progressive enhancement - a registration failure
+      // (an unusual browser, a corporate proxy) should never break the app
+      // that already works without it.
+    });
+  });
+}
