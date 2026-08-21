@@ -421,6 +421,11 @@ export const insightsApi = {
     api.post('/api/insights/simulate', { sliders, month }).then(unwrap),
 
   getCohort: () => api.get('/api/insights/cohort').then(unwrap),
+
+  // Separates "the weather changed" from "behaviour changed" in electricity.
+  // See backend/weather_engine.py's module docstring for the full reasoning.
+  getWeather: (month) =>
+    api.get('/api/insights/weather', { params: month ? { month } : {} }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

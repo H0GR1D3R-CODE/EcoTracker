@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeftRight, Flame, Target, Users } from 'lucide-react';
+import { ArrowLeftRight, Flame, Target, ThermometerSun, Users } from 'lucide-react';
 
 import { dashboardApi, insightsApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
@@ -23,6 +23,7 @@ import StreakFlame from '../components/StreakFlame';
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import ChallengeList from '../components/ChallengeList';
 import CohortCurve from '../components/CohortCurve';
+import WeatherContext from '../components/WeatherContext';
 import { currentMonthISO } from '../utils/formatters';
 
 function Section({ icon: Icon, title, subtitle, children, delay = 0 }) {
@@ -53,6 +54,7 @@ export default function Insights() {
   const [swapsData, setSwapsData] = useState(null);
   const [swapsError, setSwapsError] = useState(null);
   const [baselineTotal, setBaselineTotal] = useState(null);
+  const [weatherData, setWeatherData] = useState(null);
 
   useEffect(() => {
     insightsApi
@@ -64,7 +66,14 @@ export default function Insights() {
       .getSummary()
       .then((data) => setBaselineTotal(data.thisMonth))
       .catch(() => setBaselineTotal(0));
+
+    insightsApi
+      .getWeather()
+      .then(setWeatherData)
+      .catch(() => {}); // supporting context, not the main event - fails quietly, same as cohort
   }, []);
+
+  const showWeather = weatherData && weatherData.status !== 'weather_unavailable' && weatherData.status !== 'insufficient_data';
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
@@ -82,7 +91,18 @@ export default function Insights() {
         <ForecastGauge />
       </Section>
 
-      <Section icon={Flame} title="Streak & activity" delay={0.05}>
+      {showWeather && (
+        <Section
+          icon={ThermometerSun}
+          title="Weather-adjusted electricity"
+          subtitle="Separating a cooler or warmer month from an actual change in behaviour, cited to your own logged data."
+          delay={0.05}
+        >
+          <WeatherContext weather={weatherData} />
+        </Section>
+      )}
+
+      <Section icon={Flame} title="Streak & activity" delay={0.1}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.6rem' }}>
           <StreakFlame />
           <div>
