@@ -63,14 +63,34 @@ INGEST_RATE_LIMIT_WINDOW_SECONDS = 3600
 
 MAX_OUTPUT_TOKENS = 500
 
-BILL_EXTRACTION_INSTRUCTION = f"""You read utility bills and fuel/energy receipts and extract ONE activity as \
+BILL_EXTRACTION_INSTRUCTION = f"""You read utility bills and receipts and extract ONE activity as \
 strict JSON, nothing else - no markdown fences, no commentary before or after the JSON object.
 
 Valid "category" values: {', '.join(Config.CATEGORIES)}
-Common "subType" values you may see evidence for:
-  electricity: grid_electricity, solar
-  fuel: lpg, petrol_generator, diesel_generator
-  transport: petrol_car, diesel_car (from a fuel station receipt)
+
+The FULL list of valid "subType" values, grouped by category - every subType
+you return MUST be one of these exact strings, and its "unit" MUST be the
+one shown beside it (this is what this app's own emission factors are
+published for; anything else cannot be matched to a real published number):
+  transport (unit: km): petrol_car, diesel_car, motorbike, bus, train,
+    flight_domestic, bicycle - from a fuel station receipt (petrol_car/
+    diesel_car), a ticket, or a boarding pass
+  electricity (unit: kWh): grid_electricity, solar - from a utility bill
+  fuel (unit: kg for lpg, liter for the generators): lpg, petrol_generator,
+    diesel_generator - from an LPG cylinder receipt or a generator refill
+  diet (unit: meal): non_vegetarian, vegetarian, vegan - rarely receipted,
+    only extract this if a restaurant/canteen bill clearly states a meal count
+  waste (unit: kg): landfill, recycled - from a waste-collection receipt
+  water (unit: liter): municipal_supply - from a water utility bill
+  consumption (unit: item): clothing_item, electronics_item - from a
+    shopping receipt or invoice, counting the number of items bought
+
+Read every printed number and label carefully before choosing - a bill
+often shows several quantities (units this period, units last period,
+average, cumulative-to-date, and the amount actually billed in currency).
+Extract the CONSUMPTION quantity in the document's own physical unit above
+(kWh, litres, kg, km, meal count or item count), never a currency amount,
+and prefer a period total over a daily average if both are printed.
 
 Respond with exactly this JSON shape:
 {{

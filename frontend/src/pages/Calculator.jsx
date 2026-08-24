@@ -523,6 +523,19 @@ export default function Calculator() {
             }}
           />
 
+          {/* Same divider Login.jsx/Register.jsx use to separate Google
+              sign-in from the email form below it - reused here so scanning
+              a bill reads as a genuine alternative to the form beneath it,
+              the same relationship, not two unrelated things stacked in a
+              random order. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: '1.3rem 0' }}>
+            <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+            <span className="eco-text-muted" style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}>
+              OR ENTER IT MANUALLY
+            </span>
+            <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
+          </div>
+
           <form className="eco-form" onSubmit={handleSubmit} noValidate>
             {/* Sub-type. The factor goes in the hint line rather than the label,
                 so the option reads as a name with its evidence underneath
