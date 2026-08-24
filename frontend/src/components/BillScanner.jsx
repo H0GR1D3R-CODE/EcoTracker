@@ -1,19 +1,24 @@
 // EcoTrack/frontend/src/components/BillScanner.jsx
-// Photograph a bill or receipt - electricity, fuel, water, a shopping
-// invoice - and let Gemini read the quantity off it, instead of typing it
+// Photograph a bill or receipt - or attach the PDF you already downloaded
+// for one - and let Gemini read the quantity off it, instead of typing it
 // in by hand. See backend/routes/ingest.py for the extraction route (and
 // its BILL_EXTRACTION_INSTRUCTION for the full list of what it recognises)
 // - it saves nothing itself; this component only ever PRE-FILLS the
 // Calculator's own form fields via onExtracted, and the ordinary "Log it"
-// submit is still what actually creates a record. The photo is downscaled
-// here, client-side, before it ever leaves the browser - both to keep the
+// submit is still what actually creates a record. A photo is downscaled
+// here, client-side, before it ever leaves the browser (both to keep the
 // request small on a bundled serverless function and because the backend
-// never stores the image either way (see that route's docstring).
+// never stores the file either way - see that route's docstring); a PDF is
+// sent through unresized, since Gemini reads its own text layer directly.
+//
+// Mounted once at the top of Calculator.jsx, not per-category - see that
+// file for why (it identifies its own category from whatever it reads, so
+// nesting it under one specific category tab under-sold what it does).
 
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AlertCircle, Camera, Check, Loader2, ScanLine, X } from 'lucide-react';
+import { AlertCircle, Camera, Check, FileText, Loader2, ScanLine, Sparkles, X } from 'lucide-react';
 
 import { ingestApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
@@ -23,10 +28,37 @@ import { formatCategory, formatSubType } from '../utils/formatters';
 // "units consumed" column) is often the smallest text on the page, and OCR
 // accuracy on small print is the whole point of this feature. Quality 0.85
 // keeps digits crisp. Still comfortably under backend/routes/ingest.py's
-// MAX_IMAGE_BYTES (4MB decoded) - a 2000px photo at this quality is
+// MAX_FILE_BYTES (4MB decoded) - a 2000px photo at this quality is
 // typically 400-900KB, nowhere near that ceiling even after base64 inflation.
 const MAX_DIMENSION = 2000;
 const JPEG_QUALITY = 0.85;
+
+// A PDF cannot be "downscaled" the way a photo can be re-encoded smaller -
+// checked against the exact same 4MB backend/routes/ingest.py enforces, so
+// an oversized PDF is caught here with a clear message instead of a request
+// that only fails once it reaches the server.
+const MAX_PDF_BYTES = 4 * 1024 * 1024;
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isPdfFile(file) {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+/** Read a File as base64 with no re-encoding - used for PDFs, which a
+ * canvas cannot rasterise the way downscaleImage() does for a photo. */
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+}
 
 /**
  * Downscale + re-encode a File to a JPEG data URL, capped at MAX_DIMENSION
@@ -80,6 +112,10 @@ export default function BillScanner({ onExtracted }) {
   // produces a previewUrl, and the panel still needs to open to show that
   // specific error rather than silently doing nothing.
   const [panelOpen, setPanelOpen] = useState(false);
+  // The raw File, kept only for the "attached" chip (name + size) and the
+  // Remove control - never re-read after handleFile has already turned it
+  // into previewUrl/base64 below.
+  const [attachedFile, setAttachedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
@@ -88,6 +124,7 @@ export default function BillScanner({ onExtracted }) {
 
   const closePanel = () => {
     setPanelOpen(false);
+    setAttachedFile(null);
     setPreviewUrl(null);
     setResult(null);
     setError(null);
@@ -100,21 +137,39 @@ export default function BillScanner({ onExtracted }) {
     if (!file) return;
 
     closePanel();
+    setAttachedFile(file);
     setPanelOpen(true);
     setScanning(true);
 
     try {
-      const dataUrl = await downscaleImage(file);
-      setPreviewUrl(dataUrl);
-      const base64 = dataUrl.split(',')[1];
+      let base64;
+      let mimeType;
 
-      const data = await ingestApi.scanBill({ imageBase64: base64, mimeType: 'image/jpeg' });
+      if (isPdfFile(file)) {
+        if (file.size > MAX_PDF_BYTES) {
+          throw new Error(
+            `That PDF is ${formatFileSize(file.size)} - please use one under ${formatFileSize(MAX_PDF_BYTES)}.`
+          );
+        }
+        // No image preview for a PDF - previewUrl stays null, and the
+        // scanning/result UI below already has a no-preview state for
+        // exactly this (see "scanning && !previewUrl" further down).
+        base64 = await readFileAsBase64(file);
+        mimeType = 'application/pdf';
+      } else {
+        const dataUrl = await downscaleImage(file);
+        setPreviewUrl(dataUrl);
+        base64 = dataUrl.split(',')[1];
+        mimeType = 'image/jpeg';
+      }
+
+      const data = await ingestApi.scanBill({ imageBase64: base64, mimeType });
       setResult(data);
       if (data.parseError || !data.category || !data.quantity) {
-        setError("Couldn't read a clear value from that photo - try a clearer shot, or enter it manually.");
+        setError("Couldn't read a clear value from that file - try a clearer photo, a different page, or enter it manually.");
       }
     } catch (requestError) {
-      setError(getErrorMessage(requestError, 'Could not scan that image.'));
+      setError(getErrorMessage(requestError, 'Could not scan that file.'));
     } finally {
       setScanning(false);
     }
@@ -123,54 +178,95 @@ export default function BillScanner({ onExtracted }) {
   const handleUse = () => {
     if (!result) return;
     onExtracted({ category: result.category, subType: result.subType, quantity: result.quantity, unit: result.unit });
-    toast.success('Filled in from your photo — check it, then log it.');
+    toast.success("Filled in — check it, then log it.");
     closePanel();
   };
 
   return (
-    <div>
-      {/* "image/*" rather than a specific list - the browser's own file
-          picker then offers every image format the OS has, including ones
+    <div
+      style={{
+        marginBottom: '2rem',
+        padding: '1.4rem 1.5rem',
+        borderRadius: 'var(--eco-radius)',
+        // A tinted card, not a gradient - color-mix() against the app's own
+        // tokens, the same technique the category-tab highlight elsewhere
+        // in Calculator.jsx already uses. First thing on the page after the
+        // banner (see where Calculator.jsx mounts this), so this needed to
+        // read as a real capability worth noticing, not a plain outlined
+        // button easy to scroll past.
+        border: '1px solid color-mix(in srgb, var(--eco-primary) 28%, var(--eco-border))',
+        background: 'color-mix(in srgb, var(--eco-primary) 5%, var(--eco-card))',
+      }}
+    >
+      {/* "image/*,application/pdf" - the browser's own file picker then
+          offers every image format the OS has, including ones
           downscaleImage() above can still turn into a clean JPEG (gif, bmp,
-          tiff, HEIC on Safari). Narrowing this to just jpeg/png/webp would
-          hide legitimately readable photos from ever being selectable at
-          all, for no benefit - the format check that actually matters
-          happens where the browser tries to decode the file, not here. */}
+          tiff, HEIC on Safari), plus a PDF, which is sent through untouched
+          for Gemini to read its own text layer directly (see handleFile
+          and backend/routes/ingest.py's module docstring). Narrowing the
+          image half to just jpeg/png/webp would hide legitimately readable
+          photos from ever being selectable at all, for no benefit - the
+          format check that actually matters happens where the browser
+          tries to decode the file, not here. */}
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,application/pdf"
         capture="environment"
         onChange={handleFile}
         style={{ display: 'none' }}
       />
 
-      {/* One click straight to the file picker - there used to be a second
-          "Choose a photo" button hidden behind this one, which cost every
-          scan an extra tap for no reason: the only thing that first click
-          revealed was a single button whose sole job was to open this same
-          picker. Sized and weighted the same way GoogleSignInButton is
-          (full width, generous padding, a hover lift) so it reads as a
-          real alternative way in, not a minor afterthought bolted beside
-          the form. */}
-      <motion.button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        whileHover={prefersReducedMotion ? {} : { y: -2 }}
-        whileTap={prefersReducedMotion ? {} : { scale: 0.985 }}
-        className="eco-btn eco-btn-outline"
-        style={{ width: '100%', justifyContent: 'center', padding: '0.8rem 1rem' }}
-      >
-        <Camera size={16} />
-        Scan a bill or receipt instead
-      </motion.button>
-      <p
-        className="eco-text-muted"
-        style={{ fontSize: '0.78rem', textAlign: 'center', margin: '0.55rem 0 0', lineHeight: 1.5 }}
-      >
-        Photograph an electricity bill, fuel receipt or shopping invoice and
-        we'll read the category, type and quantity off it for you.
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap' }}>
+        <div
+          aria-hidden="true"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: '50%',
+            flexShrink: 0,
+            background: 'var(--eco-primary)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Camera size={22} />
+        </div>
+
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <span
+            className="eco-marker"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', color: 'var(--eco-primary)', marginBottom: '0.35rem' }}
+          >
+            <Sparkles size={12} /> AI-powered
+          </span>
+          <h2 className="eco-display" style={{ margin: '0 0 0.3rem', fontSize: '1.15rem' }}>
+            Scan a bill instead of typing it in
+          </h2>
+          <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.5 }}>
+            A photo or a PDF - an electricity bill, fuel receipt, water bill
+            or shopping invoice. We'll read the category, type and quantity
+            off it for you.
+          </p>
+        </div>
+
+        {/* One click straight to the file picker - there used to be a
+            second "Choose a photo" button hidden behind this one, which
+            cost every scan an extra tap for no reason. */}
+        <motion.button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          whileHover={prefersReducedMotion ? {} : { y: -2 }}
+          whileTap={prefersReducedMotion ? {} : { scale: 0.985 }}
+          className="eco-btn eco-btn-primary"
+          style={{ flexShrink: 0 }}
+        >
+          <Camera size={16} />
+          Scan now
+        </motion.button>
+      </div>
 
       {/* A plain conditional, not AnimatePresence/exit - framer-motion's
           height:'auto' exit transition (the previous approach here) turned
@@ -189,11 +285,61 @@ export default function BillScanner({ onExtracted }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: prefersReducedMotion ? 0 : 0.25 }}
           >
-            {/* A border-top rule, not a second nested .eco-card - this whole
-                component already lives inside Calculator's one form card,
-                and a card drawn inside a card doubled the border/padding
-                into a visibly boxed-within-a-box look. */}
-            <div style={{ marginTop: '1.1rem', paddingTop: '1rem', borderTop: '1px solid var(--rule)' }}>
+            <div
+              style={{
+                marginTop: '1.2rem',
+                paddingTop: '1.1rem',
+                borderTop: '1px solid color-mix(in srgb, var(--eco-primary) 20%, var(--eco-border))',
+              }}
+            >
+              {/* The attached file, and the one control that removes it and
+                  lets you attach a different one - shown in every state
+                  (scanning, error, or a finished result), not just tucked
+                  under one specific outcome, since "I picked the wrong
+                  file" can happen at any point in the flow. */}
+              {attachedFile && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.6rem',
+                    padding: '0.55rem 0.75rem',
+                    marginBottom: '0.9rem',
+                    background: 'var(--eco-card)',
+                    border: '1px solid var(--eco-border)',
+                    borderRadius: 'var(--eco-radius-sm)',
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', overflow: 'hidden', minWidth: 0 }}>
+                    {isPdfFile(attachedFile) ? (
+                      <FileText size={15} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
+                    ) : (
+                      <Camera size={15} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
+                    )}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachedFile.name}</span>
+                    <span className="eco-text-muted" style={{ flexShrink: 0 }}>({formatFileSize(attachedFile.size)})</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={closePanel}
+                    aria-label="Remove attached file"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--eco-text-muted)',
+                      cursor: 'pointer',
+                      padding: 8,
+                      display: 'inline-flex',
+                      borderRadius: 6,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
               {previewUrl && (
                 <div style={{ position: 'relative', borderRadius: 'var(--eco-radius-sm)', overflow: 'hidden' }}>
                   <img src={previewUrl} alt="Bill preview" style={{ width: '100%', display: 'block', maxHeight: 260, objectFit: 'cover' }} />
@@ -257,22 +403,14 @@ export default function BillScanner({ onExtracted }) {
                 </div>
               )}
 
+              {/* No separate "Dismiss" control here - the attached-file
+                  chip's Remove button above already does exactly that, for
+                  every state, not just this one. */}
               {error && (
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: previewUrl ? '0.9rem' : 0, color: 'var(--eco-danger)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                <div style={{ display: 'flex', gap: '0.5rem', color: 'var(--eco-danger)', fontSize: '0.82rem', lineHeight: 1.5 }}>
                   <AlertCircle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
                   <span>{error}</span>
                 </div>
-              )}
-
-              {error && (
-                <button
-                  type="button"
-                  className="eco-btn eco-btn-ghost"
-                  onClick={closePanel}
-                  style={{ marginTop: '0.7rem', fontSize: '0.82rem' }}
-                >
-                  <X size={14} /> Dismiss
-                </button>
               )}
 
               {result && !error && (
@@ -309,7 +447,7 @@ export default function BillScanner({ onExtracted }) {
                       <Check size={15} /> Use these values
                     </button>
                     <button type="button" className="eco-btn eco-btn-ghost" onClick={closePanel}>
-                      <X size={15} /> Try another photo
+                      <X size={15} /> Try another file
                     </button>
                   </div>
                 </motion.div>

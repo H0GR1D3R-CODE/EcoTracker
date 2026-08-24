@@ -417,6 +417,21 @@ export default function Calculator() {
         subtitle="Pick a category, enter what you did, and see the emissions before you save."
       />
 
+      {/* ============ BILL SCANNER ============ */}
+      {/* First thing on the page after the banner, not buried inside one
+          category's form - it identifies its own category from whatever it
+          reads, so nesting it under "Transport" (the default tab) made it
+          both easy to miss and misleadingly scoped to one category only. */}
+      <BillScanner
+        onExtracted={({ category: extractedCategory, subType: extractedSubType, quantity: extractedQuantity }) => {
+          if (extractedCategory && extractedCategory !== category) {
+            handleCategoryChange(extractedCategory);
+          }
+          if (extractedSubType) setSubType(extractedSubType);
+          if (extractedQuantity) setQuantity(String(extractedQuantity));
+        }}
+      />
+
       {/* ============ CATEGORY TABS ============ */}
       <div
         style={{
@@ -512,29 +527,6 @@ export default function Calculator() {
           <p className="eco-text-muted" style={{ fontSize: '0.86rem', marginBottom: '1.5rem' }}>
             {meta.description}
           </p>
-
-          <BillScanner
-            onExtracted={({ category: extractedCategory, subType: extractedSubType, quantity: extractedQuantity }) => {
-              if (extractedCategory && extractedCategory !== category) {
-                handleCategoryChange(extractedCategory);
-              }
-              if (extractedSubType) setSubType(extractedSubType);
-              if (extractedQuantity) setQuantity(String(extractedQuantity));
-            }}
-          />
-
-          {/* Same divider Login.jsx/Register.jsx use to separate Google
-              sign-in from the email form below it - reused here so scanning
-              a bill reads as a genuine alternative to the form beneath it,
-              the same relationship, not two unrelated things stacked in a
-              random order. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', margin: '1.3rem 0' }}>
-            <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
-            <span className="eco-text-muted" style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}>
-              OR ENTER IT MANUALLY
-            </span>
-            <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
-          </div>
 
           <form className="eco-form" onSubmit={handleSubmit} noValidate>
             {/* Sub-type. The factor goes in the hint line rather than the label,

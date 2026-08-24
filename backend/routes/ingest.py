@@ -1,19 +1,29 @@
 # EcoTrack/backend/routes/ingest.py
 """
-Bill/receipt photo ingestion, powered by Google Gemini's vision input.
+Bill/receipt ingestion - a photo OR a PDF - powered by Google Gemini's
+multimodal input.
 
 WHAT THIS ROUTE DOES AND DOES NOT DO
 -------------------------------------
-It reads an electricity bill or fuel receipt photo and extracts a proposed
-(category, subType, quantity, unit) - nothing more. It NEVER saves a
-carbonRecords entry itself. The frontend shows the extraction to the user for
-confirmation and only THEN calls the ordinary POST /api/carbon/calculate
-route (through save_calculated_record, the same path the Calculator and
-quick-log templates use) once the user has actually reviewed the numbers.
-Keeping "extract" and "save" as two separate, user-gated steps is what stops
-a misread bill from silently entering the user's real emissions history.
+It reads a bill or receipt and extracts a proposed (category, subType,
+quantity, unit) - nothing more. It NEVER saves a carbonRecords entry itself.
+The frontend shows the extraction to the user for confirmation and only THEN
+calls the ordinary POST /api/carbon/calculate route (through
+save_calculated_record, the same path the Calculator and quick-log templates
+use) once the user has actually reviewed the numbers. Keeping "extract" and
+"save" as two separate, user-gated steps is what stops a misread bill from
+silently entering the user's real emissions history.
 
-THE IMAGE IS NEVER PERSISTED
+A PHOTO OR A PDF - GEMINI READS BOTH NATIVELY
+-----------------------------------------------
+A photo is OCR'd by the model; a PDF is read via its own text layer, which
+Gemini's API accepts directly (Part.from_bytes with mime_type
+"application/pdf") without this backend rasterising anything itself - and is
+MORE accurate than a photo, since there is no printed-text-to-recognise step
+at all for a bill someone downloaded as a PDF rather than photographed. See
+ALLOWED_MIME_TYPES below.
+
+THE FILE IS NEVER PERSISTED
 ------------------------------
 The uploaded bytes exist only for the duration of this request: decoded from
 the request body, handed to the Gemini API call, and then this function
@@ -47,14 +57,22 @@ except ImportError:
 
 ingest_bp = Blueprint("ingest", __name__, url_prefix="/api/ingest")
 
-# ~4MB of raw image bytes. Base64 inflates size by ~4/3, so the check below
+# ~4MB of raw file bytes. Base64 inflates size by ~4/3, so the check below
 # caps the DECODED byte length, not the string length that arrives over the
 # wire - a request just under this still crosses a bundled Vercel function,
-# which is exactly why the frontend downscales to ~1600px/JPEG q0.7 before
-# ever sending it (see BillScanner.jsx) rather than relying on this cap alone.
-MAX_IMAGE_BYTES = 4 * 1024 * 1024
+# which is exactly why the frontend downscales photos to ~2000px/JPEG q0.85
+# before ever sending them (see BillScanner.jsx) rather than relying on this
+# cap alone. A PDF is sent through unresized - a 1-2 page bill is typically
+# well under this on its own, and there is no client-side way to "downscale"
+# a PDF the way a photo can be re-encoded smaller.
+MAX_FILE_BYTES = 4 * 1024 * 1024
 
-ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+# PDF alongside the three image types: Gemini reads a PDF's own text layer
+# directly rather than OCR-ing a rasterised page, which is MORE accurate
+# than a photo for anyone who downloads their bill as a PDF rather than
+# photographing a printed copy - confirmed live against the real API before
+# this was wired in (a synthetic PDF's "245 kWh" round-tripped correctly).
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 
 # A photo is a slower, heavier ask than a chat message, so it gets its own,
 # tighter bucket rather than sharing one with routes/assistant.py.
@@ -130,6 +148,7 @@ def _get_client():
 def ingest_bill():
     """
     Body: {"imageBase64": "<base64, no data: prefix>", "mimeType": "image/jpeg"}
+    mimeType is any of ALLOWED_MIME_TYPES - a photo (jpeg/png/webp) or a PDF.
 
     Returns the proposed extraction. Saves nothing.
     """
@@ -165,15 +184,15 @@ def ingest_bill():
     except (binascii.Error, ValueError):
         return api_error("imageBase64 is not valid base64.", 400, code="invalid_base64")
 
-    if len(image_bytes) > MAX_IMAGE_BYTES:
+    if len(image_bytes) > MAX_FILE_BYTES:
         return api_error(
-            f"Image is too large ({len(image_bytes) // 1024} KB). "
-            f"Please use a smaller photo (under {MAX_IMAGE_BYTES // (1024 * 1024)} MB).",
+            f"That file is too large ({len(image_bytes) // 1024} KB). "
+            f"Please use a smaller one (under {MAX_FILE_BYTES // (1024 * 1024)} MB).",
             413,
             code="image_too_large",
         )
     if len(image_bytes) == 0:
-        return api_error("The image appears to be empty.", 400, code="empty_image")
+        return api_error("That file appears to be empty.", 400, code="empty_image")
 
     try:
         response = client.models.generate_content(
