@@ -3,22 +3,26 @@
 //
 // SECTIONS, IN ORDER
 //   1.  Greeting and last-updated line
-//   2.  Four stat cards        - this month, this year, best category, active goals
-//   3.  The bigger picture     - photo-led context (GlobalPictureSection), moved up
-//                                 here from last so the top of the page isn't
-//                                 wall-to-wall numbers
-//   4.  Six-month trend line   - is the footprint going up or down over time
-//   5.  Category doughnut      - what the footprint is made of, right now
-//   6.  Impact equivalents     - what the number actually means in real terms
-//   7.  This month vs last     - which categories moved, and in which direction
-//   8.  Insights               - plain-English observations drawn from the data
-//   9.  SDG 13 context strip   - ties the personal number to the global goal
-//   10. Give to the cause      - donation CTA, last on purpose
+//   2.  Streak & reward tree    - moved to the top, deliberately - motivation to
+//                                 log something works best the moment the app
+//                                 opens, not several scrolls down. See
+//                                 components/{StreakFlame,RewardTree,ChallengeList}.jsx
+//   3.  Four stat cards        - this month, this year, best category, active goals
+//   4.  Forecast (compact)     - full detail lives on /insights
+//   5.  The bigger picture     - photo-led context (GlobalPictureSection)
+//   6.  Six-month trend line   - is the footprint going up or down over time
+//   7.  Category doughnut      - what the footprint is made of, right now
+//   8.  Impact equivalents     - what the number actually means in real terms
+//   9.  This month vs last     - which categories moved, and in which direction
+//   10. Insights               - plain-English observations drawn from the data
+//   11. SDG 13 context strip   - ties the personal number to the global goal
+//   12. Give to the cause      - donation CTA, last on purpose
 //
 // Every figure comes from GET /api/dashboard/summary. The page does no emission
 // maths of its own: the backend calculated and stored each value when the user
 // logged it, and this screen only ever arranges those numbers.
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -49,6 +53,8 @@ import Reveal from '../components/Reveal';
 import GlobalPictureSection from '../components/GlobalPictureSection';
 import ForecastGauge from '../components/ForecastGauge';
 import StreakFlame from '../components/StreakFlame';
+import RewardTree from '../components/RewardTree';
+import ChallengeList from '../components/ChallengeList';
 import {
   CategoryDoughnutChart,
   ComparisonBarChart,
@@ -174,6 +180,11 @@ export default function Dashboard() {
   } = useDashboard();
 
   const firstName = profile?.name?.split(' ')[0] || 'there';
+
+  // Bumped after a challenge claim so RewardTree refetches and visibly
+  // grows right there on the page, instead of waiting for a reload to show
+  // the points that claim just earned.
+  const [rewardsBump, setRewardsBump] = useState(0);
 
   // Same reasoning as ProtectedRoute's own use of this hook: the backend can
   // take several real seconds to answer on a cold start, and a skeleton with
@@ -312,6 +323,51 @@ export default function Dashboard() {
         }
       />
 
+      {/* ============ 2. STREAK & REWARD TREE ============ */}
+      {/* First thing on the page after the banner, on purpose - the whole
+          point of a streak and a growing tree is to be the thing that
+          nudges someone to log something the moment they open the app, not
+          a detail they might scroll past. Shown even with zero history: a
+          fresh account's streak is 0 and its tree is a bare seed, which is
+          itself the invitation to log a first entry, not a state worth
+          hiding until there is something to show. */}
+      <div
+        className="eco-card"
+        style={{
+          marginBottom: hasData ? '2.5rem' : '1.5rem',
+          border: '1px solid color-mix(in srgb, var(--eco-primary) 24%, var(--eco-border))',
+        }}
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '1.8rem',
+          }}
+        >
+          <div>
+            <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
+              Your logging streak
+            </span>
+            <StreakFlame />
+          </div>
+
+          <div>
+            <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
+              Your reward tree
+            </span>
+            <RewardTree bump={rewardsBump} />
+          </div>
+        </div>
+
+        <div style={{ marginTop: '1.4rem', paddingTop: '1.2rem', borderTop: '1px solid var(--rule)' }}>
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.5rem' }}>
+            This week's challenges
+          </span>
+          <ChallengeList onClaimed={() => setRewardsBump((n) => n + 1)} />
+        </div>
+      </div>
+
       {/* ============ EMPTY STATE ============ */}
       {!hasData && (
         <motion.div
@@ -401,34 +457,18 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* ============ 2b. FORECAST & STREAK (compact, links to /insights) ============ */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '1.8rem',
-          marginBottom: '2.5rem',
-        }}
-      >
-        <div className="eco-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <span className="eco-marker">This month's forecast</span>
-            <Link to="/insights" className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
-              Full forecast →
-            </Link>
-          </div>
-          <ForecastGauge compact />
+      {/* ============ 2b. FORECAST (compact, links to /insights) ============ */}
+      {/* The streak card that used to sit beside this moved to the top of
+          the page (see section 2 above) - it was a duplicate of that once
+          the tree needed to live somewhere motivating anyway. */}
+      <div className="eco-card" style={{ marginBottom: '2.5rem', maxWidth: 460 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <span className="eco-marker">This month's forecast</span>
+          <Link to="/insights" className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
+            Full forecast →
+          </Link>
         </div>
-
-        <div className="eco-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <span className="eco-marker">Logging streak</span>
-            <Link to="/insights" className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
-              Swap ideas →
-            </Link>
-          </div>
-          <StreakFlame compact />
-        </div>
+        <ForecastGauge compact />
       </div>
 
       {/* ============ 3. THE BIGGER PICTURE ============ */}

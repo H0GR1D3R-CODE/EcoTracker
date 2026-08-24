@@ -1,11 +1,12 @@
 # EcoTrack/backend/tests/test_engagement.py
 """
-Unit tests for the pure streak-calculation logic in routes/engagement.py.
+Unit tests for the pure streak-calculation and tree-reward logic in
+routes/engagement.py.
 
-_compute_streak and _longest_streak take plain record lists and a date, and
-do no Firestore or Flask-request work themselves - only require_auth's
+_compute_streak, _longest_streak and _tree_progress take plain values and do
+no Firestore or Flask-request work themselves - only require_auth's
 decorator (never invoked here) and the route functions that call get_db()
-need real credentials. Importing the module and calling these two functions
+need real credentials. Importing the module and calling these functions
 directly is therefore safe without any Firebase setup.
 """
 
@@ -15,7 +16,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from routes.engagement import _compute_streak, _longest_streak  # noqa: E402
+from routes.engagement import (  # noqa: E402
+    POINTS_PER_TREE,
+    _compute_streak,
+    _longest_streak,
+    _tree_progress,
+)
 
 
 def _records_on(dates):
@@ -84,3 +90,48 @@ def test_longest_streak_is_independent_of_current_gap():
 def test_longest_streak_helper_directly():
     dates = {"2026-08-01", "2026-08-02", "2026-08-03", "2026-08-05", "2026-08-06"}
     assert _longest_streak(dates) == 3
+
+
+# ---------------------------------------------------------------------------
+# _tree_progress - the points/tree-growth reward, see engagement.py's own
+# module docstring for why this is a growing tree and not a wallet.
+# ---------------------------------------------------------------------------
+
+def test_tree_progress_starts_at_seed():
+    result = _tree_progress(0)
+    assert result["stageKey"] == "seed"
+    assert result["treesGrown"] == 0
+    assert result["pointsToNextStage"] == 50  # sprout's threshold
+
+
+def test_tree_progress_one_claim_reaches_sprout():
+    result = _tree_progress(50)
+    assert result["stageKey"] == "sprout"
+    assert result["isFullyGrown"] is False
+
+
+def test_tree_progress_reaches_full_banyan_at_exactly_the_threshold():
+    result = _tree_progress(POINTS_PER_TREE)
+    assert result["stageKey"] == "banyan"
+    assert result["isFullyGrown"] is True
+    assert result["pointsToNextStage"] == 0
+    # Shown AS the completed banyan, not reset to an empty new seed - see
+    # _tree_progress's own docstring for the bug this caught live. Nothing
+    # is "behind" this tree yet - it IS the current one, fully grown.
+    assert result["treesGrown"] == 0
+    assert result["currentTreePoints"] == POINTS_PER_TREE
+
+
+def test_tree_progress_wraps_into_a_second_tree_rather_than_capping():
+    result = _tree_progress(POINTS_PER_TREE + 50)
+    assert result["treesGrown"] == 1
+    assert result["stageKey"] == "sprout"  # the second tree's own growth, from its own seed
+    assert result["currentTreePoints"] == 50
+
+
+def test_tree_progress_between_stages_reports_the_lower_one():
+    # 200 points sits between sapling's 150 and young_tree's 300
+    result = _tree_progress(200)
+    assert result["stageKey"] == "sapling"
+    assert result["nextStageLabel"] == "Young tree"
+    assert result["pointsToNextStage"] == 100

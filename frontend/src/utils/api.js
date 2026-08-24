@@ -469,6 +469,10 @@ export const engagementApi = {
 
   claimChallenge: (challengeId) =>
     api.post(`/api/engagement/challenges/${challengeId}/claim`).then(unwrap),
+
+  // Points + tree-growth state - see backend/routes/engagement.py's
+  // _tree_progress and components/GrowingTree.jsx.
+  getRewards: () => api.get('/api/engagement/rewards').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

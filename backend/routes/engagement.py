@@ -1,7 +1,8 @@
 # EcoTrack/backend/routes/engagement.py
 """
 The retention layer: the evaluation-harness intervention log, login/logging
-streaks, and weekly self-relative challenges.
+streaks, weekly self-relative challenges, and the points/tree reward that
+sits on top of claiming one.
 
 TWO WAYS AN INTERVENTION GETS LOGGED
 -------------------------------------
@@ -16,6 +17,16 @@ log chip suggestion, a streak-freeze notice, a challenge reminder) have
 nothing to log themselves at generation time, so POST /interventions below
 is the generic entry point for those - called by
 frontend/src/hooks/useIntervention.js.
+
+WHY A GROWING TREE, NOT A WALLET
+-----------------------------------
+Claiming a challenge earns points, and points grow a tree - seed through a
+full banyan - on the Dashboard (see frontend/src/components/GrowingTree.jsx).
+This is deliberately NOT a cash-back or withdrawal mechanic: this backend
+never moves real money to a user, automatically or otherwise - see this
+file's own claim_challenge for the honest framing of what "growing a tree"
+represents, and Config.CATEGORIES-style constants below for where that
+framing is defined in one place.
 
 Mounted at /api/engagement
 """
@@ -36,6 +47,75 @@ VALID_INTERVENTION_ACTIONS = ["accepted", "dismissed"]
 STREAK_LOOKBACK_DAYS = 120
 CHALLENGE_LOG_DAYS_TARGET = 5  # out of 7
 CHALLENGE_REDUCTION_TARGET_RATIO = 0.9  # keep the week's total under 90% of baseline
+
+# --- Points and the tree reward ---
+# Flat, not scaled by challenge difficulty - a log-frequency week and a
+# reduction week take genuinely different kinds of effort, and trying to
+# price those against each other precisely would be a guess dressed up as
+# a formula. One number is honest about being a simple reward, not an
+# attempt to measure how much a challenge was actually worth.
+POINTS_PER_CHALLENGE_CLAIM = 50
+
+# Seed through a full banyan. Fast enough that a single claim visibly moves
+# the tree (the first stage costs exactly one claim) - a reward system
+# where nothing visibly happens for weeks does not feel like a reward
+# system - but the full banyan is a real multi-week goal, not something
+# claimed away in one sitting.
+TREE_STAGES = [
+    {"key": "seed", "label": "Seed", "pointsRequired": 0},
+    {"key": "sprout", "label": "Sprout", "pointsRequired": 50},
+    {"key": "sapling", "label": "Sapling", "pointsRequired": 150},
+    {"key": "young_tree", "label": "Young tree", "pointsRequired": 300},
+    {"key": "mature_tree", "label": "Mature tree", "pointsRequired": 500},
+    {"key": "banyan", "label": "Banyan", "pointsRequired": 800},
+]
+POINTS_PER_TREE = TREE_STAGES[-1]["pointsRequired"]
+
+
+def _tree_progress(total_points):
+    """
+    Turn a lifetime points total into a tree's current growth state.
+
+    Points keep accumulating past a full banyan rather than capping there -
+    reaching the last stage should read as "grow another one", not "nothing
+    left to do here". treesGrown counts full banyans standing BEHIND the one
+    currently on screen; currentTreePoints drives that current tree.
+
+    Landing on an exact multiple of POINTS_PER_TREE (just claimed the point
+    that completes a banyan) is deliberately shown AS that completed banyan,
+    not reset to an empty new seed - a caught-live bug in an earlier version
+    of this function did exactly that (see test_tree_progress_reaches_full_
+    banyan_at_exactly_the_threshold), which would have made finishing a tree
+    look like losing it. The reset to a fresh seed only happens once the
+    NEXT point earned actually pushes the total past this exact multiple.
+    """
+    trees_grown = total_points // POINTS_PER_TREE
+    current_tree_points = total_points % POINTS_PER_TREE
+
+    if current_tree_points == 0 and trees_grown > 0:
+        trees_grown -= 1
+        current_tree_points = POINTS_PER_TREE
+
+    stage_index = 0
+    for i, stage in enumerate(TREE_STAGES):
+        if current_tree_points >= stage["pointsRequired"]:
+            stage_index = i
+
+    next_stage = TREE_STAGES[stage_index + 1] if stage_index + 1 < len(TREE_STAGES) else None
+
+    return {
+        "totalPoints": total_points,
+        "treesGrown": trees_grown,
+        "currentTreePoints": current_tree_points,
+        "pointsPerTree": POINTS_PER_TREE,
+        "stageIndex": stage_index,
+        "stageKey": TREE_STAGES[stage_index]["key"],
+        "stageLabel": TREE_STAGES[stage_index]["label"],
+        "pointsToNextStage": (next_stage["pointsRequired"] - current_tree_points) if next_stage else 0,
+        "nextStageLabel": next_stage["label"] if next_stage else None,
+        "isFullyGrown": next_stage is None,
+        "stages": TREE_STAGES,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -299,6 +379,7 @@ def _serialize_challenge(doc, records_this_week):
     data = doc.to_dict()
     challenge_type = data.get("type")
     target = float(data.get("target", 0))
+    stored_status = data.get("status", "active")
 
     if challenge_type == "log_frequency":
         progress = len({r["recordedDate"] for r in records_this_week})
@@ -329,7 +410,15 @@ def _serialize_challenge(doc, records_this_week):
         "progress": progress,
         "progressPercent": progress_percent,
         "isComplete": is_complete,
-        "status": "achieved" if is_complete else data.get("status", "active"),
+        # A stored "claimed" always wins over the recomputed "achieved" -
+        # is_complete is purely progress-based and stays true forever once
+        # crossed, so without this a claimed challenge would report
+        # "achieved" again on every later fetch (GET /challenges included),
+        # showing the Claim button again for something already claimed and
+        # its points already awarded. Caught while wiring points into
+        # claim_challenge below - harmless before that (re-claiming just
+        # re-set the same "claimed" status), a real double-award risk after.
+        "status": stored_status if stored_status == "claimed" else ("achieved" if is_complete else stored_status),
         "periodStart": data.get("periodStart"),
         "periodEnd": data.get("periodEnd"),
     }
@@ -354,7 +443,15 @@ def claim_challenge(challenge_id):
     """Mark a completed challenge as claimed - a small acknowledgement step
     that gives the confetti moment something explicit to fire on, rather than
     firing automatically the instant progress crosses the line while the user
-    might not even be looking at the page."""
+    might not even be looking at the page.
+
+    Also where POINTS_PER_CHALLENGE_CLAIM gets credited to the user's
+    lifetime total and their tree grows a step - see _tree_progress above.
+    Guarded against being called twice on the same challenge (explicitly,
+    not just relying on isComplete staying true forever): before points had
+    any real effect a repeat claim was harmless, just re-setting the same
+    "claimed" status, but a repeat claim now would double-award points for
+    one piece of work."""
     db = get_db()
     ref = db.collection(Config.COLLECTION_CHALLENGES).document(challenge_id)
     doc = ref.get()
@@ -365,6 +462,9 @@ def claim_challenge(challenge_id):
     data = doc.to_dict()
     if data.get("userId") != g.uid:
         return api_error("Not your challenge.", 403, code="not_owner")
+
+    if data.get("status") == "claimed":
+        return api_error("This challenge was already claimed.", 400, code="already_claimed")
 
     week_start = date.fromisoformat(data["periodStart"])
     week_end = date.fromisoformat(data["periodEnd"])
@@ -377,4 +477,29 @@ def claim_challenge(challenge_id):
         return api_error("This challenge is not complete yet.", 400, code="not_complete")
 
     ref.update({"status": "claimed"})
-    return api_success({**serialized, "status": "claimed"})
+
+    user_ref = db.collection(Config.COLLECTION_USERS).document(g.uid)
+    user_ref.set(
+        {"rewardPoints": gcloud_firestore.Increment(POINTS_PER_CHALLENGE_CLAIM)}, merge=True
+    )
+    # Increment() only queues the write - re-reading is what gets the real
+    # new total back, needed for the tree-growth response below.
+    total_points = user_ref.get().to_dict().get("rewardPoints", 0)
+
+    return api_success({
+        **serialized,
+        "status": "claimed",
+        "reward": {"pointsEarned": POINTS_PER_CHALLENGE_CLAIM, **_tree_progress(total_points)},
+    })
+
+
+@engagement_bp.route("/rewards", methods=["GET"])
+@require_auth
+def rewards():
+    """Current points total and tree-growth state - fetched on Dashboard
+    load so the tree is right there without needing to claim something
+    first to see it."""
+    db = get_db()
+    user_doc = db.collection(Config.COLLECTION_USERS).document(g.uid).get()
+    total_points = (user_doc.to_dict() or {}).get("rewardPoints", 0) if user_doc.exists else 0
+    return api_success(_tree_progress(total_points))

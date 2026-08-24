@@ -98,7 +98,7 @@ function ChallengeCard({ challenge, onClaim, claiming, delay }) {
   );
 }
 
-export default function ChallengeList() {
+export default function ChallengeList({ onClaimed }) {
   const [challenges, setChallenges] = useState(null);
   const [claimingId, setClaimingId] = useState(null);
 
@@ -121,7 +121,19 @@ export default function ChallengeList() {
       const updated = await engagementApi.claimChallenge(challengeId);
       setChallenges((current) => current.map((c) => (c.id === challengeId ? updated : c)));
       celebrate();
-      toast.success('Challenge claimed.');
+      // reward is the tree-growth state after this claim - see
+      // backend/routes/engagement.py's claim_challenge. isFullyGrown gets
+      // its own message since "grew a whole banyan" is worth saying
+      // outright rather than folding into the generic points line.
+      const reward = updated.reward;
+      if (reward?.isFullyGrown) {
+        toast.success(`+${reward.pointsEarned} points — your tree is a full banyan! 🌳`);
+      } else if (reward) {
+        toast.success(`+${reward.pointsEarned} points — ${reward.stageLabel} (${reward.pointsToNextStage} to go)`);
+      } else {
+        toast.success('Challenge claimed.');
+      }
+      onClaimed?.(reward);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not claim this challenge.'));
     } finally {

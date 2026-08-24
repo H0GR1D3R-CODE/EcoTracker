@@ -224,7 +224,55 @@ export default function ForecastGauge({ compact = false }) {
 
       {!compact && forecast.status === 'ok' && (
         <div style={{ marginTop: '1.6rem' }}>
+          {/* One plain-English sentence before the chart, not just prose
+              underneath it - a first look at four different line/area
+              styles with no on-chart key was confirmed confusing on its
+              own; this plus the legend below are the fix, not a redesign
+              of the chart itself. */}
+          <p className="eco-text-muted" style={{ fontSize: '0.83rem', marginBottom: '0.9rem', maxWidth: '52ch' }}>
+            The solid line is what you've actually logged this month. The
+            rest projects where it's headed if you keep going at the same pace.
+          </p>
+
           <BurnDownChart forecast={forecast} prefersReducedMotion={prefersReducedMotion} />
+
+          {/* The legend the chart itself never had - four lines/areas is a
+              lot to decode from body copy alone, so each one gets its exact
+              swatch here, in the same order they appear top-to-bottom in
+              the SVG. */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              marginTop: '0.8rem',
+              fontSize: '0.74rem',
+              color: 'var(--eco-text-muted)',
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ width: 14, height: 2, background: 'var(--readout)', display: 'inline-block' }} />
+              Logged so far
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <svg width="14" height="2" style={{ flexShrink: 0 }}>
+                <line x1="0" y1="1" x2="14" y2="1" stroke="var(--eco-text-muted)" strokeWidth="2" strokeDasharray="3,2" />
+              </svg>
+              Projected
+            </span>
+            {forecast.lower !== null && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ width: 14, height: 9, background: 'var(--eco-primary)', opacity: 0.25, display: 'inline-block' }} />
+                Likely range (80%)
+              </span>
+            )}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <svg width="14" height="2" style={{ flexShrink: 0 }}>
+                <line x1="0" y1="1" x2="14" y2="1" stroke="var(--rule-strong)" strokeWidth="2" strokeDasharray="2,2" />
+              </svg>
+              Your budget
+            </span>
+          </div>
         </div>
       )}
 
