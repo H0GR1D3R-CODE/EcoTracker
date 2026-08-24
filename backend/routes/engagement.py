@@ -56,6 +56,22 @@ CHALLENGE_REDUCTION_TARGET_RATIO = 0.9  # keep the week's total under 90% of bas
 # attempt to measure how much a challenge was actually worth.
 POINTS_PER_CHALLENGE_CLAIM = 50
 
+# A goal (routes/goals.py) is a real, sustained commitment - weeks of
+# staying under a self-chosen reduction target, not one week's habit - so
+# it earns more than a weekly challenge claim. See routes/goals.py's
+# update_goal for where this is awarded, with the same "check the OLD
+# stored status first" guard claim_challenge already needed below, for the
+# identical reason: recomputed completion (isAchieved) stays true forever
+# once crossed, so only a genuine active->achieved transition should pay out.
+POINTS_PER_GOAL_ACHIEVED = 150
+
+# What a point is worth if it were ever turned into an actual donation -
+# see this file's own module docstring and award_points() below for why
+# that conversion is never executed automatically by this backend. A round,
+# stated number (₹1 per 8 points - the same ratio as a full banyan being
+# worth ₹100) rather than something that looks precision-calculated.
+INR_PER_TREE = 100.0
+
 # Seed through a full banyan. Fast enough that a single claim visibly moves
 # the tree (the first stage costs exactly one claim) - a reward system
 # where nothing visibly happens for weeks does not feel like a reward
@@ -115,7 +131,37 @@ def _tree_progress(total_points):
         "nextStageLabel": next_stage["label"] if next_stage else None,
         "isFullyGrown": next_stage is None,
         "stages": TREE_STAGES,
+        # The lifetime total's donation-equivalent, in rupees - see
+        # INR_PER_TREE above. A running figure the user can see building up
+        # (not just once a tree finishes), so it answers "how much have I
+        # earned so far" the moment points exist at all.
+        "donationValueInr": round((total_points / POINTS_PER_TREE) * INR_PER_TREE, 2),
     }
+
+
+def award_points(uid, points):
+    """
+    Credit points to a user's lifetime total and return their new tree
+    state - the one place both claim_challenge and routes/goals.py's
+    update_goal go through, so "how a claim turns into a tree" has exactly
+    one implementation.
+
+    NEVER MOVES REAL MONEY
+    This function only ever writes an integer to Firestore. donationValueInr
+    above is a number shown to the user and, separately, visible to whoever
+    runs this deployment (see routes/admin.py's stats) - turning it into an
+    actual donation is a deliberate, manual decision made outside this
+    codebase, the same way Donate.jsx's own donation buttons already work.
+    Automating that transfer would mean this backend initiating real money
+    movement on its own, which it does not do anywhere, on purpose.
+    """
+    db = get_db()
+    user_ref = db.collection(Config.COLLECTION_USERS).document(uid)
+    user_ref.set({"rewardPoints": gcloud_firestore.Increment(points)}, merge=True)
+    # Increment() only queues the write - re-reading is what gets the real
+    # new total back, needed for the tree-growth state below.
+    total_points = user_ref.get().to_dict().get("rewardPoints", 0)
+    return {"pointsEarned": points, **_tree_progress(total_points)}
 
 
 # ---------------------------------------------------------------------------
@@ -478,18 +524,10 @@ def claim_challenge(challenge_id):
 
     ref.update({"status": "claimed"})
 
-    user_ref = db.collection(Config.COLLECTION_USERS).document(g.uid)
-    user_ref.set(
-        {"rewardPoints": gcloud_firestore.Increment(POINTS_PER_CHALLENGE_CLAIM)}, merge=True
-    )
-    # Increment() only queues the write - re-reading is what gets the real
-    # new total back, needed for the tree-growth response below.
-    total_points = user_ref.get().to_dict().get("rewardPoints", 0)
-
     return api_success({
         **serialized,
         "status": "claimed",
-        "reward": {"pointsEarned": POINTS_PER_CHALLENGE_CLAIM, **_tree_progress(total_points)},
+        "reward": award_points(g.uid, POINTS_PER_CHALLENGE_CLAIM),
     })
 
 

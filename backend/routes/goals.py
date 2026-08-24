@@ -41,6 +41,7 @@ from routes import (
     require_auth,
     total_emission,
 )
+from routes.engagement import POINTS_PER_GOAL_ACHIEVED, award_points
 
 goals_bp = Blueprint("goals", __name__, url_prefix="/api/goals")
 
@@ -307,6 +308,14 @@ def update_goal(goal_id):
     100%, which is what fires the confetti animation and stops the goal being
     counted as active on the dashboard.
 
+    Also where POINTS_PER_GOAL_ACHIEVED gets credited, on a genuine
+    active-> achieved transition - checked against the OLD stored status
+    fetched below, not the live-computed isAchieved field (which stays true
+    forever once a goal's progress crosses 100%, the exact same shape of
+    bug routes/engagement.py's claim_challenge had to be guarded against:
+    without this check, calling this route twice on an already-achieved
+    goal would award points twice for one piece of work).
+
     Body: {"status": "achieved"}
     """
     body = request.get_json(silent=True) or {}
@@ -326,18 +335,25 @@ def update_goal(goal_id):
     if not goal_doc.exists:
         return api_error("Goal not found.", 404, code="goal_not_found")
 
+    goal_data = goal_doc.to_dict()
+
     # OWNERSHIP CHECK - proves this goal belongs to the caller
-    if goal_doc.to_dict().get("userId") != g.uid:
+    if goal_data.get("userId") != g.uid:
         return api_error(
             "You do not have permission to update this goal.",
             403,
             code="not_goal_owner",
         )
 
+    old_status = goal_data.get("status")
     goal_ref.update({"status": new_status})
 
+    reward = None
+    if new_status == "achieved" and old_status != "achieved":
+        reward = award_points(g.uid, POINTS_PER_GOAL_ACHIEVED)
+
     return api_success(
-        _serialize_goal(goal_ref.get(), g.uid),
+        {**_serialize_goal(goal_ref.get(), g.uid), "reward": reward},
         message=f"Goal marked as {new_status}.",
     )
 

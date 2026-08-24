@@ -276,10 +276,21 @@ export default function Goals() {
   const handleMarkAchieved = async (goal) => {
     setBusyGoalId(goal.id);
     try {
-      await goalsApi.updateStatus(goal.id, 'achieved');
+      const updated = await goalsApi.updateStatus(goal.id, 'achieved');
 
       if (!prefersReducedMotion) celebrate();
-      toast.success(`${formatCategory(goal.category)} goal achieved!`);
+      // reward is the tree-growth state this goal just earned - see
+      // backend/routes/goals.py's update_goal. A goal is worth more points
+      // than a weekly challenge (POINTS_PER_GOAL_ACHIEVED), so it gets its
+      // own toast rather than reusing ChallengeList's wording verbatim.
+      const reward = updated.reward;
+      if (reward?.isFullyGrown) {
+        toast.success(`${formatCategory(goal.category)} goal achieved! +${reward.pointsEarned} points — your tree is a full banyan! 🌳`);
+      } else if (reward) {
+        toast.success(`${formatCategory(goal.category)} goal achieved! +${reward.pointsEarned} points — ${reward.stageLabel} (${reward.pointsToNextStage} to go)`);
+      } else {
+        toast.success(`${formatCategory(goal.category)} goal achieved!`);
+      }
 
       loadGoals();
     } catch (requestError) {

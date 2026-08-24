@@ -135,3 +135,15 @@ def test_tree_progress_between_stages_reports_the_lower_one():
     assert result["stageKey"] == "sapling"
     assert result["nextStageLabel"] == "Young tree"
     assert result["pointsToNextStage"] == 100
+
+
+def test_donation_value_scales_with_lifetime_points_not_just_full_trees():
+    # A running figure, not something that only appears once a tree
+    # finishes - half the points into a tree is worth half a tree's rupees
+    half_tree = _tree_progress(POINTS_PER_TREE // 2)
+    full_tree = _tree_progress(POINTS_PER_TREE)
+    assert half_tree["donationValueInr"] == round(full_tree["donationValueInr"] / 2, 2)
+
+
+def test_donation_value_at_zero_points_is_zero():
+    assert _tree_progress(0)["donationValueInr"] == 0.0

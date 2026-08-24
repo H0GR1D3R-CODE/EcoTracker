@@ -51,6 +51,8 @@ import ImpactEquivalents from '../components/ImpactEquivalents';
 import PageBanner from '../components/PageBanner';
 import Reveal from '../components/Reveal';
 import GlobalPictureSection from '../components/GlobalPictureSection';
+import Photo from '../components/Photo';
+import { PHOTOS } from '../utils/photos';
 import ForecastGauge from '../components/ForecastGauge';
 import StreakFlame from '../components/StreakFlame';
 import RewardTree from '../components/RewardTree';
@@ -336,35 +338,56 @@ export default function Dashboard() {
         style={{
           marginBottom: hasData ? '2.5rem' : '1.5rem',
           border: '1px solid color-mix(in srgb, var(--eco-primary) 24%, var(--eco-border))',
+          overflow: 'hidden',
+          padding: 0,
         }}
       >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: '1.8rem',
-          }}
-        >
-          <div>
-            <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
-              Your logging streak
-            </span>
-            <StreakFlame />
-          </div>
-
-          <div>
-            <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
-              Your reward tree
-            </span>
-            <RewardTree bump={rewardsBump} />
-          </div>
+        {/* A real photograph, not just another flat panel - same
+            photo-strip-above-content composition GlobalPictureSection
+            already uses lower on this page, borrowed here rather than
+            reinvented. youngTree is its own catalogued id (utils/photos.js)
+            distinct from every other forest/growth shot already used
+            elsewhere in the app, per that file's own no-repeats rule. */}
+        <div className="eco-photo-zoom" style={{ height: 150, overflow: 'hidden' }}>
+          <Photo
+            id={PHOTOS.youngTree}
+            alt="A small tree standing alone in an open field"
+            width={900}
+            color="var(--eco-primary)"
+            className="eco-photo-cover"
+            style={{ width: '100%', height: '100%', display: 'block' }}
+          />
         </div>
 
-        <div style={{ marginTop: '1.4rem', paddingTop: '1.2rem', borderTop: '1px solid var(--rule)' }}>
-          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.5rem' }}>
-            This week's challenges
-          </span>
-          <ChallengeList onClaimed={() => setRewardsBump((n) => n + 1)} />
+        <div style={{ padding: 'var(--space-6)' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '1.8rem',
+            }}
+          >
+            <div>
+              <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
+                Your logging streak
+              </span>
+              <StreakFlame />
+            </div>
+
+            <div>
+              <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
+                Your reward tree
+              </span>
+              <RewardTree bump={rewardsBump} />
+            </div>
+          </div>
+
+          <div style={{ marginTop: '1.4rem', paddingTop: '1.2rem', borderTop: '1px solid var(--rule)' }}>
+            <span className="eco-marker" style={{ display: 'block', marginBottom: '0.5rem' }}>
+              This week's challenges
+            </span>
+            <ChallengeList onClaimed={() => setRewardsBump((n) => n + 1)} />
+          </div>
         </div>
       </div>
 
