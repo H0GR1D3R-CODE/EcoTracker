@@ -64,6 +64,7 @@ from routes.insights import _load_factor_lookup, _user_region
 # Imported defensively so a missing dependency degrades to "assistant
 # unavailable" instead of stopping the whole server from booting.
 try:
+    import httpx
     from google import genai
     from google.genai import errors as genai_errors
     from google.genai import types as genai_types
@@ -159,19 +160,46 @@ def _get_client():
 # waiting on Gemini cannot afford to wait through more than one retry).
 GEMINI_RETRY_DELAY_SECONDS = 1.5
 
+# A bound on top of the retry-once policy above, not instead of it.
+# Reproduced live: during a genuine Gemini "high demand" spell, a single
+# attempt did not fail fast with a 503 - it just hung, silently, for over
+# 60 seconds. Two such attempts blew straight through both this app's own
+# 45s frontend axios timeout and Vercel's 60s function budget, and the
+# browser saw a raw "Failed to fetch" instead of the clean "having
+# problems, try again" message this app already has ready for exactly this
+# situation. 18s x 2 attempts + the retry delay stays comfortably inside
+# both budgets, so a slow spell now fails the same honest way a fast
+# ServerError already does, rather than however Vercel's own hard kill
+# happens to look to the browser.
+GEMINI_CALL_TIMEOUT_MS = 18000
+
 
 def _call_gemini(client, **generate_content_kwargs):
     """
     client.models.generate_content(...), transparently retried once on a
-    transient server error. Raises exactly what the SDK itself raises
-    (ClientError, ServerError, APIError) - every caller's own except block,
-    which maps each to its own user-facing message, is unchanged by this.
+    transient server error OR a per-attempt timeout (see
+    GEMINI_CALL_TIMEOUT_MS above - a slow, non-erroring hang is exactly as
+    unacceptable as a fast 503 here). A timeout on the retry itself is
+    turned into a synthetic ServerError so every caller's existing
+    `except genai_errors.ServerError` block - already mapping to the same
+    "having problems, try again" message - handles it with no changes of
+    its own needed.
     """
+    config = generate_content_kwargs.get("config")
+    if config is not None and getattr(config, "http_options", None) is None:
+        config.http_options = genai_types.HttpOptions(timeout=GEMINI_CALL_TIMEOUT_MS)
+
     try:
         return client.models.generate_content(**generate_content_kwargs)
-    except genai_errors.ServerError:
+    except (genai_errors.ServerError, httpx.TimeoutException):
         time.sleep(GEMINI_RETRY_DELAY_SECONDS)
-        return client.models.generate_content(**generate_content_kwargs)
+        try:
+            return client.models.generate_content(**generate_content_kwargs)
+        except httpx.TimeoutException as timeout_error:
+            raise genai_errors.ServerError(
+                504,
+                {"error": {"message": "Gemini request timed out twice in a row."}},
+            ) from timeout_error
 
 
 def _build_admin_context():
