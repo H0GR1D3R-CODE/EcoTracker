@@ -492,6 +492,19 @@ export const wrappedApi = {
 };
 
 // ---------------------------------------------------------------------------
+// HOUSEHOLD (group mode + leaderboard - see routes/household.py)
+// ---------------------------------------------------------------------------
+
+export const householdApi = {
+  get: () => api.get('/api/household').then(unwrap),
+  create: (name) => api.post('/api/household', { name }).then(unwrap),
+  join: (inviteCode) => api.post('/api/household/join', { inviteCode }).then(unwrap),
+  leave: () => api.post('/api/household/leave').then(unwrap),
+  removeMember: (memberUid) =>
+    api.delete(`/api/household/members/${memberUid}`).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
 // INGEST (Gemini bill/receipt photo extraction - see routes/ingest.py)
 //
 // Nothing here saves a record. The response is a proposed extraction only;

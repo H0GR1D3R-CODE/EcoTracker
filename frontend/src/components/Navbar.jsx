@@ -24,6 +24,7 @@ import {
   Sparkles,
   Target,
   User,
+  Users,
   X,
 } from 'lucide-react';
 
@@ -44,6 +45,7 @@ const APP_LINKS = [
   { to: '/insights', label: 'Insights', icon: Sparkles },
   { to: '/goals', label: 'Goals', icon: Target },
   { to: '/reports', label: 'Reports', icon: FileText },
+  { to: '/household', label: 'Household', icon: Users },
 ];
 
 // The admin account is a separate, admin-only identity - it does not track a

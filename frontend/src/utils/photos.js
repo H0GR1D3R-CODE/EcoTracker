@@ -62,6 +62,7 @@ export const PHOTOS = {
   goldenHourField: '1624212933958-4aa0e1cd2e0c', // sunlit open field at golden hour (Dashboard: Carbon Wrapped)
 
   // signed-in page banners (distinct from every image above)
+  householdHome: '1628243989859-db92e2de1340', // a family/home scene (Household banner)
   calcNature: '1621872111378-4f8340e9cb90', // green forest        (Calculator banner)
   goalsVista: '1515344905723-babc01aac23d', // wind farm on grass   (Goals banner)
   reportsPath: '1559770968-53924e9b32de', // road through a forest  (Reports banner)

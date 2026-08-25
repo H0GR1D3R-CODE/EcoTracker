@@ -175,6 +175,9 @@ class Config:
     # by every user in it, the same "Firestore as shared cache" reasoning as
     # COLLECTION_COHORT_STATS just above.
     COLLECTION_WEATHER_CACHE = "weatherCache"
+    # Household/group mode - see routes/household.py. A user belongs to at
+    # most one household at a time (users/{uid}.householdId points back here).
+    COLLECTION_HOUSEHOLDS = "households"
 
     # The seven emission categories EcoTrack supports.
     # Routes validate incoming data against this list, and the ORDER here is the
