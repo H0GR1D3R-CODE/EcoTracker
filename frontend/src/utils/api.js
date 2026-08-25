@@ -550,6 +550,16 @@ export const ingestApi = {
 };
 
 // ---------------------------------------------------------------------------
+// VOICE (speech-to-log extraction - see routes/voice.py)
+// ---------------------------------------------------------------------------
+
+export const voiceApi = {
+  getStatus: () => api.get('/api/voice/status').then(unwrap),
+  parse: (transcript) =>
+    api.post('/api/voice/parse', { transcript }, { skipErrorToast: true }).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
 // NOTIFICATIONS (FCM push token registration - see utils/pushNotifications.js)
 // ---------------------------------------------------------------------------
 

@@ -30,6 +30,7 @@ import PageBanner from '../components/PageBanner';
 import Reveal from '../components/Reveal';
 import QuickLogChips from '../components/QuickLogChips';
 import BillScanner from '../components/BillScanner';
+import VoiceLogger from '../components/VoiceLogger';
 import { CATEGORY_ICONS } from '../utils/categoryIcons';
 import {
   CATEGORY_META,
@@ -423,6 +424,22 @@ export default function Calculator() {
           reads, so nesting it under "Transport" (the default tab) made it
           both easy to miss and misleadingly scoped to one category only. */}
       <BillScanner
+        onExtracted={({ category: extractedCategory, subType: extractedSubType, quantity: extractedQuantity }) => {
+          if (extractedCategory && extractedCategory !== category) {
+            handleCategoryChange(extractedCategory);
+          }
+          if (extractedSubType) setSubType(extractedSubType);
+          if (extractedQuantity) setQuantity(String(extractedQuantity));
+        }}
+      />
+
+      {/* ============ VOICE LOGGER ============ */}
+      {/* Same onExtracted shape as BillScanner above - both only ever
+          pre-fill the form below; "Log it" is still the one thing that
+          actually saves anything. Renders nothing at all when the browser
+          has no speech recognition or the server has no Gemini key - see
+          VoiceLogger.jsx's own guard. */}
+      <VoiceLogger
         onExtracted={({ category: extractedCategory, subType: extractedSubType, quantity: extractedQuantity }) => {
           if (extractedCategory && extractedCategory !== category) {
             handleCategoryChange(extractedCategory);
