@@ -438,8 +438,15 @@ def _serialize_challenge(doc, records_this_week):
         )
         progress = category_total
         # Lower is better here, so "complete" means staying UNDER the target,
-        # and progress-towards-completion runs the opposite way from a normal bar
-        is_complete = category_total <= target
+        # and progress-towards-completion runs the opposite way from a normal
+        # bar. Also requires the week to actually be OVER - without that, a
+        # category with nothing logged yet reads as category_total=0, which
+        # is trivially "under target" from the very first minute of the
+        # week, letting a challenge be claimed for doing nothing at all.
+        # "Stayed under X this week" is not knowable until the week is done -
+        # someone could still log more in that category on day 6.
+        week_has_ended = date.today() > date.fromisoformat(data.get("periodEnd"))
+        is_complete = category_total <= target and week_has_ended
         baseline = float(data.get("baseline", target)) or 1.0
         progress_percent = round(max(0.0, min(100.0, (1 - category_total / baseline) * 100)), 1)
     else:
