@@ -15,7 +15,7 @@
 // Mounted at /calculator
 
 import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { AlertCircle, CheckCircle2, CloudOff, Info, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
@@ -831,15 +831,23 @@ export default function Calculator() {
       </div>
 
       {/* ============ RESULT CARD ============ */}
-      {/* AnimatePresence lets the card animate OUT as well as in, which matters
-          when the user switches category and the old result is cleared */}
-      <AnimatePresence mode="wait">
+      {/* A plain conditional, not AnimatePresence mode="wait" - that
+          combination is genuinely broken here (confirmed live, fixed
+          first in Register.jsx and Login.jsx's own step/mode transitions,
+          the same class of bug App.jsx's own comment already documents
+          hitting once before): the exit animation never reports complete,
+          so a SECOND logged entry in one session - a new `key` on the same
+          position - would leave this card frozen on the first entry's
+          data, or stuck invisible, rather than updating. Every entry still
+          saves correctly regardless (that is a real backend call, entirely
+          separate from this animation), but the confirmation card on the
+          app's single most-used page is not somewhere to leave a stale
+          "worked once" UI bug sitting. */}
         {result && (
           <motion.div
             key={result.record?.id}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 26 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={prefersReducedMotion ? {} : { opacity: 0, y: -14 }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             style={{ marginBottom: '2.5rem' }}
           >
@@ -940,7 +948,6 @@ export default function Calculator() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
 
       {/* ============ THIS MONTH'S ENTRIES ============ */}
       <Reveal

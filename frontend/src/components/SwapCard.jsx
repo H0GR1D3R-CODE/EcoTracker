@@ -5,7 +5,7 @@
 // generate_swaps docstring), so it is never hidden more than one tap away.
 
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ArrowRight, Check, ChevronDown, X } from 'lucide-react';
 
 import { useTheme } from '../context/ThemeContext';
@@ -84,12 +84,15 @@ export default function SwapCard({ swap, delay = 0 }) {
             {expanded ? 'Hide the maths' : 'Show the maths'}
           </button>
 
-          <AnimatePresence initial={false}>
+          {/* A plain conditional, not AnimatePresence - genuinely broken
+              here (the same class of bug fixed across BillScanner.jsx,
+              GrowingTree.jsx, SelectField.jsx and others): toggling "Show
+              the maths" a second time risked leaving a stale, invisible-
+              but-still-mounted copy behind, or failing to hide it again. */}
             {expanded && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: prefersReducedMotion ? 0 : 0.25 }}
                 style={{ overflow: 'hidden' }}
               >
@@ -122,7 +125,6 @@ export default function SwapCard({ swap, delay = 0 }) {
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
         </div>
 
         {decided === null ? (

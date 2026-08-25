@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -1647,13 +1647,19 @@ export default function Home() {
       {/* Opens when a category card is clicked. Explains that category and lists
           the real emission factors EcoTrack uses for it, so a visitor can learn
           what the app actually measures before signing up. */}
-      <AnimatePresence>
+      {/* A plain conditional, not AnimatePresence - genuinely broken here
+          (the same class of bug fixed across BillScanner.jsx,
+          GrowingTree.jsx, SelectField.jsx and others), and this is a
+          position:fixed, inset:0 modal backdrop - the worst possible place
+          for it: a stuck exit here would leave a dark overlay blocking the
+          ENTIRE landing page behind it, not just one broken widget. Closing
+          a category and opening a different one a second time risked
+          exactly that. */}
         {openCategory && (
           <motion.div
             onClick={() => setOpenCategory(null)}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
             style={{
               position: 'fixed',
               inset: 0,
@@ -1670,7 +1676,6 @@ export default function Home() {
               onClick={(event) => event.stopPropagation()}
               initial={prefersReducedMotion ? false : { opacity: 0, y: 24, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={prefersReducedMotion ? {} : { opacity: 0, y: 16, scale: 0.98 }}
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
               className="eco-card"
               style={{ maxWidth: 480, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}
@@ -1814,7 +1819,6 @@ export default function Home() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
     </div>
   );
 }

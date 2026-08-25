@@ -10,7 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   Calculator,
@@ -351,13 +351,17 @@ export default function Navbar() {
       </nav>
 
       {/* ---------- Mobile slide-down menu ---------- */}
-      <AnimatePresence>
+      {/* A plain conditional, not AnimatePresence - genuinely broken here
+          (the same class of bug fixed across BillScanner.jsx,
+          GrowingTree.jsx, SelectField.jsx and others), and this is the
+          mobile navigation menu every phone visitor depends on. Opening
+          and closing it a second time risked a stale, invisible-but-
+          still-mounted menu, or the menu simply failing to close. */}
         {menuOpen && (
           <motion.div
             className="d-lg-none"
             initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
             transition={{ duration: prefersReducedMotion ? 0 : 0.25 }}
             style={{
               position: 'fixed',
@@ -506,7 +510,6 @@ export default function Navbar() {
             )}
           </motion.div>
         )}
-      </AnimatePresence>
 
       {/* ---------- Mobile bottom navigation ----------
           Only rendered for signed-in users. index.css hides it above 768px. */}

@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ArrowRight, ChevronDown, TrendingDown } from 'lucide-react';
 
 import Photo from '../components/Photo';
@@ -232,20 +232,22 @@ function Article({ article, index, open, onToggle }) {
             reducedMotion={prefersReducedMotion}
           />
 
-          {/* full text, expands in place */}
-          <AnimatePresence initial={false}>
+          {/* full text, expands in place - a plain conditional, not
+              AnimatePresence (genuinely broken here, the same class of bug
+              fixed across BillScanner.jsx, GrowingTree.jsx, SelectField.jsx
+              and others): collapsing an article and expanding a second one
+              risked a stale, invisible-but-still-mounted copy of the text,
+              or the collapse simply failing to happen. */}
             {open && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 style={{ overflow: 'hidden' }}
               >
                 <p style={{ fontSize: '0.92rem', lineHeight: 1.75, margin: '1.4rem 0 0' }}>{article.body}</p>
               </motion.div>
             )}
-          </AnimatePresence>
 
           {/* the takeaway. Was a tinted, bordered, rounded box - a callout
               component. It is a pull quote: the one sentence worth carrying

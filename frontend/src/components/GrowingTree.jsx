@@ -17,7 +17,7 @@
 // No gradients (see the design-system note in Insights.jsx and elsewhere)
 // - every fill is a flat app token, layered for depth instead.
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 
 import { useTheme } from '../context/ThemeContext';
 
@@ -135,19 +135,41 @@ export default function GrowingTree({ stageIndex = 0, size = 160 }) {
   const { prefersReducedMotion } = useTheme();
   const Stage = STAGE_ART[Math.max(0, Math.min(stageIndex, STAGE_ART.length - 1))];
 
+  // A plain CSS transition on a stable, never-remounted <g>, not
+  // framer-motion's AnimatePresence + a motion.g keyed on stageIndex - that
+  // combination turned out to be genuinely broken here, the same class of
+  // bug BillScanner.jsx and Register.jsx's own step transition already
+  // hit: confirmed live, repeatedly, that the FIRST mount animates in
+  // correctly, but every SUBSEQUENT stage change (right after a real
+  // claim, watched directly in the DOM) leaves the new stage's <g> stuck
+  // at opacity:0 forever - a tree that visibly vanishes the moment someone
+  // earns the next stage, which is close to the worst possible failure
+  // mode for a reward visualisation. A CSS transition runs on the
+  // browser's own compositor, not framer-motion's rAF-driven ticker, so it
+  // does not depend on whatever is going wrong with that ticker here.
+  const [pop, setPop] = useState(false);
+  const previousStage = useRef(stageIndex);
+
+  useEffect(() => {
+    if (previousStage.current === stageIndex) return;
+    previousStage.current = stageIndex;
+    if (prefersReducedMotion) return;
+    setPop(true);
+    const timeout = setTimeout(() => setPop(false), 260);
+    return () => clearTimeout(timeout);
+  }, [stageIndex, prefersReducedMotion]);
+
   return (
     <svg viewBox="0 0 200 200" width={size} height={size} role="img" aria-label="Your reward tree">
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.g
-          key={stageIndex}
-          initial={prefersReducedMotion ? false : { scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-          style={{ transformOrigin: `100px ${GROUND_Y}px` }}
-        >
-          <Stage />
-        </motion.g>
-      </AnimatePresence>
+      <g
+        style={{
+          transformOrigin: `100px ${GROUND_Y}px`,
+          transform: pop ? 'scale(1.12)' : 'scale(1)',
+          transition: 'transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}
+      >
+        <Stage />
+      </g>
     </svg>
   );
 }

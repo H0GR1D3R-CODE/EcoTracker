@@ -16,7 +16,7 @@
 // Mounted at /goals
 
 import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import toast from 'react-hot-toast';
 import {
@@ -380,12 +380,16 @@ export default function Goals() {
       )}
 
       {/* ============ CREATE FORM ============ */}
-      <AnimatePresence>
+      {/* A plain conditional, not AnimatePresence - genuinely broken here
+          (the same class of bug fixed across BillScanner.jsx,
+          GrowingTree.jsx, SelectField.jsx and others): closing the create
+          form and opening it again a second time risked a stale,
+          invisible-but-still-mounted copy, or the form simply failing to
+          reappear. */}
         {showForm && (
           <motion.div
             initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
-            exit={prefersReducedMotion ? {} : { opacity: 0, height: 0 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             style={{ overflow: 'hidden', marginBottom: '2.5rem' }}
           >
@@ -546,7 +550,6 @@ export default function Goals() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
 
       {/* ============ EMPTY STATE ============ */}
       {goals.length === 0 && !showForm && (

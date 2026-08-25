@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { format as formatDateFns, startOfDay, startOfMonth, startOfWeek, startOfYear } from 'date-fns';
 import {
@@ -535,13 +535,17 @@ export default function Reports() {
           a receipt - is a printed artefact, not a stack of dashboard sections.
           Internally it is divided by rules rather than by four separate cards
           stacked on top of each other. */}
-      <AnimatePresence mode="wait">
+      {/* A plain conditional, not AnimatePresence mode="wait" - genuinely
+          broken here (see Calculator.jsx's identical fix and reasoning):
+          generating a SECOND report in one session - a new `key` on the
+          same position - would leave this card frozen on the FIRST
+          report's content, or stuck invisible, since the exit animation
+          this depends on never reports complete. */}
         {report && (
           <motion.div
             key={report.id}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={prefersReducedMotion ? {} : { opacity: 0 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
             id="eco-report-printable"
             className="eco-card"
@@ -836,7 +840,6 @@ export default function Reports() {
             )}
           </motion.div>
         )}
-      </AnimatePresence>
 
       {/* ============ PAST REPORTS ============ */}
       {/* Not part of the printed document - this is app chrome for finding an

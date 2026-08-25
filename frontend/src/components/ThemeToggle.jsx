@@ -1,10 +1,10 @@
 // EcoTrack/frontend/src/components/ThemeToggle.jsx
 // The sun/moon button that switches between dark and light mode.
 //
-// The icon swap uses AnimatePresence so the old icon rotates away as the new
-// one rotates in, rather than one snapping into place.
+// The icon rotates in on a plain ternary, not AnimatePresence - see the
+// comment further down for why that combination was dropped.
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Moon, Sun } from 'lucide-react';
 
 import { useTheme } from '../context/ThemeContext';
@@ -47,15 +47,21 @@ export default function ThemeToggle({ size = 44 }) {
         padding: 0,
       }}
     >
-      <AnimatePresence mode="wait" initial={false}>
-        {isDark ? (
+      {/* A plain ternary, not AnimatePresence mode="wait" - genuinely
+          broken here (same class of bug fixed across Register.jsx,
+          Login.jsx, Calculator.jsx and Reports.jsx): the SECOND toggle in
+          a session would leave the wrong icon on screen, or none at all,
+          since the exit rotation this depended on never reports complete.
+          The theme itself still switches correctly either way (a separate
+          CSS-variable mechanism, not this icon) - but a toggle showing the
+          wrong icon for its own current state is exactly the kind of
+          "small but everywhere" bug worth not shipping on a control every
+          page carries in the navbar. */}
+      {isDark ? (
           <motion.span
-            // Changing the key is what tells AnimatePresence one icon has left
-            // and another has arrived
             key="sun"
             initial={{ rotate: -90, opacity: 0 }}
             animate={{ rotate: 0, opacity: 1 }}
-            exit={{ rotate: 90, opacity: 0 }}
             transition={iconTransition}
             style={{ display: 'flex' }}
           >
@@ -66,14 +72,12 @@ export default function ThemeToggle({ size = 44 }) {
             key="moon"
             initial={{ rotate: 90, opacity: 0 }}
             animate={{ rotate: 0, opacity: 1 }}
-            exit={{ rotate: -90, opacity: 0 }}
             transition={iconTransition}
             style={{ display: 'flex' }}
           >
             <Moon size={size * 0.48} />
           </motion.span>
-        )}
-      </AnimatePresence>
+      )}
     </motion.button>
   );
 }

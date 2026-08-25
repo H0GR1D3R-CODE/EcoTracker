@@ -26,7 +26,7 @@
 // of previous requests.
 
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { AlertCircle, Bot, Loader2, Send, Sparkles, User, X } from 'lucide-react';
 
 import { assistantApi, getErrorMessage } from '../utils/api';
@@ -156,27 +156,35 @@ export default function Assistant() {
         whileTap={prefersReducedMotion ? {} : { scale: 0.94 }}
         className="eco-assistant-fab"
       >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={open ? 'close' : 'open'}
-            initial={{ rotate: -90, opacity: 0 }}
-            animate={{ rotate: 0, opacity: 1 }}
-            exit={{ rotate: 90, opacity: 0 }}
-            transition={{ duration: prefersReducedMotion ? 0 : 0.22 }}
-            style={{ display: 'flex' }}
-          >
-            {open ? <X size={22} /> : <Sparkles size={22} />}
-          </motion.span>
-        </AnimatePresence>
+        {/* A plain keyed motion.span, not AnimatePresence mode="wait" -
+            that combination is genuinely broken here (same class of bug
+            fixed across Register.jsx, Login.jsx, ThemeToggle.jsx and
+            others): the SECOND open/close toggle in a session would leave
+            the wrong icon on the launcher button, since the exit rotation
+            this depended on never reports complete. */}
+        <motion.span
+          key={open ? 'close' : 'open'}
+          initial={{ rotate: -90, opacity: 0 }}
+          animate={{ rotate: 0, opacity: 1 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.22 }}
+          style={{ display: 'flex' }}
+        >
+          {open ? <X size={22} /> : <Sparkles size={22} />}
+        </motion.span>
       </motion.button>
 
       {/* ---------- chat panel ---------- */}
-      <AnimatePresence>
+      {/* A plain conditional, not AnimatePresence - genuinely broken here
+          (same class of bug fixed across BillScanner.jsx, GrowingTree.jsx
+          and this file's own launcher icon above): closing then reopening
+          the panel a second time risks leaving a stale, invisible-but-
+          still-mounted copy behind, or the panel simply failing to close
+          visibly, since the exit animation this depended on never reports
+          complete. */}
         {open && (
           <motion.div
             initial={prefersReducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={prefersReducedMotion ? {} : { opacity: 0, y: 20, scale: 0.97 }}
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
             className="eco-card eco-glass eco-assistant-panel"
           >
@@ -457,7 +465,6 @@ export default function Assistant() {
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
     </>
   );
 }

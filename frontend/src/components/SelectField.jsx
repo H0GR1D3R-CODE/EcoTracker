@@ -18,7 +18,7 @@
 // still announce it as a dropdown even though it is built from divs.
 
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Check, ChevronDown } from 'lucide-react';
 
 import { useTheme } from '../context/ThemeContext';
@@ -236,7 +236,15 @@ export default function SelectField({
       </button>
 
       {/* ---------- the list ---------- */}
-      <AnimatePresence>
+      {/* A plain conditional, not AnimatePresence - genuinely broken here
+          (the same class of bug fixed across BillScanner.jsx,
+          GrowingTree.jsx, Assistant.jsx and others), and this component
+          backs EVERY dropdown in the app (category, region, and more) - by
+          far the widest blast radius of any single fix in this pass.
+          Closing and reopening a dropdown a second time risked leaving a
+          stale, invisible-but-still-mounted list behind, or the list
+          simply failing to close, since the exit animation this depended
+          on never reports complete. */}
         {open && (
           <motion.ul
             ref={listRef}
@@ -244,7 +252,6 @@ export default function SelectField({
             aria-labelledby={`${id}-label`}
             initial={prefersReducedMotion ? false : { opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={prefersReducedMotion ? {} : { opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             style={{
               position: 'absolute',
@@ -337,7 +344,6 @@ export default function SelectField({
             })}
           </motion.ul>
         )}
-      </AnimatePresence>
     </div>
   );
 }

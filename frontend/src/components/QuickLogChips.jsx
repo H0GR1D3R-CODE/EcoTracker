@@ -74,7 +74,6 @@ function SuggestionCard({ suggestion, onResolved }) {
       layout
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -212,15 +211,18 @@ export default function QuickLogChips({ onLogged }) {
         </div>
       )}
 
-      <AnimatePresence>
-        {suggestions.map((suggestion) => (
-          <SuggestionCard
-            key={`${suggestion.category}_${suggestion.subType}`}
-            suggestion={suggestion}
-            onResolved={() => resolveSuggestion(suggestion)}
-          />
-        ))}
-      </AnimatePresence>
+      {/* Plain list rendering, not AnimatePresence - genuinely broken here
+          (the same class of bug fixed across BillScanner.jsx,
+          GrowingTree.jsx, SelectField.jsx and others): dismissing a
+          suggestion risked leaving a stale, faded-but-still-rendered chip
+          behind instead of it actually leaving the list. */}
+      {suggestions.map((suggestion) => (
+        <SuggestionCard
+          key={`${suggestion.category}_${suggestion.subType}`}
+          suggestion={suggestion}
+          onResolved={() => resolveSuggestion(suggestion)}
+        />
+      ))}
     </div>
   );
 }
