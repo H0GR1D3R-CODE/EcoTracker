@@ -11,14 +11,17 @@
 // same colour as the bar it sits next to - a measurement never borrows the
 // colour of the thing it measures.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, ChevronDown, TrendingDown } from 'lucide-react';
 
 import Photo from '../components/Photo';
+import QuizModule from '../components/QuizModule';
 import { PHOTOS } from '../utils/photos';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import { learnApi } from '../utils/api';
 
 // Headline figures pulled straight from the explainers below - the striking
 // numbers up front, before anyone has to read a word. Each carries its unit and
@@ -147,7 +150,7 @@ function FactorBars({ bars, unit, accent, reducedMotion }) {
   );
 }
 
-function Article({ article, index, open, onToggle }) {
+function Article({ article, index, open, onToggle, completed, onModuleCompleted }) {
   const { prefersReducedMotion } = useTheme();
 
   return (
@@ -293,15 +296,100 @@ function Article({ article, index, open, onToggle }) {
               {article.source}
             </span>
           </div>
+
+          <QuizModule
+            moduleKey={article.tag.toLowerCase()}
+            accent={article.accent}
+            completed={completed}
+            onCompleted={onModuleCompleted}
+          />
         </div>
       </div>
     </motion.article>
   );
 }
 
+/**
+ * The completion certificate, once every module's quiz is done. A fixed
+ * overlay (the same pattern WrappedCard.jsx and AiPlanCard.jsx already
+ * use), with its own scoped print rule so only the certificate itself ends
+ * up on paper - the generic .eco-no-print / navbar-hiding print CSS in
+ * index.css was written for a normal page (Reports.jsx), not for printing
+ * ONE thing out of an otherwise-full page of article content sitting
+ * behind it.
+ */
+function Certificate({ onClose }) {
+  const { profile } = useAuth();
+  const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  return (
+    <div className="eco-certificate-overlay" style={{ position: 'fixed', inset: 0, zIndex: 1060, background: 'rgba(0,0,0,0.66)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.2rem', overflowY: 'auto' }}>
+      <style>{`
+        @media print {
+          body > *:not(.eco-certificate-overlay) { display: none !important; }
+          .eco-certificate-overlay { position: static !important; background: #fff !important; padding: 0 !important; }
+          .eco-certificate-chrome { display: none !important; }
+        }
+      `}</style>
+      <div style={{ width: '100%', maxWidth: 640 }}>
+        <div className="eco-certificate-chrome" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.6rem', marginBottom: '0.9rem' }}>
+          <button type="button" onClick={() => window.print()} className="eco-btn eco-btn-primary" style={{ fontSize: '0.82rem' }}>
+            Print / Save as PDF
+          </button>
+          <button type="button" onClick={onClose} className="eco-btn eco-btn-ghost" style={{ fontSize: '0.82rem' }}>
+            Close
+          </button>
+        </div>
+        <div
+          className="eco-card"
+          style={{
+            textAlign: 'center',
+            padding: 'clamp(2rem, 6vw, 3.5rem)',
+            border: '2px solid var(--eco-primary)',
+            background: '#fff',
+            color: '#141414',
+          }}
+        >
+          <span style={{ fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#4a4a4a' }}>
+            EcoTrack · Climate Literacy
+          </span>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.6rem, 4vw, 2.2rem)', margin: '1.2rem 0 0.6rem' }}>
+            Certificate of Completion
+          </h1>
+          <p style={{ fontSize: '0.95rem', color: '#4a4a4a', margin: '0 0 1.6rem' }}>
+            This certifies that
+          </p>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(1.4rem, 3.5vw, 1.9rem)', margin: '0 0 1.6rem', color: '#1f7a44' }}>
+            {profile?.name || 'An EcoTrack user'}
+          </p>
+          <p style={{ fontSize: '0.95rem', color: '#4a4a4a', lineHeight: 1.7, maxWidth: 440, margin: '0 auto' }}>
+            has completed EcoTrack's climate literacy course - covering transport, electricity,
+            diet and consumption emissions, each grounded in published figures from DEFRA, the
+            CEA India, Our World in Data and the EPA.
+          </p>
+          <p style={{ fontSize: '0.82rem', color: '#6a6a6a', marginTop: '2rem' }}>
+            {today}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Learn() {
   const { prefersReducedMotion } = useTheme();
+  const { user } = useAuth();
   const [openIndex, setOpenIndex] = useState(0);
+  const [progress, setProgress] = useState(null);
+  const [showCertificate, setShowCertificate] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    learnApi
+      .getProgress()
+      .then(setProgress)
+      .catch(() => {});
+  }, [user]);
 
   return (
     <div style={{ paddingBottom: '4rem' }}>
@@ -408,9 +496,26 @@ export default function Learn() {
             index={index}
             open={openIndex === index}
             onToggle={() => setOpenIndex(openIndex === index ? -1 : index)}
+            completed={!!progress?.completedModules.includes(article.tag.toLowerCase())}
+            onModuleCompleted={setProgress}
           />
         ))}
       </div>
+
+      {progress?.allComplete && (
+        <div className="container" style={{ marginTop: 'clamp(3rem, 7vw, 4.5rem)', textAlign: 'center' }}>
+          <div className="eco-card" style={{ maxWidth: 480, margin: '0 auto', border: '1px solid color-mix(in srgb, var(--eco-primary) 30%, var(--eco-border))' }}>
+            <p style={{ fontSize: '0.95rem', margin: '0 0 1rem' }}>
+              You've completed every module - your climate literacy certificate is ready.
+            </p>
+            <button type="button" onClick={() => setShowCertificate(true)} className="eco-btn eco-btn-primary">
+              View certificate
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCertificate && <Certificate onClose={() => setShowCertificate(false)} />}
 
       {/* ---------- CTA ---------- */}
       <div className="container" style={{ marginTop: 'clamp(3rem, 7vw, 4.5rem)' }}>
