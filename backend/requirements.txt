@@ -6,15 +6,21 @@ Flask-Cors==5.0.0
 firebase-admin==6.6.0
 python-dotenv==1.0.1
 
-# firebase-admin only requires google-cloud-firestore>=2.19.0 with no upper
-# bound, so a fresh install (every Vercel build - there is no committed lock
-# file) is free to resolve whatever is newest on PyPI at build time. Pinned
-# here after a newer resolved version broke every Firestore call in
-# production with "400 Invalid database id (default)" while this exact
-# version, tested directly against the same production database, did not -
-# see the incident notes in git history around this line for the full
-# traceback. Bump deliberately, not by drift.
+# firebase-admin only requires lower bounds (google-cloud-firestore>=2.19.0,
+# etc.) with no upper bound, and there is no committed lock file, so a fresh
+# Vercel build is free to resolve whatever is newest on PyPI at build time.
+# Pinned to this exact, verified-working constellation after a newer
+# transitive resolution broke every Firestore call in production with
+# "400 Invalid database id (default)" - traced to a double percent-encoded
+# database path segment (projects/.../databases/%2528default%2529 instead of
+# .../databases/(default)) coming from the google-api-core/grpc transport
+# layer, not google-cloud-firestore itself. Bump this whole group
+# deliberately together, not by drift - a single package left unpinned can
+# silently take the others' compatibility guarantees with it.
 google-cloud-firestore==2.28.0
+google-api-core==2.33.0
+google-auth==2.56.2
+grpcio==1.83.0
 
 # Powers the EcoTrack Assistant (routes/assistant.py).
 # Google AI Studio has a free tier that needs no credit card, which is why the
