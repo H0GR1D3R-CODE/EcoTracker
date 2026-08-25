@@ -89,6 +89,12 @@ const IS_TEST_MODE = String(import.meta.env.VITE_RAZORPAY_KEY_ID || '').startsWi
 
 // Where the money is forwarded. The same four organisations the home page links
 // to directly, so the two pages never tell different stories.
+// transparencyHref: the partner's OWN published impact report or public
+// verification registry - never anything EcoTrack generates or claims on
+// their behalf, since this app has no direct integration with any of these
+// charities and cannot honestly certify what a pooled donation specifically
+// became. Pointing at their real, citable transparency page is the honest
+// version of "proof it went somewhere real" this app can actually offer.
 const PARTNERS = [
   {
     name: 'One Tree Planted',
@@ -96,6 +102,7 @@ const PARTNERS = [
     focus: 'Reforestation',
     body: 'Plants trees worldwide to restore habitat and pull carbon back out of the air.',
     href: 'https://onetreeplanted.org/products/plant-trees',
+    transparencyHref: 'https://onetreeplanted.org/pages/impact-report',
   },
   {
     name: 'Cool Earth',
@@ -103,6 +110,7 @@ const PARTNERS = [
     focus: 'Rainforest protection',
     body: 'Backs the people who live in rainforests to keep them standing.',
     href: 'https://www.coolearth.org/act-now/ways-to-donate/',
+    transparencyHref: 'https://www.coolearth.org/wp-content/uploads/2025/07/Cool_Earth_Annual_Report_2022_23.pdf',
   },
   {
     name: 'Clean Air Task Force',
@@ -110,6 +118,7 @@ const PARTNERS = [
     focus: 'Cutting emissions',
     body: 'Pushes the clean-energy technology and policy that drives emissions down at scale.',
     href: 'https://www.catf.us/donate/',
+    transparencyHref: 'https://www.catf.us/resource_type/reports-papers/',
   },
   {
     name: 'Gold Standard',
@@ -117,6 +126,7 @@ const PARTNERS = [
     focus: 'Verified offsets',
     body: 'Certifies offset projects, so a contribution provably removes greenhouse gases.',
     href: 'https://www.goldstandard.org/donate-to-gold-standard',
+    transparencyHref: 'https://www.goldstandard.org/impact-registry',
   },
 ];
 
@@ -527,29 +537,42 @@ export default function Donate() {
             {PARTNERS.map((partner, index) => {
               const Icon = partner.icon;
               return (
-                <motion.a
+                <motion.div
                   key={partner.name}
-                  href={partner.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.45 + index * 0.08, duration: 0.45 }}
                   style={{
-                    display: 'block',
                     paddingTop: '0.85rem',
                     borderTop: '1px solid var(--rule-strong)',
-                    color: 'var(--eco-text)',
                   }}
                 >
-                  <Icon size={18} style={{ color: 'var(--eco-primary)', display: 'block', marginBottom: '0.7rem' }} />
-                  <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.92rem' }}>
-                    {partner.name}
-                  </div>
-                  <div className="eco-marker" style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.62rem' }}>
-                    {partner.focus}
-                  </div>
-                </motion.a>
+                  <a
+                    href={partner.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'block', color: 'var(--eco-text)' }}
+                  >
+                    <Icon size={18} style={{ color: 'var(--eco-primary)', display: 'block', marginBottom: '0.7rem' }} />
+                    <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.92rem' }}>
+                      {partner.name}
+                    </div>
+                    <div className="eco-marker" style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.62rem' }}>
+                      {partner.focus}
+                    </div>
+                  </a>
+                  {partner.transparencyHref && (
+                    <a
+                      href={partner.transparencyHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="eco-text-muted"
+                      style={{ display: 'inline-block', fontSize: '0.72rem', marginTop: '0.5rem' }}
+                    >
+                      See their impact report →
+                    </a>
+                  )}
+                </motion.div>
               );
             })}
           </div>
@@ -957,11 +980,8 @@ export default function Donate() {
             {PARTNERS.map((partner, index) => {
               const Icon = partner.icon;
               return (
-                <motion.a
+                <motion.div
                   key={partner.name}
-                  href={partner.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 22 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
@@ -971,40 +991,57 @@ export default function Donate() {
                     flexDirection: 'column',
                     paddingTop: '1.05rem',
                     borderTop: '1px solid var(--rule-strong)',
-                    color: 'var(--eco-text)',
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.55rem',
-                      marginBottom: '0.9rem',
-                    }}
+                  <a
+                    href={partner.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ display: 'flex', flexDirection: 'column', flex: 1, color: 'var(--eco-text)' }}
                   >
-                    <Icon size={19} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
-                    <span className="eco-marker">{partner.focus}</span>
-                  </div>
-                  <h3 className="eco-display" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 0.45rem' }}>
-                    {partner.name}
-                  </h3>
-                  <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, margin: '0 0 0.9rem' }}>
-                    {partner.body}
-                  </p>
-                  <span
-                    style={{
-                      marginTop: 'auto',
-                      fontSize: '0.8rem',
-                      color: 'var(--eco-primary)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                    }}
-                  >
-                    Their own page
-                    <ArrowUpRight size={14} />
-                  </span>
-                </motion.a>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.55rem',
+                        marginBottom: '0.9rem',
+                      }}
+                    >
+                      <Icon size={19} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
+                      <span className="eco-marker">{partner.focus}</span>
+                    </div>
+                    <h3 className="eco-display" style={{ fontSize: '1.1rem', fontWeight: 600, margin: '0 0 0.45rem' }}>
+                      {partner.name}
+                    </h3>
+                    <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, margin: '0 0 0.9rem' }}>
+                      {partner.body}
+                    </p>
+                    <span
+                      style={{
+                        marginTop: 'auto',
+                        fontSize: '0.8rem',
+                        color: 'var(--eco-primary)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                    >
+                      Their own page
+                      <ArrowUpRight size={14} />
+                    </span>
+                  </a>
+                  {partner.transparencyHref && (
+                    <a
+                      href={partner.transparencyHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="eco-text-muted"
+                      style={{ display: 'inline-block', fontSize: '0.76rem', marginTop: '0.7rem' }}
+                    >
+                      See their impact report →
+                    </a>
+                  )}
+                </motion.div>
               );
             })}
           </div>
