@@ -256,11 +256,11 @@
   --eco-glow: none;
   --eco-top-highlight: none;
 
-  /* Sharp. 18px read as soft and app-store-ish; an almanac is set with a
-     precise edge. Small enough to be deliberate, not zero - zero is its own
-     cliche. */
-  --eco-radius: 4px;
-  --eco-radius-sm: 3px;
+  /* Curved, deliberately - a later revision of this system, moving off the
+     original almanac-sharp edge toward a softer, friendlier surface across
+     cards, inputs and buttons alike. */
+  --eco-radius: 12px;
+  --eco-radius-sm: 10px;
 
   /* Slower and more confident than the old curves. Nothing in this system
      bounces or springs; things arrive and settle. */
@@ -571,7 +571,10 @@ a:hover {
   font-size: 0.92rem;
   letter-spacing: 0;
   border: 1px solid transparent;
-  border-radius: var(--eco-radius-sm);
+  /* Fully rounded, not var(--eco-radius-sm) - a button reads as a pressable
+     pill, distinct from the sharper-cornered cards and surfaces around it,
+     from an icon-only control up to a full-width button. */
+  border-radius: 999px;
   padding: 0.68rem 1.4rem;
   cursor: pointer;
   position: relative;
@@ -991,8 +994,8 @@ a:hover {
 .eco-nav-link {
   color: var(--eco-text-muted);
   font-weight: 500;
-  padding: 0.5rem 0.9rem;
-  border-radius: var(--eco-radius-sm);
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;

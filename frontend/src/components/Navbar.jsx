@@ -204,7 +204,7 @@ export default function Navbar() {
                         style={{
                           position: 'absolute',
                           inset: 0,
-                          borderRadius: 'var(--eco-radius-sm)',
+                          borderRadius: 999,
                           background: 'rgba(var(--eco-primary-rgb), 0.1)',
                           border: '1px solid rgba(var(--eco-primary-rgb), 0.2)',
                           zIndex: 0,
