@@ -356,6 +356,12 @@ export const assistantApi = {
       .post('/api/assistant/summary', { periodStart, periodEnd }, { skipErrorToast: true })
       .then(unwrap),
 
+  // A single proposed reduction goal, grounded in real data - see
+  // routes/assistant.py's POST /api/assistant/plan. Shaped to map straight
+  // onto goalsApi.create(): {category, baselineEmission,
+  // targetReductionPercent, targetDate}.
+  getPlan: () => api.post('/api/assistant/plan', {}, { skipErrorToast: true }).then(unwrap),
+
   // The signed-out counterparts, called by PublicHelper.jsx. No auth token
   // exists to attach for these - the request interceptor above only adds one
   // when auth.currentUser is set, so these already work unauthenticated with

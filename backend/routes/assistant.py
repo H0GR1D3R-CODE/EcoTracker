@@ -34,13 +34,15 @@ ability to write, edit, or delete anything at all.
 Mounted at /api/assistant
 """
 
+import json
 import time
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Blueprint, g, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
+from insights_engine import generate_swaps
 from routes import (
     api_error,
     api_success,
@@ -56,6 +58,8 @@ from routes import (
     total_emission,
     verify_recaptcha,
 )
+from routes.goals import MIN_REDUCTION_PERCENT
+from routes.insights import _load_factor_lookup, _user_region
 
 # Imported defensively so a missing dependency degrades to "assistant
 # unavailable" instead of stopping the whole server from booting.
@@ -823,6 +827,226 @@ Biggest contributors:
         "periodEnd": period_end.isoformat(),
         "usage": _usage_of(response),
         "model": Config.ASSISTANT_MODEL,
+    })
+
+
+# ---------------------------------------------------------------------------
+# POST /api/assistant/plan
+# ---------------------------------------------------------------------------
+
+# A genuinely ambitious near-term target, but not "stop doing this category
+# entirely" - kept well under goals.py's own MAX_REDUCTION_PERCENT (100).
+PLAN_REDUCTION_CAP_PERCENT = 50
+
+# Goals are evaluated against a calendar month's total (see goals.py's
+# _current_month_total_for_category), so a deadline needs real runway
+# against that, not a literal seven days.
+PLAN_TARGET_DAYS_AHEAD = 30
+
+PLAN_MAX_OUTPUT_TOKENS = 300
+
+
+def _active_goal_categories(uid):
+    """Categories the user already has an active goal in - see create_goal's
+    own one-active-goal-per-category rule in routes/goals.py. A plan that
+    suggested one of these would 409 the instant "accept" tried to post it."""
+    db = get_db()
+    docs = (
+        db.collection(Config.COLLECTION_GOALS)
+        .where(filter=gcloud_firestore.FieldFilter("userId", "==", uid))
+        .where(filter=gcloud_firestore.FieldFilter("status", "==", "active"))
+        .stream()
+    )
+    return {doc.to_dict().get("category") for doc in docs}
+
+
+def _reduction_percent_for(achievable_saving_kg, baseline_kg):
+    """
+    Turn a real achievable saving into a target percent, clamped between
+    MIN_REDUCTION_PERCENT (goals.py's own floor - a goal must aim for a real
+    reduction) and PLAN_REDUCTION_CAP_PERCENT (this feature's own ceiling -
+    "genuinely ambitious", not "stop doing this category entirely"). The
+    only pure piece of _plan_candidates' maths, pulled out so it is testable
+    without touching Firestore - see test_assistant_plan.py.
+    """
+    if baseline_kg <= 0:
+        return MIN_REDUCTION_PERCENT
+    raw_percent = (achievable_saving_kg / baseline_kg) * 100
+    return round(min(PLAN_REDUCTION_CAP_PERCENT, max(MIN_REDUCTION_PERCENT, raw_percent)))
+
+
+def _plan_candidates(uid):
+    """
+    Real, backend-computed candidate categories for a reduction plan.
+
+    Every figure here - this month's baseline, the achievable saving, the
+    resulting target - comes from real logged records and the same
+    swap-savings maths insights_engine.generate_swaps already uses for GET
+    /api/insights/swaps. Gemini never sees this function; it only sees the
+    numbers it already computed, so there is no path by which the model can
+    invent a figure that ends up in a goal.
+    """
+    today = date.today()
+    start, end = month_bounds(today.year, today.month)
+    records = fetch_user_records(uid, start_date=start, end_date=end)
+    baselines = group_by_category(records)
+
+    factor_lookup = _load_factor_lookup(_user_region(uid))
+    swap_list = generate_swaps(records, factor_lookup, today.year, today.month)
+    savings_by_category = {}
+    for swap in swap_list:
+        savings_by_category[swap["category"]] = (
+            savings_by_category.get(swap["category"], 0.0) + swap["savingKg"]
+        )
+
+    active_categories = _active_goal_categories(uid)
+
+    candidates = []
+    for category, baseline in baselines.items():
+        if baseline <= 0 or category in active_categories:
+            continue
+        saving = savings_by_category.get(category, 0.0)
+        if saving <= 0:
+            continue
+        reduction_percent = _reduction_percent_for(saving, baseline)
+        target_emission = round(baseline * (1 - reduction_percent / 100), 2)
+        candidates.append({
+            "category": category,
+            "baselineEmission": round(baseline, 2),
+            "achievableSavingKg": round(saving, 2),
+            "targetReductionPercent": reduction_percent,
+            "targetEmission": target_emission,
+        })
+
+    # Biggest real opportunity first - both for the no-Gemini fallback pick
+    # below and so the strongest candidates lead the facts block Gemini sees.
+    candidates.sort(key=lambda item: item["achievableSavingKg"], reverse=True)
+    return candidates
+
+
+@assistant_bp.route("/plan", methods=["POST"])
+@require_auth
+def plan():
+    """
+    Propose ONE near-term reduction goal, grounded entirely in real data.
+
+    Every number in the response - baseline, target percent, target
+    emission, target date - is computed server-side in _plan_candidates
+    above, never by Gemini. Gemini's only job (via a JSON response schema,
+    not free text) is to pick which of the real candidates is worth
+    focusing on and write a short, human rationale.
+
+    The response is shaped to map directly onto POST /api/goals
+    ({category, baselineEmission, targetReductionPercent, targetDate}), so
+    "accept this plan" on the frontend is one real goal-creation call, not
+    a second, parallel system.
+    """
+    client, error = _get_client()
+    if error:
+        return error
+
+    candidates = _plan_candidates(g.uid)
+    if not candidates:
+        return api_success({
+            "available": False,
+            "reason": "Not enough logged activity with a real reduction opportunity yet. "
+                      "Keep logging, or check Insights for swap ideas.",
+        })
+
+    target_date = (date.today() + timedelta(days=PLAN_TARGET_DAYS_AHEAD)).isoformat()
+
+    facts_lines = [f"Today is {date.today().isoformat()}. Candidate categories, ranked by real achievable saving:"]
+    for candidate in candidates:
+        facts_lines.append(
+            f"  - {candidate['category']}: {candidate['baselineEmission']:.1f} kg this month so far, "
+            f"a real {candidate['achievableSavingKg']:.1f} kg/month achievable via logged swap "
+            f"opportunities ({candidate['targetReductionPercent']}% cut -> "
+            f"{candidate['targetEmission']:.1f} kg target)."
+        )
+    facts = "\n".join(facts_lines)
+
+    eligible_categories = [candidate["category"] for candidate in candidates]
+    schema = genai_types.Schema(
+        type=genai_types.Type.OBJECT,
+        properties={
+            "category": genai_types.Schema(type=genai_types.Type.STRING, enum=eligible_categories),
+            "rationale": genai_types.Schema(type=genai_types.Type.STRING),
+        },
+        required=["category", "rationale"],
+    )
+
+    try:
+        response = _call_gemini(
+            client,
+            model=Config.ASSISTANT_MODEL,
+            contents=[genai_types.Content(role="user", parts=[genai_types.Part.from_text(text=facts)])],
+            config=genai_types.GenerateContentConfig(
+                system_instruction=[
+                    "You are choosing ONE category for this user's next reduction goal, "
+                    "from the real candidates given. Pick whichever has the best mix of a "
+                    "large achievable saving and being realistic to actually change soon. "
+                    "Write a short one or two sentence rationale, in second person, that "
+                    "names the real saving figure already given for that category. Do not "
+                    "invent or restate any number that was not given to you.",
+                ],
+                max_output_tokens=PLAN_MAX_OUTPUT_TOKENS,
+                temperature=0.4,
+                thinking_config=genai_types.ThinkingConfig(thinking_budget=ASSISTANT_THINKING_BUDGET),
+                response_mime_type="application/json",
+                response_schema=schema,
+            ),
+        )
+    except genai_errors.ClientError as client_error:
+        status_code = getattr(client_error, "code", 400)
+        if status_code == 429:
+            return api_error(
+                "The assistant has hit its free-tier rate limit. Wait a minute and try again.",
+                429,
+                code="assistant_rate_limited",
+            )
+        return api_error(
+            "The assistant rejected the request. Check your backend/.env settings.",
+            503,
+            code="assistant_config_error",
+        )
+    except genai_errors.ServerError:
+        return api_error(
+            "The assistant service is having problems. Please try again shortly.",
+            502,
+            code="assistant_error",
+        )
+    except genai_errors.APIError:
+        return api_error(
+            "Could not reach the assistant service.", 503, code="assistant_unreachable"
+        )
+
+    # Any failure to parse a usable choice out of Gemini's reply - a safety
+    # block, malformed JSON, or a category outside the list it was given -
+    # falls back to the biggest real opportunity computed above, rather than
+    # dead-ending the whole feature over one bad model response.
+    chosen = None
+    rationale = ""
+    try:
+        parsed = json.loads(response.text)
+        chosen_category = parsed.get("category")
+        rationale = str(parsed.get("rationale", "")).strip()
+        chosen = next((c for c in candidates if c["category"] == chosen_category), None)
+    except (ValueError, TypeError, AttributeError):
+        chosen = None
+
+    if chosen is None or not rationale:
+        chosen = candidates[0]
+        rationale = (
+            f"Your {chosen['category']} emissions have the largest real reduction "
+            f"opportunity right now, based on the swaps already found for you."
+        )
+
+    return api_success({
+        "available": True,
+        "rationale": rationale,
+        "targetDate": target_date,
+        "candidateCount": len(candidates),
+        **chosen,
     })
 
 

@@ -34,6 +34,7 @@ import {
 
 import { dashboardApi, getErrorMessage, goalsApi } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
+import AiPlanCard from '../components/AiPlanCard';
 import GoalRing from '../components/GoalRing';
 import SelectField from '../components/SelectField';
 import SkeletonCard from '../components/SkeletonCard';
@@ -378,6 +379,8 @@ export default function Goals() {
           <span style={{ fontSize: '0.9rem' }}>{error}</span>
         </div>
       )}
+
+      <AiPlanCard onAccepted={loadGoals} />
 
       {/* ============ CREATE FORM ============ */}
       {/* A plain conditional, not AnimatePresence - genuinely broken here
