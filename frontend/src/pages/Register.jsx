@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   AlertCircle,
@@ -22,8 +22,10 @@ import {
   Check,
   Eye,
   EyeOff,
+  KeyRound,
   Leaf,
   Lock,
+  LogIn,
   Mail,
   MapPin,
   User,
@@ -117,6 +119,12 @@ export default function Register() {
   const [direction, setDirection] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // Set on a backend "email_exists" (code, not message text - see
+  // AuthContext.register's own comment on why .code survives the wrap),
+  // cleared the moment the email field changes again - a stale "this email
+  // is taken" notice sitting under a DIFFERENT email the user has since
+  // typed would be actively misleading.
+  const [emailExistsError, setEmailExistsError] = useState(false);
   // Whether the requirements box is showing (opens when the password field is
   // focused, so it appears "when you click the password field")
   const [passwordFocused, setPasswordFocused] = useState(false);
@@ -188,6 +196,7 @@ export default function Register() {
     // digit or symbol simply never appears in the field.
     const nextValue = name === 'name' ? sanitizeNameInput(value) : value;
     setForm((previous) => ({ ...previous, [name]: nextValue }));
+    if (name === 'email' && emailExistsError) setEmailExistsError(false);
   };
 
   const handleBlur = (event) => {
@@ -255,16 +264,23 @@ export default function Register() {
       toast.success('Account created.');
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      toast.error(error.message);
-
-      // Send the user back to the step that caused the problem, so they are
-      // not left staring at a region dropdown when the email is the issue
-      if (/email/i.test(error.message)) {
+      // The email_exists case gets its own inline panel (rendered under the
+      // email field on step 1, below) with real next steps - sign in, or
+      // reset a forgotten password - rather than just a toast someone has
+      // to remember the content of after being bounced back a step.
+      if (error.code === 'email_exists') {
+        setEmailExistsError(true);
         setDirection(-1);
         setStep(1);
-      } else if (/password/i.test(error.message)) {
-        setDirection(-1);
-        setStep(2);
+      } else {
+        toast.error(error.message);
+        // Send the user back to the step that caused the problem, so they
+        // are not left staring at a region dropdown when the password is
+        // the issue
+        if (/password/i.test(error.message)) {
+          setDirection(-1);
+          setStep(2);
+        }
       }
     } finally {
       setSubmitting(false);
@@ -426,17 +442,33 @@ export default function Register() {
 
         {/* ---------- Form ---------- */}
         <form className="eco-form" onSubmit={handleSubmit} noValidate>
-          {/* custom={direction} passes the slide direction into the variants above */}
-          <AnimatePresence mode="wait" custom={direction} initial={false}>
-            <motion.div
-              key={step}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: prefersReducedMotion ? 0 : 0.28, ease: 'easeInOut' }}
-            >
+          {/* A plain keyed motion.div, not AnimatePresence mode="wait" - that
+              combination turned out to be genuinely broken here: confirmed
+              live, repeatedly, that clicking "Continue" correctly advanced
+              the `step` state (checked directly via the fiber) while the DOM
+              stayed frozen on the OLD step's fields forever, because
+              mode="wait" holds the new child back until the old one's exit
+              reports complete, and that exit was never completing - the
+              same underlying framer-motion fragility BillScanner.jsx's own
+              exit animation hit, just on a plain x/opacity tween this time,
+              not a height:'auto' one, so the earlier fix's theory (it was
+              specifically about layout measurement) does not fully explain
+              this - but the fix is the same: stop depending on an exit
+              animation completing before new content can appear. Dropping
+              AnimatePresence means the old step's content is removed
+              INSTANTLY (React's normal reconciliation, not gated behind
+              framer-motion at all) the moment `step` changes; only the
+              enter side is still animated, and if that hiccups the same way
+              the worst case is the new step appearing at its settled
+              position immediately rather than mid-slide - never stuck. */}
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            transition={{ duration: prefersReducedMotion ? 0 : 0.28, ease: 'easeInOut' }}
+          >
               {/* ============ STEP 1: name and email ============ */}
               {step === 1 && (
                 <>
@@ -493,6 +525,55 @@ export default function Register() {
                       </div>
                     )}
                   </div>
+
+                  {/* Real next steps, not just a toast to remember - the
+                      backend already told us exactly which of two things is
+                      true (routes/auth.py's email_exists code): either this
+                      is genuinely their account (send them to sign in) or
+                      they forgot they have one (send them straight into
+                      Login's reset flow, email already filled in). */}
+                  {emailExistsError && (
+                    <div
+                      style={{
+                        padding: '0.9rem 1rem',
+                        marginBottom: '1rem',
+                        borderRadius: 'var(--eco-radius-sm)',
+                        border: '1px solid color-mix(in srgb, var(--eco-danger) 35%, var(--eco-border))',
+                        background: 'color-mix(in srgb, var(--eco-danger) 6%, var(--eco-card))',
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: '0.55rem', marginBottom: '0.8rem' }}>
+                        <AlertCircle size={16} style={{ color: 'var(--eco-danger)', flexShrink: 0, marginTop: 1 }} />
+                        <p style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.5 }}>
+                          An account already exists for this email.
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="eco-btn eco-btn-primary"
+                          style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
+                          onClick={() =>
+                            navigate('/login', { state: { prefillEmail: form.email.trim() } })
+                          }
+                        >
+                          <LogIn size={14} /> Sign in instead
+                        </button>
+                        <button
+                          type="button"
+                          className="eco-btn eco-btn-outline"
+                          style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
+                          onClick={() =>
+                            navigate('/login', {
+                              state: { prefillEmail: form.email.trim(), openReset: true },
+                            })
+                          }
+                        >
+                          <KeyRound size={14} /> Forgot password?
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -565,13 +646,22 @@ export default function Register() {
                     )}
 
                     {/* Requirements box - appears when the field is focused (or
-                        while it holds text), with a live tick as each rule is met */}
-                    <AnimatePresence>
-                      {(passwordFocused || form.password) && (
+                        while it holds text), with a live tick as each rule is met.
+                        A plain conditional, not AnimatePresence - that combination
+                        (height:0 -> 'auto' -> exit back to 0) turned out to be
+                        genuinely broken here: confirmed live that the exit tween
+                        reaches its correct end state (height:0, opacity:0 - it
+                        LOOKS collapsed) but the node is never actually removed
+                        from the DOM afterward, the same "reaches the right style,
+                        never truly unmounts" failure BillScanner.jsx's original
+                        exit animation had. Dropping AnimatePresence means clearing
+                        the field removes this box INSTANTLY (React's normal
+                        reconciliation) rather than leaving an invisible stale copy
+                        behind every time someone focuses then clears the field. */}
+                    {(passwordFocused || form.password) && (
                         <motion.div
                           initial={prefersReducedMotion ? false : { opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
-                          exit={prefersReducedMotion ? {} : { opacity: 0, height: 0 }}
                           transition={{ duration: 0.22 }}
                           style={{ overflow: 'hidden' }}
                         >
@@ -629,8 +719,7 @@ export default function Register() {
                             </div>
                           </div>
                         </motion.div>
-                      )}
-                    </AnimatePresence>
+                    )}
 
                     {touched.password && errors.password && (
                       <div className="eco-field-error">
@@ -711,8 +800,7 @@ export default function Register() {
                   </div>
                 </>
               )}
-            </motion.div>
-          </AnimatePresence>
+          </motion.div>
 
           {/* ---------- Google, on the first step only ---------- */}
           {/* Only on step 1: Google replaces the whole three-step form, so

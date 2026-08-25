@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { AlertCircle, ArrowLeft, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail, Send } from 'lucide-react';
 
@@ -27,9 +27,15 @@ export default function Login() {
   // content for the forgot-password flow without leaving the page - the
   // person is already looking at the right place, so there is no reason to
   // send them to a separate route for it.
-  const [mode, setMode] = useState('signin');
+  //
+  // Both can be deep-linked into via location.state (the same mechanism
+  // ProtectedRoute already uses for redirectTo, above) - Register.jsx sends
+  // someone here already in reset mode, email prefilled, when they tried to
+  // register an address that already has an account, rather than leaving
+  // them to retype it after a bare "already exists" toast.
+  const [mode, setMode] = useState(location.state?.openReset ? 'reset' : 'signin');
 
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: location.state?.prefillEmail || '', password: '' });
   // "touched" tracks which fields the user has actually visited, so we do not
   // shout "email is required" at someone who has not reached that box yet
   const [touched, setTouched] = useState({ email: false, password: false });
@@ -37,7 +43,7 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
 
   // --- forgot password ---
-  const [resetEmail, setResetEmail] = useState('');
+  const [resetEmail, setResetEmail] = useState(location.state?.prefillEmail || '');
   const [resetTouched, setResetTouched] = useState(false);
   const [resetSending, setResetSending] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -237,13 +243,21 @@ export default function Login() {
           className="eco-card"
           style={{ width: '100%', padding: '2rem', zIndex: 1, overflow: 'hidden' }}
         >
-        <AnimatePresence mode="wait" initial={false}>
+        {/* A plain ternary, not AnimatePresence mode="wait" - that
+            combination turned out to be genuinely broken here: confirmed
+            live (in Register.jsx's identical step-transition pattern, then
+            fixed there first) that the state driving which branch to show
+            updates correctly while the DOM stays frozen on the OLD branch
+            forever, because mode="wait" holds the new content back until
+            the old one's exit reports complete, and that exit was never
+            completing. For a sign-in page specifically, that failure mode
+            is "click Forgot password, or Back to sign in, and the form
+            never appears again" - about as severe as a bug here gets. */}
         {mode === 'reset' ? (
           <motion.div
             key="reset"
             initial={prefersReducedMotion ? false : { opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={prefersReducedMotion ? {} : { opacity: 0, x: -16 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
           >
             <button
@@ -357,7 +371,6 @@ export default function Login() {
             key="signin"
             initial={prefersReducedMotion ? false : { opacity: 0, x: -16 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={prefersReducedMotion ? {} : { opacity: 0, x: 16 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
           >
         {/* ---------- Google, first ---------- */}
@@ -541,7 +554,6 @@ export default function Login() {
         </p>
           </motion.div>
         )}
-        </AnimatePresence>
         </motion.div>
       </div>
     </div>

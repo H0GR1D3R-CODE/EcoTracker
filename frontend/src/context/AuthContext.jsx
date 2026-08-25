@@ -178,7 +178,13 @@ export function AuthProvider({ children }) {
       // Step 1: Flask creates the Firebase Auth account AND the profile
       await authApi.register({ name, email, password, region, recaptchaToken });
     } catch (error) {
-      throw new Error(getErrorMessage(error, 'Registration failed. Please try again.'));
+      // .code carried across the wrap, not just the message text - so a
+      // caller (Register.jsx) can branch on the exact backend reason
+      // ("email_exists") rather than pattern-matching English wording,
+      // which breaks the moment that wording changes.
+      const wrapped = new Error(getErrorMessage(error, 'Registration failed. Please try again.'));
+      wrapped.code = getErrorCode(error);
+      throw wrapped;
     }
 
     try {
