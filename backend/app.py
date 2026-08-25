@@ -44,6 +44,7 @@ from routes.engagement import engagement_bp
 from routes.ingest import ingest_bp
 from routes.notifications import notifications_bp
 from routes.cron import cron_bp
+from routes.wrapped import wrapped_bp
 
 
 def create_app():
@@ -94,6 +95,7 @@ def create_app():
     app.register_blueprint(ingest_bp)      # /api/ingest/bill  (Gemini photo extraction)
     app.register_blueprint(notifications_bp)  # /api/notifications/*  (FCM token register/unregister)
     app.register_blueprint(cron_bp)        # /api/cron/*  (Vercel Cron only - see routes/cron.py)
+    app.register_blueprint(wrapped_bp)     # /api/wrapped  (Carbon Wrapped recap)
 
     # -----------------------------------------------------------------------
     # Security headers, on every response

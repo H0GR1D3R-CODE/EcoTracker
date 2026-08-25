@@ -38,6 +38,7 @@ import {
   Lightbulb,
   Plus,
   RefreshCw,
+  Sparkles,
   Target,
   TrendingDown,
   TrendingUp,
@@ -57,6 +58,7 @@ import ForecastGauge from '../components/ForecastGauge';
 import StreakFlame from '../components/StreakFlame';
 import RewardTree from '../components/RewardTree';
 import ChallengeList from '../components/ChallengeList';
+import WrappedCard from '../components/WrappedCard';
 import {
   CategoryDoughnutChart,
   ComparisonBarChart,
@@ -187,6 +189,9 @@ export default function Dashboard() {
   // grows right there on the page, instead of waiting for a reload to show
   // the points that claim just earned.
   const [rewardsBump, setRewardsBump] = useState(0);
+
+  // Opens the Carbon Wrapped recap overlay - see components/WrappedCard.jsx
+  const [showWrapped, setShowWrapped] = useState(false);
 
   // Same reasoning as ProtectedRoute's own use of this hook: the backend can
   // take several real seconds to answer on a cold start, and a skeleton with
@@ -388,8 +393,21 @@ export default function Dashboard() {
             </span>
             <ChallengeList onClaimed={() => setRewardsBump((n) => n + 1)} />
           </div>
+
+          <div style={{ marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid var(--rule)' }}>
+            <button
+              type="button"
+              onClick={() => setShowWrapped(true)}
+              className="eco-btn eco-btn-outline"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Sparkles size={15} /> View your recap
+            </button>
+          </div>
         </div>
       </div>
+
+      {showWrapped && <WrappedCard onClose={() => setShowWrapped(false)} />}
 
       {/* ============ EMPTY STATE ============ */}
       {!hasData && (

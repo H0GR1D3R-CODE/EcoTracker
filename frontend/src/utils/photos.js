@@ -57,6 +57,10 @@ export const PHOTOS = {
   // the planet
   earth: '1451187580459-43490279c0fa', // the Earth from space (Dashboard)
 
+  // a period closing out / a recap - distinct from every forest/tree shot
+  // above, a golden-hour field standing in for "looking back on a period"
+  goldenHourField: '1624212933958-4aa0e1cd2e0c', // sunlit open field at golden hour (Dashboard: Carbon Wrapped)
+
   // signed-in page banners (distinct from every image above)
   calcNature: '1621872111378-4f8340e9cb90', // green forest        (Calculator banner)
   goalsVista: '1515344905723-babc01aac23d', // wind farm on grass   (Goals banner)

@@ -476,6 +476,16 @@ export const engagementApi = {
 };
 
 // ---------------------------------------------------------------------------
+// WRAPPED (the shareable period recap - see routes/wrapped.py)
+// ---------------------------------------------------------------------------
+
+export const wrappedApi = {
+  // period: 'month' | 'year'
+  get: (period, year, month) =>
+    api.get('/api/wrapped', { params: { period, year, month } }).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
 // INGEST (Gemini bill/receipt photo extraction - see routes/ingest.py)
 //
 // Nothing here saves a record. The response is a proposed extraction only;
