@@ -505,6 +505,17 @@ export const householdApi = {
   leave: () => api.post('/api/household/leave').then(unwrap),
   removeMember: (memberUid) =>
     api.delete(`/api/household/members/${memberUid}`).then(unwrap),
+
+  // Real logged entries from every member, merged - see routes/household.py's
+  // GET /activity.
+  getActivity: () => api.get('/api/household/activity').then(unwrap),
+  toggleCheer: (recordId) =>
+    api.post(`/api/household/activity/${recordId}/cheer`).then(unwrap),
+
+  // The shared, combined-emissions weekly challenge.
+  getChallenge: () => api.get('/api/household/challenge').then(unwrap),
+  claimChallenge: (challengeId) =>
+    api.post(`/api/household/challenge/${challengeId}/claim`).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

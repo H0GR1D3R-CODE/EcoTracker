@@ -178,6 +178,13 @@ class Config:
     # Household/group mode - see routes/household.py. A user belongs to at
     # most one household at a time (users/{uid}.householdId points back here).
     COLLECTION_HOUSEHOLDS = "households"
+    # A weekly, combined-emissions challenge for a whole household, the same
+    # shape as COLLECTION_CHALLENGES but keyed by householdId instead of
+    # userId - see routes/household.py's _ensure_week_household_challenge.
+    COLLECTION_HOUSEHOLD_CHALLENGES = "householdChallenges"
+    # One document per (record, member who cheered) so a cheer is naturally
+    # idempotent - see routes/household.py's cheer routes.
+    COLLECTION_HOUSEHOLD_CHEERS = "householdCheers"
 
     # The seven emission categories EcoTrack supports.
     # Routes validate incoming data against this list, and the ORDER here is the
