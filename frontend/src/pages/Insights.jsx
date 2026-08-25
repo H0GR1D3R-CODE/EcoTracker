@@ -24,7 +24,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeftRight, CalendarRange, ChevronDown, Target, ThermometerSun, Users } from 'lucide-react';
+import { ArrowLeftRight, CalendarRange, ChevronDown, Target, ThermometerSun, Users, Zap } from 'lucide-react';
 
 import { dashboardApi, insightsApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
@@ -37,6 +37,7 @@ import ScenarioSandbox from '../components/ScenarioSandbox';
 import ActivityHeatmap from '../components/ActivityHeatmap';
 import CohortCurve from '../components/CohortCurve';
 import WeatherContext from '../components/WeatherContext';
+import GridIntensityCard from '../components/GridIntensityCard';
 import { currentMonthISO } from '../utils/formatters';
 
 function Section({ icon: Icon, title, subtitle, children, delay = 0 }) {
@@ -69,6 +70,7 @@ export default function Insights() {
   const [swapsError, setSwapsError] = useState(null);
   const [baselineTotal, setBaselineTotal] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
+  const [gridData, setGridData] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
@@ -86,6 +88,11 @@ export default function Insights() {
       .getWeather()
       .then(setWeatherData)
       .catch(() => {}); // supporting context, not the main event - fails quietly, same as cohort
+
+    insightsApi
+      .getGrid()
+      .then(setGridData)
+      .catch(() => {}); // same - a missing nudge should not break the page
   }, []);
 
   const showWeather = weatherData && weatherData.status !== 'weather_unavailable' && weatherData.status !== 'insufficient_data';
@@ -205,6 +212,16 @@ export default function Insights() {
               subtitle="Separating a cooler or warmer month from an actual change in behaviour, cited to your own logged data."
             >
               <WeatherContext weather={weatherData} />
+            </Section>
+          )}
+
+          {gridData && (
+            <Section
+              icon={Zap}
+              title="When to use electricity"
+              subtitle="The grid isn't the same all day - a real, stated model of when it's cleanest to draw power."
+            >
+              <GridIntensityCard grid={gridData} />
             </Section>
           )}
 

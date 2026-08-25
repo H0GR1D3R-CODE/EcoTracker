@@ -25,6 +25,7 @@ from flask import Blueprint, g, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
+from grid_engine import grid_intensity_now
 from insights_engine import (
     COHORT_MIN_SIZE,
     MONTHLY_BUDGET_KG,
@@ -509,3 +510,30 @@ def weather():
         "context": context,
         "regression": regression,
     })
+
+
+# ---------------------------------------------------------------------------
+# GET /api/insights/grid
+# ---------------------------------------------------------------------------
+
+@insights_bp.route("/grid", methods=["GET"])
+@require_auth
+def grid():
+    """
+    Time-of-day grid carbon intensity for this user's region - see
+    grid_engine.py's module docstring for the full model and its stated
+    assumptions. IST is a fixed UTC+5:30 with no daylight saving, so a
+    manual offset is used rather than pulling in zoneinfo/tzdata for one
+    arithmetic fact.
+    """
+    region = _user_region(g.uid) or "India"
+    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    result = grid_intensity_now(region, now_ist.hour)
+
+    intervention_id = None
+    if not result["isCurrentlyCleanest"] and result["potentialSavingPercent"] >= 5:
+        intervention_id = _log_intervention(
+            g.uid, "grid_nudge", result["currentPart"], {"region": region}
+        )
+
+    return api_success({**result, "interventionId": intervention_id})

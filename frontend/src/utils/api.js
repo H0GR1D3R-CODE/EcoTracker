@@ -432,6 +432,9 @@ export const insightsApi = {
   // See backend/weather_engine.py's module docstring for the full reasoning.
   getWeather: (month) =>
     api.get('/api/insights/weather', { params: month ? { month } : {} }).then(unwrap),
+
+  // Time-of-day grid carbon intensity - see backend/grid_engine.py.
+  getGrid: () => api.get('/api/insights/grid').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
