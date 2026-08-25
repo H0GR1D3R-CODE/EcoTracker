@@ -18,6 +18,7 @@ A handful of routes work without a Firebase ID token, each for a reason:
     POST /api/feedback        a visitor can send feedback before signing up
     POST /api/create-order    a visitor can donate without an account (Razorpay)
     POST /api/verify-payment  confirms a donation's signature (Razorpay)
+    GET  /api/community/impact  aggregate-only totals across every user, never a single record
 Everything else is wrapped in @require_auth or @require_admin.
 """
 
@@ -46,6 +47,8 @@ from routes.notifications import notifications_bp
 from routes.cron import cron_bp
 from routes.wrapped import wrapped_bp
 from routes.household import household_bp
+from routes.community import community_bp
+from routes.learn import learn_bp
 
 
 def create_app():
@@ -98,6 +101,8 @@ def create_app():
     app.register_blueprint(cron_bp)        # /api/cron/*  (Vercel Cron only - see routes/cron.py)
     app.register_blueprint(wrapped_bp)     # /api/wrapped  (Carbon Wrapped recap)
     app.register_blueprint(household_bp)   # /api/household/*  (group mode + leaderboard)
+    app.register_blueprint(community_bp)   # /api/community/impact  (public, aggregate-only)
+    app.register_blueprint(learn_bp)       # /api/learn/*  (climate literacy quiz progress)
 
     # -----------------------------------------------------------------------
     # Security headers, on every response

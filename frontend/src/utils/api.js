@@ -495,6 +495,24 @@ export const wrappedApi = {
 };
 
 // ---------------------------------------------------------------------------
+// COMMUNITY (public, aggregate-only - see routes/community.py)
+// ---------------------------------------------------------------------------
+
+export const communityApi = {
+  getImpact: () => api.get('/api/community/impact').then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// LEARN (climate literacy quiz progress - see routes/learn.py)
+// ---------------------------------------------------------------------------
+
+export const learnApi = {
+  getProgress: () => api.get('/api/learn/progress').then(unwrap),
+  completeModule: (module) =>
+    api.post('/api/learn/complete-module', { module }).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
 // HOUSEHOLD (group mode + leaderboard - see routes/household.py)
 // ---------------------------------------------------------------------------
 

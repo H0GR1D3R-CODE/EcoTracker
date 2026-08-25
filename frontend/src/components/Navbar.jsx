@@ -61,6 +61,7 @@ const PUBLIC_LINKS = [
   { to: '/learn', label: 'Learn' },
   { to: '/gallery', label: 'Gallery' },
   { to: '/estimate', label: 'Estimate' },
+  { to: '/impact', label: 'Impact' },
   { to: '/feedback', label: 'Feedback' },
   // Donate is deliberately NOT here: it gets its own button next to Log in,
   // where it reads as an action rather than another page to browse.

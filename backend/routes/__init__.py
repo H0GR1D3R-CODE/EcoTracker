@@ -11,10 +11,14 @@ This module has four sections:
 SECURITY RULE
 -------------
 Every route in this project is protected with @require_auth or @require_admin,
-with exactly four documented exceptions:
+with exactly five documented exceptions:
     GET  /api/health              - server status check, returns no user data
     POST /api/auth/register       - the user has no account yet, so no token exists
     GET  /api/factors             - published scientific constants, not user data
+    GET  /api/community/impact    - aggregate-only totals across every user
+                                     (sums and counts, never a single record) -
+                                     see routes/community.py's own module
+                                     docstring for why that is safe to be public
     POST /api/cron/streak-reminders - not a user at all; guarded instead by
                                      @require_cron_secret (routes/cron.py),
                                      checking Vercel Cron's own signed header

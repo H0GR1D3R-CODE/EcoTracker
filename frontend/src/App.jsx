@@ -55,6 +55,7 @@ const About = lazy(() => import('./pages/About'));
 const Learn = lazy(() => import('./pages/Learn'));
 const Gallery = lazy(() => import('./pages/Gallery'));
 const Estimate = lazy(() => import('./pages/Estimate'));
+const Impact = lazy(() => import('./pages/Impact'));
 const Feedback = lazy(() => import('./pages/Feedback'));
 const Donate = lazy(() => import('./pages/Donate'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -253,6 +254,7 @@ export default function App() {
             <Route path="/learn" element={<MotionPage><Learn /></MotionPage>} />
             <Route path="/gallery" element={<MotionPage><Gallery /></MotionPage>} />
             <Route path="/estimate" element={<MotionPage><Estimate /></MotionPage>} />
+            <Route path="/impact" element={<MotionPage><Impact /></MotionPage>} />
             <Route path="/feedback" element={<MotionPage><Feedback /></MotionPage>} />
             {/* Donations are deliberately open to everyone - a visitor should
                 never have to make an account before they can support the project. */}
