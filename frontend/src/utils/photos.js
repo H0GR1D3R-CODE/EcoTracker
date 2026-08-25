@@ -52,7 +52,7 @@ export const PHOTOS = {
   // growth / people
   seedling: '1523810192022-5a0fb9aa7ff8', // a woman holding a seedling (About)
   community: '1542601906990-b4d3fb778b09', // hands cupping a seedling in soil (Feedback)
-  youngTree: '1688651273649-7a720c5afb52', // a small tree standing alone in an open field (Dashboard: reward tree)
+  youngTree: '1780752627969-b5550a5e97b6', // a healthy tree canopy against a clear blue sky (Dashboard: reward tree)
 
   // the planet
   earth: '1451187580459-43490279c0fa', // the Earth from space (Dashboard)

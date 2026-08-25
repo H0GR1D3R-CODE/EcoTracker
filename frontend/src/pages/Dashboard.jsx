@@ -356,7 +356,7 @@ export default function Dashboard() {
         <div className="eco-photo-zoom" style={{ height: 150, overflow: 'hidden' }}>
           <Photo
             id={PHOTOS.youngTree}
-            alt="A small tree standing alone in an open field"
+            alt="A healthy tree canopy against a clear blue sky"
             width={900}
             color="var(--eco-primary)"
             className="eco-photo-cover"
