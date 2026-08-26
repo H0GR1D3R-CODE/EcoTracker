@@ -1,0 +1,45 @@
+{
+  "nav": {
+    "dashboard": "Панель",
+    "calculator": "Калькулятор",
+    "insights": "Аналитика",
+    "goals": "Цели",
+    "reports": "Отчёты",
+    "household": "Семья",
+    "admin": "Админ",
+    "home": "Главная",
+    "about": "О нас",
+    "learn": "Обучение",
+    "gallery": "Галерея",
+    "estimate": "Оценка",
+    "impact": "Воздействие",
+    "feedback": "Отзывы",
+    "supportEcoTrack": "Поддержать EcoTrack",
+    "donate": "Пожертвовать",
+    "profile": "Профиль",
+    "getStarted": "Начать",
+    "logIn": "Войти",
+    "logout": "Выйти",
+    "yourProfile": "Ваш профиль",
+    "openMenu": "Открыть меню",
+    "closeMenu": "Закрыть меню",
+    "switchToDarkMode": "Включить тёмную тему",
+    "switchToLightMode": "Включить светлую тему"
+  },
+  "home": {
+    "atmosphericTag": "и продолжает расти",
+    "subtitle": "EcoTrack превращает ваши повседневные решения — поездки, питание, счёт за электричество — в число, которое можно увидеть, сравнить и снизить. Семь категорий. Опубликованная наука. Никаких догадок.",
+    "startTrackingFree": "Начать бесплатно",
+    "goToDashboard": "Перейти в панель",
+    "seeHowItWorks": "Как это работает"
+  },
+  "language": {
+    "selectLanguage": "Выбрать язык",
+    "currentLanguage": "Текущий язык: {{language}}"
+  },
+  "a11y": {
+    "readAloud": "Прочитать страницу вслух",
+    "stopReading": "Остановить чтение",
+    "skipToContent": "Перейти к основному содержимому"
+  }
+}

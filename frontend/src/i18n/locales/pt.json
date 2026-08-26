@@ -1,0 +1,45 @@
+{
+  "nav": {
+    "dashboard": "Painel",
+    "calculator": "Calculadora",
+    "insights": "Análises",
+    "goals": "Metas",
+    "reports": "Relatórios",
+    "household": "Família",
+    "admin": "Administração",
+    "home": "Início",
+    "about": "Sobre",
+    "learn": "Aprender",
+    "gallery": "Galeria",
+    "estimate": "Estimativa",
+    "impact": "Impacto",
+    "feedback": "Feedback",
+    "supportEcoTrack": "Apoie o EcoTrack",
+    "donate": "Doar",
+    "profile": "Perfil",
+    "getStarted": "Começar",
+    "logIn": "Entrar",
+    "logout": "Sair",
+    "yourProfile": "Seu perfil",
+    "openMenu": "Abrir menu",
+    "closeMenu": "Fechar menu",
+    "switchToDarkMode": "Mudar para modo escuro",
+    "switchToLightMode": "Mudar para modo claro"
+  },
+  "home": {
+    "atmosphericTag": "e continua subindo",
+    "subtitle": "O EcoTrack transforma suas escolhas do dia a dia — seu trajeto, suas refeições, sua conta de luz — em um número que você pode ver, comparar e reduzir. Sete categorias. Ciência publicada. Sem suposições.",
+    "startTrackingFree": "Comece a rastrear grátis",
+    "goToDashboard": "Ir para o seu painel",
+    "seeHowItWorks": "Veja como funciona"
+  },
+  "language": {
+    "selectLanguage": "Selecionar idioma",
+    "currentLanguage": "Idioma atual: {{language}}"
+  },
+  "a11y": {
+    "readAloud": "Ler esta página em voz alta",
+    "stopReading": "Parar leitura",
+    "skipToContent": "Pular para o conteúdo principal"
+  }
+}

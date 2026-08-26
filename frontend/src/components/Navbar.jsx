@@ -34,6 +34,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import ThemeToggle from './ThemeToggle';
 import LanguageToggle from './LanguageToggle';
+import ReadAloudButton from './ReadAloudButton';
 import { getInitials } from '../utils/formatters';
 
 // How far the user scrolls before the navbar turns opaque
@@ -230,6 +231,7 @@ export default function Navbar() {
 
           {/* ---------- Right side ---------- */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <ReadAloudButton />
             <LanguageToggle />
             <ThemeToggle />
 

@@ -1,0 +1,45 @@
+{
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "calculator": "計算機",
+    "insights": "インサイト",
+    "goals": "目標",
+    "reports": "レポート",
+    "household": "世帯",
+    "admin": "管理",
+    "home": "ホーム",
+    "about": "概要",
+    "learn": "学ぶ",
+    "gallery": "ギャラリー",
+    "estimate": "見積もり",
+    "impact": "インパクト",
+    "feedback": "フィードバック",
+    "supportEcoTrack": "EcoTrackを支援する",
+    "donate": "寄付する",
+    "profile": "プロフィール",
+    "getStarted": "はじめる",
+    "logIn": "ログイン",
+    "logout": "ログアウト",
+    "yourProfile": "あなたのプロフィール",
+    "openMenu": "メニューを開く",
+    "closeMenu": "メニューを閉じる",
+    "switchToDarkMode": "ダークモードに切り替え",
+    "switchToLightMode": "ライトモードに切り替え"
+  },
+  "home": {
+    "atmosphericTag": "そして今も上昇中",
+    "subtitle": "EcoTrackは、通勤、食事、電気代といった日々の選択を、見て、比較して、減らすことができる一つの数字に変えます。7つのカテゴリー。発表された科学データ。憶測はありません。",
+    "startTrackingFree": "無料で記録を始める",
+    "goToDashboard": "ダッシュボードへ",
+    "seeHowItWorks": "仕組みを見る"
+  },
+  "language": {
+    "selectLanguage": "言語を選択",
+    "currentLanguage": "現在の言語：{{language}}"
+  },
+  "a11y": {
+    "readAloud": "このページを読み上げる",
+    "stopReading": "読み上げを停止",
+    "skipToContent": "メインコンテンツへスキップ"
+  }
+}

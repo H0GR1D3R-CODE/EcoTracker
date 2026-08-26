@@ -1,0 +1,45 @@
+{
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "calculator": "الحاسبة",
+    "insights": "التحليلات",
+    "goals": "الأهداف",
+    "reports": "التقارير",
+    "household": "الأسرة",
+    "admin": "الإدارة",
+    "home": "الرئيسية",
+    "about": "من نحن",
+    "learn": "تعلّم",
+    "gallery": "المعرض",
+    "estimate": "تقدير",
+    "impact": "الأثر",
+    "feedback": "ملاحظات",
+    "supportEcoTrack": "ادعم EcoTrack",
+    "donate": "تبرّع",
+    "profile": "الملف الشخصي",
+    "getStarted": "ابدأ الآن",
+    "logIn": "تسجيل الدخول",
+    "logout": "تسجيل الخروج",
+    "yourProfile": "ملفك الشخصي",
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "switchToDarkMode": "التبديل إلى الوضع الداكن",
+    "switchToLightMode": "التبديل إلى الوضع الفاتح"
+  },
+  "home": {
+    "atmosphericTag": "وما زال يرتفع",
+    "subtitle": "يحوّل EcoTrack خياراتك اليومية — تنقلاتك، وجباتك، فاتورة الكهرباء — إلى رقم يمكنك رؤيته ومقارنته وخفضه. سبع فئات. علم منشور. بلا تخمين.",
+    "startTrackingFree": "ابدأ التتبع مجانًا",
+    "goToDashboard": "الذهاب إلى لوحتك",
+    "seeHowItWorks": "شاهد كيف يعمل"
+  },
+  "language": {
+    "selectLanguage": "اختر اللغة",
+    "currentLanguage": "اللغة الحالية: {{language}}"
+  },
+  "a11y": {
+    "readAloud": "قراءة هذه الصفحة بصوت عالٍ",
+    "stopReading": "إيقاف القراءة",
+    "skipToContent": "الانتقال إلى المحتوى الرئيسي"
+  }
+}

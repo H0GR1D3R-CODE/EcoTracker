@@ -1,0 +1,45 @@
+{
+  "nav": {
+    "dashboard": "仪表盘",
+    "calculator": "计算器",
+    "insights": "洞察分析",
+    "goals": "目标",
+    "reports": "报告",
+    "household": "家庭",
+    "admin": "管理",
+    "home": "首页",
+    "about": "关于我们",
+    "learn": "学习",
+    "gallery": "图库",
+    "estimate": "估算",
+    "impact": "影响力",
+    "feedback": "反馈",
+    "supportEcoTrack": "支持 EcoTrack",
+    "donate": "捐赠",
+    "profile": "个人资料",
+    "getStarted": "开始使用",
+    "logIn": "登录",
+    "logout": "退出登录",
+    "yourProfile": "您的资料",
+    "openMenu": "打开菜单",
+    "closeMenu": "关闭菜单",
+    "switchToDarkMode": "切换到深色模式",
+    "switchToLightMode": "切换到浅色模式"
+  },
+  "home": {
+    "atmosphericTag": "且仍在上升",
+    "subtitle": "EcoTrack 将你的日常选择——通勤、饮食、电费账单——转化为一个可查看、可比较、可降低的数字。七大类别。基于已发表的科学数据。没有猜测。",
+    "startTrackingFree": "免费开始记录",
+    "goToDashboard": "前往仪表盘",
+    "seeHowItWorks": "了解运作方式"
+  },
+  "language": {
+    "selectLanguage": "选择语言",
+    "currentLanguage": "当前语言：{{language}}"
+  },
+  "a11y": {
+    "readAloud": "朗读此页面",
+    "stopReading": "停止朗读",
+    "skipToContent": "跳转到主要内容"
+  }
+}

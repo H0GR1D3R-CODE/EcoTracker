@@ -34,7 +34,12 @@
     "seeHowItWorks": "यह कैसे काम करता है, देखें"
   },
   "language": {
-    "switchToHindi": "हिन्दी में देखें",
-    "switchToEnglish": "Switch to English"
+    "selectLanguage": "भाषा चुनें",
+    "currentLanguage": "वर्तमान भाषा: {{language}}"
+  },
+  "a11y": {
+    "readAloud": "इस पेज को ज़ोर से पढ़ें",
+    "stopReading": "पढ़ना बंद करें",
+    "skipToContent": "मुख्य सामग्री पर जाएं"
   }
 }

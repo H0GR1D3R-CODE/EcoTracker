@@ -1,0 +1,45 @@
+{
+  "nav": {
+    "dashboard": "Übersicht",
+    "calculator": "Rechner",
+    "insights": "Auswertungen",
+    "goals": "Ziele",
+    "reports": "Berichte",
+    "household": "Haushalt",
+    "admin": "Verwaltung",
+    "home": "Startseite",
+    "about": "Über uns",
+    "learn": "Lernen",
+    "gallery": "Galerie",
+    "estimate": "Schätzung",
+    "impact": "Wirkung",
+    "feedback": "Feedback",
+    "supportEcoTrack": "EcoTrack unterstützen",
+    "donate": "Spenden",
+    "profile": "Profil",
+    "getStarted": "Loslegen",
+    "logIn": "Anmelden",
+    "logout": "Abmelden",
+    "yourProfile": "Dein Profil",
+    "openMenu": "Menü öffnen",
+    "closeMenu": "Menü schließen",
+    "switchToDarkMode": "Zum dunklen Modus wechseln",
+    "switchToLightMode": "Zum hellen Modus wechseln"
+  },
+  "home": {
+    "atmosphericTag": "und steigt weiter",
+    "subtitle": "EcoTrack verwandelt deine alltäglichen Entscheidungen — deinen Arbeitsweg, deine Mahlzeiten, deine Stromrechnung — in eine Zahl, die du sehen, vergleichen und senken kannst. Sieben Kategorien. Veröffentlichte Wissenschaft. Kein Rätselraten.",
+    "startTrackingFree": "Kostenlos starten",
+    "goToDashboard": "Zu deiner Übersicht",
+    "seeHowItWorks": "So funktioniert's"
+  },
+  "language": {
+    "selectLanguage": "Sprache auswählen",
+    "currentLanguage": "Aktuelle Sprache: {{language}}"
+  },
+  "a11y": {
+    "readAloud": "Diese Seite vorlesen",
+    "stopReading": "Vorlesen stoppen",
+    "skipToContent": "Zum Hauptinhalt springen"
+  }
+}

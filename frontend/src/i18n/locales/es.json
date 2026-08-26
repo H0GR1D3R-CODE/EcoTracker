@@ -1,0 +1,45 @@
+{
+  "nav": {
+    "dashboard": "Panel",
+    "calculator": "Calculadora",
+    "insights": "Análisis",
+    "goals": "Metas",
+    "reports": "Informes",
+    "household": "Hogar",
+    "admin": "Administración",
+    "home": "Inicio",
+    "about": "Acerca de",
+    "learn": "Aprender",
+    "gallery": "Galería",
+    "estimate": "Estimación",
+    "impact": "Impacto",
+    "feedback": "Comentarios",
+    "supportEcoTrack": "Apoya a EcoTrack",
+    "donate": "Donar",
+    "profile": "Perfil",
+    "getStarted": "Empezar",
+    "logIn": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "yourProfile": "Tu perfil",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
+    "switchToDarkMode": "Cambiar a modo oscuro",
+    "switchToLightMode": "Cambiar a modo claro"
+  },
+  "home": {
+    "atmosphericTag": "y sigue subiendo",
+    "subtitle": "EcoTrack convierte tus decisiones diarias — tu transporte, tus comidas, tu factura de electricidad — en un número que puedes ver, comparar y reducir. Siete categorías. Ciencia publicada. Sin conjeturas.",
+    "startTrackingFree": "Empieza a medir gratis",
+    "goToDashboard": "Ir a tu panel",
+    "seeHowItWorks": "Ver cómo funciona"
+  },
+  "language": {
+    "selectLanguage": "Seleccionar idioma",
+    "currentLanguage": "Idioma actual: {{language}}"
+  },
+  "a11y": {
+    "readAloud": "Leer esta página en voz alta",
+    "stopReading": "Dejar de leer",
+    "skipToContent": "Saltar al contenido principal"
+  }
+}

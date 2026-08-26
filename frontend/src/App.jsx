@@ -5,6 +5,7 @@
 
 import React, { Suspense, lazy, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 import NProgress from 'nprogress';
 import { AlertTriangle, RotateCw } from 'lucide-react';
@@ -194,6 +195,7 @@ function MotionPage({ children }) {
 export default function App() {
   const location = useLocation();
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   // The thin loading bar across the top when moving between pages.
   // Route changes are instant in a single page app, so a brief flash of the bar
@@ -214,8 +216,15 @@ export default function App() {
 
   return (
     <>
+      {/* First focusable element on every page - see .eco-skip-link in
+          index.css for why it is invisible until tabbed to. */}
+      <a href="#main-content" className="eco-skip-link">
+        {t('a11y.skipToContent', 'Skip to main content')}
+      </a>
+
       <Navbar />
 
+      <main id="main-content">
       <ErrorBoundary>
         {/* Each page fades in on arrival (see MotionPage). We deliberately do
             NOT wrap this in <AnimatePresence mode="wait">. That would hold the
@@ -339,6 +348,7 @@ export default function App() {
         </Routes>
         </Suspense>
       </ErrorBoundary>
+      </main>
 
       {/* The marketing footer. It renders itself to null for signed-in users,
           so it only appears on the public site, never inside the app. */}
