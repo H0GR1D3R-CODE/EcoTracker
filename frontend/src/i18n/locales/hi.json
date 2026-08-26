@@ -1,0 +1,40 @@
+{
+  "nav": {
+    "dashboard": "डैशबोर्ड",
+    "calculator": "कैलकुलेटर",
+    "insights": "विश्लेषण",
+    "goals": "लक्ष्य",
+    "reports": "रिपोर्ट",
+    "household": "परिवार",
+    "admin": "एडमिन",
+    "home": "होम",
+    "about": "हमारे बारे में",
+    "learn": "सीखें",
+    "gallery": "गैलरी",
+    "estimate": "अनुमान",
+    "impact": "प्रभाव",
+    "feedback": "प्रतिक्रिया",
+    "supportEcoTrack": "EcoTrack का समर्थन करें",
+    "donate": "दान करें",
+    "profile": "प्रोफ़ाइल",
+    "getStarted": "शुरू करें",
+    "logIn": "लॉग इन करें",
+    "logout": "लॉग आउट",
+    "yourProfile": "आपकी प्रोफ़ाइल",
+    "openMenu": "मेनू खोलें",
+    "closeMenu": "मेनू बंद करें",
+    "switchToDarkMode": "डार्क मोड में बदलें",
+    "switchToLightMode": "लाइट मोड में बदलें"
+  },
+  "home": {
+    "atmosphericTag": "और बढ़ रहा है",
+    "subtitle": "EcoTrack आपकी रोज़मर्रा की आदतों — आपकी यात्रा, आपके भोजन, आपके बिजली के बिल — को एक ऐसे आंकड़े में बदलता है जिसे आप देख सकते हैं, तुलना कर सकते हैं और घटा सकते हैं। सात श्रेणियां। प्रकाशित विज्ञान। कोई अंदाज़ा नहीं।",
+    "startTrackingFree": "मुफ़्त में ट्रैकिंग शुरू करें",
+    "goToDashboard": "अपने डैशबोर्ड पर जाएं",
+    "seeHowItWorks": "यह कैसे काम करता है, देखें"
+  },
+  "language": {
+    "switchToHindi": "हिन्दी में देखें",
+    "switchToEnglish": "Switch to English"
+  }
+}

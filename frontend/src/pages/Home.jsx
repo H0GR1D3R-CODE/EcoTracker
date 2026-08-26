@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -504,6 +505,7 @@ function RevealWord({ word, delay, accent, reduced, isLast }) {
 // ---------------------------------------------------------------------------
 
 export default function Home() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { prefersReducedMotion } = useTheme();
 
@@ -547,8 +549,8 @@ export default function Home() {
 
   // Signed-in visitors get "Go to dashboard" instead of "Get started free"
   const primaryCta = user
-    ? { to: '/dashboard', label: 'Go to your dashboard' }
-    : { to: '/register', label: 'Start tracking free' };
+    ? { to: '/dashboard', label: t('home.goToDashboard') }
+    : { to: '/register', label: t('home.startTrackingFree') };
 
   return (
     <div>
@@ -600,7 +602,7 @@ export default function Home() {
               <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
                 425 PPM
               </span>
-              <span className="eco-marker" style={{ opacity: 0.6 }}>and rising</span>
+              <span className="eco-marker" style={{ opacity: 0.6 }}>{t('home.atmosphericTag')}</span>
               <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
             </motion.div>
 
@@ -655,9 +657,7 @@ export default function Home() {
                 margin: '0 0 2.4rem',
               }}
             >
-              EcoTrack turns everyday choices — your commute, your meals, your
-              electricity bill — into a number you can see, compare and bring down.
-              Seven categories. Published science. No guesswork.
+              {t('home.subtitle')}
             </motion.p>
 
             <motion.div
@@ -684,7 +684,7 @@ export default function Home() {
                 className="eco-btn eco-btn-outline"
                 style={{ padding: '0.95rem 1.8rem' }}
               >
-                See how it works
+                {t('home.seeHowItWorks')}
               </a>
             </motion.div>
 

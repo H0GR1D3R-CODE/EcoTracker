@@ -24,6 +24,7 @@ import App from './App';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import ToastProvider from './components/ToastProvider';
+import './i18n';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   // StrictMode runs some code twice in development to surface bugs early.

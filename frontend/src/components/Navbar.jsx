@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import {
   Calculator,
   FileText,
@@ -32,6 +33,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import ThemeToggle from './ThemeToggle';
+import LanguageToggle from './LanguageToggle';
 import { getInitials } from '../utils/formatters';
 
 // How far the user scrolls before the navbar turns opaque
@@ -39,35 +41,39 @@ const SCROLL_THRESHOLD = 80;
 
 // The main app links, for signed-in NORMAL users. Used by both the top navbar
 // and the mobile bottom bar.
+// labelKey, not label - the label itself is resolved via t(labelKey) inside
+// the component, since these arrays are evaluated once at module load and
+// useTranslation() is only callable inside a component.
 const APP_LINKS = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/calculator', label: 'Calculator', icon: Calculator },
-  { to: '/insights', label: 'Insights', icon: Sparkles },
-  { to: '/goals', label: 'Goals', icon: Target },
-  { to: '/reports', label: 'Reports', icon: FileText },
-  { to: '/household', label: 'Household', icon: Users },
+  { to: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { to: '/calculator', labelKey: 'nav.calculator', icon: Calculator },
+  { to: '/insights', labelKey: 'nav.insights', icon: Sparkles },
+  { to: '/goals', labelKey: 'nav.goals', icon: Target },
+  { to: '/reports', labelKey: 'nav.reports', icon: FileText },
+  { to: '/household', labelKey: 'nav.household', icon: Users },
 ];
 
 // The admin account is a separate, admin-only identity - it does not track a
 // personal footprint, so it gets its own single link instead of APP_LINKS.
-const ADMIN_LINKS = [{ to: '/admin', label: 'Admin', icon: Shield }];
+const ADMIN_LINKS = [{ to: '/admin', labelKey: 'nav.admin', icon: Shield }];
 
 // The public content pages, shown next to the logo for signed-out visitors
 // (the marketing site). Signed-in users get the app links instead, so the bar
 // never shows both sets at once.
 const PUBLIC_LINKS = [
-  { to: '/', label: 'Home' },
-  { to: '/about', label: 'About' },
-  { to: '/learn', label: 'Learn' },
-  { to: '/gallery', label: 'Gallery' },
-  { to: '/estimate', label: 'Estimate' },
-  { to: '/impact', label: 'Impact' },
-  { to: '/feedback', label: 'Feedback' },
+  { to: '/', labelKey: 'nav.home' },
+  { to: '/about', labelKey: 'nav.about' },
+  { to: '/learn', labelKey: 'nav.learn' },
+  { to: '/gallery', labelKey: 'nav.gallery' },
+  { to: '/estimate', labelKey: 'nav.estimate' },
+  { to: '/impact', labelKey: 'nav.impact' },
+  { to: '/feedback', labelKey: 'nav.feedback' },
   // Donate is deliberately NOT here: it gets its own button next to Log in,
   // where it reads as an action rather than another page to browse.
 ];
 
 export default function Navbar() {
+  const { t } = useTranslation();
   const { user, profile, isAdmin, logout } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const navigate = useNavigate();
@@ -175,7 +181,7 @@ export default function Navbar() {
                   }
                   style={{ fontSize: '0.9rem' }}
                 >
-                  {link.label}
+                  {t(link.labelKey)}
                 </NavLink>
               ))}
             </div>
@@ -214,7 +220,7 @@ export default function Navbar() {
                     )}
                     <span style={{ position: 'relative', zIndex: 1, display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}>
                       <Icon size={17} />
-                      {link.label}
+                      {t(link.labelKey)}
                     </span>
                   </NavLink>
                 );
@@ -224,6 +230,7 @@ export default function Navbar() {
 
           {/* ---------- Right side ---------- */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <LanguageToggle />
             <ThemeToggle />
 
             {user ? (
@@ -236,8 +243,8 @@ export default function Navbar() {
                   <Link
                     to="/donate"
                     className="d-none d-lg-flex"
-                    title="Support EcoTrack"
-                    aria-label="Support EcoTrack"
+                    title={t('nav.supportEcoTrack')}
+                    aria-label={t('nav.supportEcoTrack')}
                     style={{
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -257,7 +264,7 @@ export default function Navbar() {
                   to="/profile"
                   className="d-none d-lg-flex"
                   style={{ alignItems: 'center', gap: '0.55rem' }}
-                  title="Your profile"
+                  title={t('nav.yourProfile')}
                 >
                   <div
                     style={{
@@ -285,7 +292,7 @@ export default function Navbar() {
                   style={{ padding: '0.45rem 0.9rem', fontSize: '0.86rem' }}
                 >
                   <LogOut size={16} />
-                  Logout
+                  {t('nav.logout')}
                 </button>
               </>
             ) : (
@@ -305,21 +312,21 @@ export default function Navbar() {
                   style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
                 >
                   <Heart size={15} />
-                  Donate
+                  {t('nav.donate')}
                 </Link>
                 <Link
                   to="/login"
                   className="eco-btn eco-btn-ghost"
                   style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
                 >
-                  Log in
+                  {t('nav.logIn')}
                 </Link>
                 <Link
                   to="/register"
                   className="eco-btn eco-btn-primary"
                   style={{ fontSize: '0.85rem', padding: '0.5rem 1.1rem', whiteSpace: 'nowrap' }}
                 >
-                  Get started
+                  {t('nav.getStarted')}
                 </Link>
               </div>
             )}
@@ -329,7 +336,7 @@ export default function Navbar() {
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
               className="d-lg-none"
-              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-label={menuOpen ? t('nav.closeMenu') : t('nav.openMenu')}
               aria-expanded={menuOpen}
               style={{
                 background: 'transparent',
@@ -442,7 +449,7 @@ export default function Navbar() {
                       style={{ display: 'flex', width: '100%', padding: '0.75rem 0.6rem' }}
                     >
                       <Icon size={18} />
-                      {link.label}
+                      {t(link.labelKey)}
                     </NavLink>
                   );
                 })}
@@ -455,7 +462,7 @@ export default function Navbar() {
                   style={{ display: 'flex', width: '100%', padding: '0.75rem 0.6rem' }}
                 >
                   <User size={18} />
-                  Profile
+                  {t('nav.profile')}
                 </NavLink>
 
                 {!isAdmin && (
@@ -467,7 +474,7 @@ export default function Navbar() {
                     style={{ display: 'flex', width: '100%', padding: '0.75rem 0.6rem' }}
                   >
                     <Heart size={18} />
-                    Support EcoTrack
+                    {t('nav.supportEcoTrack')}
                   </NavLink>
                 )}
 
@@ -478,7 +485,7 @@ export default function Navbar() {
                   style={{ width: '100%', marginTop: '0.85rem' }}
                 >
                   <LogOut size={17} />
-                  Logout
+                  {t('nav.logout')}
                 </button>
               </>
             ) : (
@@ -495,19 +502,19 @@ export default function Navbar() {
                     }
                     style={{ padding: '0.75rem 0.6rem' }}
                   >
-                    {link.label}
+                    {t(link.labelKey)}
                   </NavLink>
                 ))}
 
                 <Link to="/donate" className="eco-btn eco-btn-outline" style={{ width: '100%', marginTop: '0.3rem' }}>
                   <Heart size={16} />
-                  Donate
+                  {t('nav.donate')}
                 </Link>
                 <Link to="/login" className="eco-btn eco-btn-ghost" style={{ width: '100%' }}>
-                  Log in
+                  {t('nav.logIn')}
                 </Link>
                 <Link to="/register" className="eco-btn eco-btn-primary" style={{ width: '100%' }}>
-                  Get started
+                  {t('nav.getStarted')}
                 </Link>
               </div>
             )}
@@ -528,7 +535,7 @@ export default function Navbar() {
                 className={`eco-bottom-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Icon size={19} />
-                <span>{link.label}</span>
+                <span>{t(link.labelKey)}</span>
               </Link>
             );
           })}
@@ -538,7 +545,7 @@ export default function Navbar() {
             className={`eco-bottom-nav-item ${location.pathname === '/profile' ? 'active' : ''}`}
           >
             <User size={19} />
-            <span>Profile</span>
+            <span>{t('nav.profile')}</span>
           </Link>
         </div>
       )}

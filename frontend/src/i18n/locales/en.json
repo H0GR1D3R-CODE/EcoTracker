@@ -1,0 +1,40 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "calculator": "Calculator",
+    "insights": "Insights",
+    "goals": "Goals",
+    "reports": "Reports",
+    "household": "Household",
+    "admin": "Admin",
+    "home": "Home",
+    "about": "About",
+    "learn": "Learn",
+    "gallery": "Gallery",
+    "estimate": "Estimate",
+    "impact": "Impact",
+    "feedback": "Feedback",
+    "supportEcoTrack": "Support EcoTrack",
+    "donate": "Donate",
+    "profile": "Profile",
+    "getStarted": "Get started",
+    "logIn": "Log in",
+    "logout": "Logout",
+    "yourProfile": "Your profile",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "switchToDarkMode": "Switch to dark mode",
+    "switchToLightMode": "Switch to light mode"
+  },
+  "home": {
+    "atmosphericTag": "and rising",
+    "subtitle": "EcoTrack turns everyday choices — your commute, your meals, your electricity bill — into a number you can see, compare and bring down. Seven categories. Published science. No guesswork.",
+    "startTrackingFree": "Start tracking free",
+    "goToDashboard": "Go to your dashboard",
+    "seeHowItWorks": "See how it works"
+  },
+  "language": {
+    "switchToHindi": "हिन्दी में देखें",
+    "switchToEnglish": "Switch to English"
+  }
+}
