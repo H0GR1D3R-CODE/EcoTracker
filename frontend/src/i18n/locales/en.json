@@ -41,5 +41,32 @@
     "readAloud": "Read this page aloud",
     "stopReading": "Stop reading this page",
     "skipToContent": "Skip to main content"
+  },
+  "login": {
+    "signInMarker": "SIGN IN",
+    "subtitle": "Sign in to pick your footprint up where you left it — every activity you have logged, the trend behind it, and the goals still running.",
+    "feature1Title": "Only you see your data",
+    "feature1Note": "the server checks your identity on every request",
+    "feature2Title": "Free, with no card",
+    "feature2Note": "there is nothing to pay and no trial to expire",
+    "backToSignIn": "Back to sign in",
+    "checkInbox": "Check your inbox",
+    "resetLinkSent": "Reset link sent",
+    "resetTitle": "Reset your password",
+    "resetSubtitle": "Enter the email on your account and we'll send a link to choose a new password.",
+    "emailAddress": "Email address",
+    "sendResetLink": "Send reset link",
+    "sending": "Sending…",
+    "orDivider": "OR",
+    "password": "Password",
+    "passwordPlaceholder": "Your password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "forgotPassword": "Forgot password?",
+    "signingIn": "Signing in…",
+    "signIn": "Sign in",
+    "signInWithGoogle": "Sign in with Google",
+    "newToEcoTrack": "New to EcoTrack?",
+    "createAccount": "Create an account"
   }
 }

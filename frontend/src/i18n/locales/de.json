@@ -41,5 +41,32 @@
     "readAloud": "Diese Seite vorlesen",
     "stopReading": "Vorlesen stoppen",
     "skipToContent": "Zum Hauptinhalt springen"
+  },
+  "login": {
+    "signInMarker": "ANMELDEN",
+    "subtitle": "Melde dich an, um deinen Fußabdruck genau dort fortzusetzen, wo du aufgehört hast — jede erfasste Aktivität, ihr Trend und die noch laufenden Ziele.",
+    "feature1Title": "Nur du siehst deine Daten",
+    "feature1Note": "der Server prüft deine Identität bei jeder Anfrage",
+    "feature2Title": "Kostenlos, ohne Karte",
+    "feature2Note": "es gibt nichts zu bezahlen und keine Testphase, die abläuft",
+    "backToSignIn": "Zurück zur Anmeldung",
+    "checkInbox": "Schau in dein Postfach",
+    "resetLinkSent": "Zurücksetzungslink gesendet",
+    "resetTitle": "Setze dein Passwort zurück",
+    "resetSubtitle": "Gib die E-Mail-Adresse deines Kontos ein, und wir senden dir einen Link zum Festlegen eines neuen Passworts.",
+    "emailAddress": "E-Mail-Adresse",
+    "sendResetLink": "Zurücksetzungslink senden",
+    "sending": "Wird gesendet…",
+    "orDivider": "ODER",
+    "password": "Passwort",
+    "passwordPlaceholder": "Dein Passwort",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "forgotPassword": "Passwort vergessen?",
+    "signingIn": "Anmeldung läuft…",
+    "signIn": "Anmelden",
+    "signInWithGoogle": "Mit Google anmelden",
+    "newToEcoTrack": "Neu bei EcoTrack?",
+    "createAccount": "Konto erstellen"
   }
 }

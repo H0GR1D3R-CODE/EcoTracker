@@ -41,5 +41,32 @@
     "readAloud": "इस पेज को ज़ोर से पढ़ें",
     "stopReading": "पढ़ना बंद करें",
     "skipToContent": "मुख्य सामग्री पर जाएं"
+  },
+  "login": {
+    "signInMarker": "साइन इन",
+    "subtitle": "जहां आपने छोड़ा था वहीं से अपना फुटप्रिंट फिर से शुरू करें — हर लॉग की गई गतिविधि, उसका रुझान, और अभी भी चल रहे लक्ष्य।",
+    "feature1Title": "आपका डेटा केवल आप देख सकते हैं",
+    "feature1Note": "सर्वर हर अनुरोध पर आपकी पहचान जांचता है",
+    "feature2Title": "मुफ़्त, बिना कार्ड के",
+    "feature2Note": "कुछ भी भुगतान करने की ज़रूरत नहीं, न ही कोई ट्रायल समाप्त होगा",
+    "backToSignIn": "साइन इन पर वापस जाएं",
+    "checkInbox": "अपना इनबॉक्स देखें",
+    "resetLinkSent": "रीसेट लिंक भेज दिया गया",
+    "resetTitle": "अपना पासवर्ड रीसेट करें",
+    "resetSubtitle": "अपने खाते का ईमेल दर्ज करें और हम नया पासवर्ड चुनने के लिए एक लिंक भेजेंगे।",
+    "emailAddress": "ईमेल पता",
+    "sendResetLink": "रीसेट लिंक भेजें",
+    "sending": "भेजा जा रहा है…",
+    "orDivider": "या",
+    "password": "पासवर्ड",
+    "passwordPlaceholder": "आपका पासवर्ड",
+    "showPassword": "पासवर्ड दिखाएं",
+    "hidePassword": "पासवर्ड छिपाएं",
+    "forgotPassword": "पासवर्ड भूल गए?",
+    "signingIn": "साइन इन हो रहा है…",
+    "signIn": "साइन इन करें",
+    "signInWithGoogle": "Google से साइन इन करें",
+    "newToEcoTrack": "EcoTrack में नए हैं?",
+    "createAccount": "खाता बनाएं"
   }
 }

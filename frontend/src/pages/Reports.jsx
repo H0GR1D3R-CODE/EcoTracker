@@ -23,6 +23,7 @@ import { format as formatDateFns, startOfDay, startOfMonth, startOfWeek, startOf
 import {
   AlertCircle,
   CalendarRange,
+  Download,
   FileText,
   Loader2,
   Printer,
@@ -192,6 +193,53 @@ function buildNarrative(report) {
   }
 
   return paragraphs;
+}
+
+/**
+ * Every raw activity in the period, as a CSV a spreadsheet can open directly -
+ * the one thing the on-screen report cannot show, since it only ever
+ * displays the TOP few contributors (see topSubTypes), not the full log.
+ * report.data.records already carries every entry the period's totals were
+ * built from (see backend/routes/reports.py's _report_data), so this needs
+ * no extra request - it just re-shapes what generating the report already
+ * fetched.
+ */
+function downloadReportCsv(report) {
+  const rows = [
+    ['Date', 'Category', 'Sub-type', 'Quantity', 'Unit', 'Emissions (kg CO2)'],
+    ...(report.data.records || []).map((record) => [
+      record.recordedDate,
+      formatCategory(record.category),
+      formatSubType(record.subType),
+      record.quantity,
+      record.unit,
+      record.emissionKgco2,
+    ]),
+  ];
+
+  // A cell containing a comma, quote or newline has to be wrapped in quotes,
+  // with any quote inside it doubled - the standard CSV escaping rule, since
+  // several sub-type labels and units contain commas once formatted.
+  const csv = rows
+    .map((row) =>
+      row
+        .map((cell) => {
+          const value = String(cell ?? '');
+          return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+        })
+        .join(',')
+    )
+    .join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `ecotrack-report-${report.periodStart}-to-${report.periodEnd}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
 
 // warning uses the instrument amber rather than --eco-orange, which measures
@@ -573,14 +621,26 @@ export default function Reports() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  className="eco-btn eco-btn-ghost eco-no-print"
-                  onClick={() => window.print()}
-                >
-                  <Printer size={16} />
-                  Print / Save as PDF
-                </button>
+                <div className="eco-no-print" style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="eco-btn eco-btn-ghost"
+                    onClick={() => downloadReportCsv(report)}
+                    disabled={!report.data.records?.length}
+                    title={report.data.records?.length ? undefined : 'No activity in this period to export'}
+                  >
+                    <Download size={16} />
+                    Download CSV
+                  </button>
+                  <button
+                    type="button"
+                    className="eco-btn eco-btn-ghost"
+                    onClick={() => window.print()}
+                  >
+                    <Printer size={16} />
+                    Print / Save as PDF
+                  </button>
+                </div>
               </div>
 
               {/* headline figures */}

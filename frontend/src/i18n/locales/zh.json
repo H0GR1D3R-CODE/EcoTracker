@@ -41,5 +41,32 @@
     "readAloud": "朗读此页面",
     "stopReading": "停止朗读",
     "skipToContent": "跳转到主要内容"
+  },
+  "login": {
+    "signInMarker": "登录",
+    "subtitle": "登录以从上次离开的地方继续记录——每一条活动记录、它的趋势，以及仍在进行中的目标。",
+    "feature1Title": "只有你能看到自己的数据",
+    "feature1Note": "服务器会在每次请求时验证你的身份",
+    "feature2Title": "完全免费，无需信用卡",
+    "feature2Note": "无需付款，也没有会过期的试用期",
+    "backToSignIn": "返回登录",
+    "checkInbox": "请查收邮箱",
+    "resetLinkSent": "重置链接已发送",
+    "resetTitle": "重置你的密码",
+    "resetSubtitle": "输入你账户的邮箱地址，我们会发送一个用于设置新密码的链接。",
+    "emailAddress": "电子邮箱",
+    "sendResetLink": "发送重置链接",
+    "sending": "发送中…",
+    "orDivider": "或",
+    "password": "密码",
+    "passwordPlaceholder": "你的密码",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
+    "forgotPassword": "忘记密码？",
+    "signingIn": "登录中…",
+    "signIn": "登录",
+    "signInWithGoogle": "使用 Google 登录",
+    "newToEcoTrack": "初次使用 EcoTrack？",
+    "createAccount": "创建账户"
   }
 }

@@ -19,6 +19,8 @@ const ThemeContext = createContext(null);
 
 const STORAGE_KEY = 'ecotrack-theme';
 const MOTION_STORAGE_KEY = 'ecotrack-reduce-motion';
+const CONTRAST_STORAGE_KEY = 'ecotrack-high-contrast';
+const DYSLEXIA_FONT_STORAGE_KEY = 'ecotrack-dyslexia-font';
 
 /**
  * Read the saved theme, falling back to light.
@@ -41,6 +43,22 @@ function getInitialTheme() {
 function getInitialManualReduceMotion() {
   try {
     return localStorage.getItem(MOTION_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function getInitialHighContrast() {
+  try {
+    return localStorage.getItem(CONTRAST_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function getInitialDyslexiaFont() {
+  try {
+    return localStorage.getItem(DYSLEXIA_FONT_STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -75,6 +93,50 @@ export function ThemeProvider({ children }) {
       // Saving failed - the preference still holds for this session
     }
   };
+
+  // Two more independent accessibility preferences, same shape as reduced
+  // motion above: off by default, saved to localStorage, applied through a
+  // data attribute on <html> so index.css can key off it everywhere at once.
+  const [highContrast, setHighContrastState] = useState(getInitialHighContrast);
+  const [dyslexiaFont, setDyslexiaFontState] = useState(getInitialDyslexiaFont);
+
+  const setHighContrastPreference = (value) => {
+    setHighContrastState(value);
+    try {
+      localStorage.setItem(CONTRAST_STORAGE_KEY, String(value));
+    } catch {
+      // Saving failed - the preference still holds for this session
+    }
+  };
+
+  const setDyslexiaFontPreference = (value) => {
+    setDyslexiaFontState(value);
+    try {
+      localStorage.setItem(DYSLEXIA_FONT_STORAGE_KEY, String(value));
+    } catch {
+      // Saving failed - the preference still holds for this session
+    }
+  };
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-high-contrast', String(highContrast));
+  }, [highContrast]);
+
+  // The dyslexia-friendly font (Atkinson Hyperlegible, from the Braille
+  // Institute) is only fetched from Google Fonts the moment someone actually
+  // turns this on, not bundled into every visitor's first load - most people
+  // will never touch this toggle, and Inter already covers them.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-dyslexia-font', String(dyslexiaFont));
+    if (!dyslexiaFont) return;
+    if (document.getElementById('eco-dyslexia-font-link')) return;
+
+    const link = document.createElement('link');
+    link.id = 'eco-dyslexia-font-link';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap';
+    document.head.appendChild(link);
+  }, [dyslexiaFont]);
 
   // Apply the theme by setting data-theme on <html>. Every CSS variable in
   // index.css keys off that attribute, so one line restyles the whole app.
@@ -150,8 +212,12 @@ export function ThemeProvider({ children }) {
       osReducedMotion,
       manualReduceMotion,
       setReduceMotionPreference,
+      highContrast,
+      setHighContrastPreference,
+      dyslexiaFont,
+      setDyslexiaFontPreference,
     }),
-    [theme, prefersReducedMotion, osReducedMotion, manualReduceMotion]
+    [theme, prefersReducedMotion, osReducedMotion, manualReduceMotion, highContrast, dyslexiaFont]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

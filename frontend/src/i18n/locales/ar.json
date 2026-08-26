@@ -41,5 +41,32 @@
     "readAloud": "قراءة هذه الصفحة بصوت عالٍ",
     "stopReading": "إيقاف القراءة",
     "skipToContent": "الانتقال إلى المحتوى الرئيسي"
+  },
+  "login": {
+    "signInMarker": "تسجيل الدخول",
+    "subtitle": "سجّل الدخول لمتابعة بصمتك الكربونية من حيث توقفت — كل نشاط سجّلته، واتجاهه، والأهداف التي ما زالت قائمة.",
+    "feature1Title": "أنت وحدك من يرى بياناتك",
+    "feature1Note": "يتحقق الخادم من هويتك في كل طلب",
+    "feature2Title": "مجاني، بلا بطاقة",
+    "feature2Note": "لا شيء لدفعه ولا فترة تجريبية تنتهي",
+    "backToSignIn": "العودة إلى تسجيل الدخول",
+    "checkInbox": "تحقق من بريدك الوارد",
+    "resetLinkSent": "تم إرسال رابط إعادة التعيين",
+    "resetTitle": "أعد تعيين كلمة المرور",
+    "resetSubtitle": "أدخل البريد الإلكتروني المرتبط بحسابك وسنرسل لك رابطًا لاختيار كلمة مرور جديدة.",
+    "emailAddress": "البريد الإلكتروني",
+    "sendResetLink": "إرسال رابط إعادة التعيين",
+    "sending": "جارٍ الإرسال…",
+    "orDivider": "أو",
+    "password": "كلمة المرور",
+    "passwordPlaceholder": "كلمة المرور",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور",
+    "forgotPassword": "هل نسيت كلمة المرور؟",
+    "signingIn": "جارٍ تسجيل الدخول…",
+    "signIn": "تسجيل الدخول",
+    "signInWithGoogle": "تسجيل الدخول عبر Google",
+    "newToEcoTrack": "جديد على EcoTrack؟",
+    "createAccount": "إنشاء حساب"
   }
 }

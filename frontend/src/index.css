@@ -70,6 +70,13 @@
   --font-mono: 'Inter', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
+  /* Set once here and left at its default value - overridden as a block
+     below only when [data-dyslexia-font="true"] is present on <html>. Kept
+     as a fourth variable rather than folded into the three above so this
+     file has exactly one place that decides whether the swap is active. */
+  --eco-letter-spacing: normal;
+  --eco-line-height-body: 1.65;
+
   /* Display type is set tight on both axes. Headlines lock up as a shape
      rather than reading as a row of words - the single biggest reason an
      authored page does not look like a bootstrap page. */
@@ -297,6 +304,49 @@
   --eco-top-highlight: none;
 }
 
+/* Set from Profile's "High contrast" preference (context/ThemeContext.jsx),
+   independent of light/dark theme. --eco-text-muted already passes WCAG AA
+   on its own (checked: ~6.5:1 dark, ~5.4:1 light) - this is for the people
+   AA's floor still is not enough for. Muted text moves to the full text
+   colour, borders get a real, visible line instead of a near-transparent
+   hairline, and the focus ring doubles in width. Layered on top of
+   [data-theme], not a replacement for it - either theme can have this on. */
+[data-high-contrast='true'] {
+  --eco-text-muted: var(--eco-text);
+}
+
+[data-theme='dark'][data-high-contrast='true'] {
+  --eco-border: rgba(232, 237, 226, 0.35);
+  --eco-glass-border: rgba(232, 237, 226, 0.4);
+}
+
+[data-theme='light'][data-high-contrast='true'] {
+  --eco-border: rgba(23, 28, 20, 0.4);
+  --eco-glass-border: rgba(23, 28, 20, 0.45);
+}
+
+[data-high-contrast='true'] .eco-btn:focus-visible,
+[data-high-contrast='true'] .eco-nav-link:focus-visible,
+[data-high-contrast='true'] a:focus-visible,
+[data-high-contrast='true'] button:focus-visible {
+  outline-width: 3px;
+  outline-offset: 3px;
+}
+
+/* Set from Profile's "Dyslexia-friendly font" preference. Atkinson
+   Hyperlegible (Braille Institute) is a typeface researched specifically
+   for letter-shape confusion (b/d, p/q) rather than a generic rounded
+   font picked for looking friendly - the actual reason to reach for it
+   here. The stylesheet itself is only fetched once this is turned on (see
+   ThemeContext.jsx), so nobody pays for a font they never asked for. */
+[data-dyslexia-font='true'] {
+  --font-display: 'Atkinson Hyperlegible', 'Inter', system-ui, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible', 'Inter', system-ui, sans-serif;
+  --font-body: 'Atkinson Hyperlegible', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --eco-letter-spacing: 0.02em;
+  --eco-line-height-body: 1.8;
+}
+
 /* ===========================================================================
    2. BASE AND TYPOGRAPHY
    =========================================================================== */
@@ -331,7 +381,8 @@ body {
      now, like every other type decision in the file. */
   font-family: var(--font-body);
   font-size: 16px;
-  line-height: 1.65;
+  line-height: var(--eco-line-height-body);
+  letter-spacing: var(--eco-letter-spacing);
   /* Antialiasing on both engines, plus contextual/ligature features, so text
      renders the way the typeface designer intended rather than the browser
      default. Small thing, but it is a big part of why premium sites feel crisp. */

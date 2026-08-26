@@ -40,7 +40,7 @@ export default function ToastProvider() {
           borderRadius: '12px',
           padding: '12px 16px',
           fontSize: '0.9rem',
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: 'var(--font-body)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
           boxShadow: 'var(--eco-shadow)',

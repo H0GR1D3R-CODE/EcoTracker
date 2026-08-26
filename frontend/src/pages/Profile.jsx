@@ -24,6 +24,7 @@ import {
   Bell,
   CalendarDays,
   Check,
+  Contrast,
   Database,
   Eye,
   EyeOff,
@@ -37,6 +38,7 @@ import {
   Sparkles,
   Sun,
   Target,
+  Type,
   User,
   Waves,
 } from 'lucide-react';
@@ -93,6 +95,10 @@ export default function Profile() {
     osReducedMotion,
     manualReduceMotion,
     setReduceMotionPreference,
+    highContrast,
+    setHighContrastPreference,
+    dyslexiaFont,
+    setDyslexiaFontPreference,
   } = useTheme();
 
   const [form, setForm] = useState({ name: '', region: 'India' });
@@ -680,6 +686,72 @@ export default function Profile() {
               title={osReducedMotion ? 'Already on via your operating system' : undefined}
             >
               {manualReduceMotion || osReducedMotion ? 'On' : 'Off'}
+            </button>
+          </div>
+
+          {/* High contrast */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              paddingTop: '0.9rem',
+              borderTop: '1px solid var(--rule)',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
+              <Contrast size={17} style={{ color: 'var(--eco-text-muted)', marginTop: 2, flexShrink: 0 }} />
+              <div>
+                <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                  High contrast
+                </div>
+                <div className="eco-text-muted" style={{ fontSize: '0.84rem', marginTop: '0.15rem', maxWidth: '38ch' }}>
+                  Stronger borders and a thicker focus ring, for low vision beyond what the normal theme already covers.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setHighContrastPreference(!highContrast)}
+              className={`eco-btn ${highContrast ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+              style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', flexShrink: 0 }}
+            >
+              {highContrast ? 'On' : 'Off'}
+            </button>
+          </div>
+
+          {/* Dyslexia-friendly font */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              paddingTop: '0.9rem',
+              borderTop: '1px solid var(--rule)',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
+              <Type size={17} style={{ color: 'var(--eco-text-muted)', marginTop: 2, flexShrink: 0 }} />
+              <div>
+                <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                  Dyslexia-friendly font
+                </div>
+                <div className="eco-text-muted" style={{ fontSize: '0.84rem', marginTop: '0.15rem', maxWidth: '40ch' }}>
+                  Switches every page to Atkinson Hyperlegible, designed to reduce letter confusion, with wider line spacing.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDyslexiaFontPreference(!dyslexiaFont)}
+              className={`eco-btn ${dyslexiaFont ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+              style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', flexShrink: 0 }}
+            >
+              {dyslexiaFont ? 'On' : 'Off'}
             </button>
           </div>
         </div>

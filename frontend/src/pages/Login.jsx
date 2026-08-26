@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, ArrowLeft, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail, Send } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +21,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 export default function Login() {
   const { login, resetPassword, user, loading, isAdmin, twoFactorPending } = useAuth();
   const { prefersReducedMotion } = useTheme();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -200,7 +202,7 @@ export default function Login() {
             <Leaf size={16} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
             <span className="eco-marker">EcoTrack</span>
             <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
-              SIGN IN
+              {t('login.signInMarker')}
             </span>
             <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
           </div>
@@ -215,14 +217,13 @@ export default function Login() {
             className="eco-text-muted"
             style={{ fontSize: '1.05rem', maxWidth: '46ch', margin: '0 0 2.4rem' }}
           >
-            Sign in to pick your footprint up where you left it — every activity
-            you have logged, the trend behind it, and the goals still running.
+            {t('login.subtitle')}
           </p>
 
           <div style={{ display: 'grid', gap: '1rem', maxWidth: 420 }}>
             {[
-              ['Only you see your data', 'the server checks your identity on every request'],
-              ['Free, with no card', 'there is nothing to pay and no trial to expire'],
+              [t('login.feature1Title'), t('login.feature1Note')],
+              [t('login.feature2Title'), t('login.feature2Note')],
             ].map(([title, note]) => (
               <div key={title} style={{ paddingTop: '0.8rem', borderTop: '1px solid var(--rule)' }}>
                 <div className="eco-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
@@ -278,7 +279,7 @@ export default function Login() {
               }}
             >
               <ArrowLeft size={15} />
-              Back to sign in
+              {t('login.backToSignIn')}
             </button>
 
             {resetSent ? (
@@ -287,10 +288,10 @@ export default function Login() {
               // AuthContext for why that is not an oversight.
               <div style={{ paddingTop: '1.1rem', borderTop: '2px solid var(--readout)' }}>
                 <span className="eco-marker" style={{ display: 'block', marginBottom: '0.7rem' }}>
-                  Check your inbox
+                  {t('login.checkInbox')}
                 </span>
                 <h2 className="eco-display" style={{ fontSize: '1.5rem', margin: '0 0 0.8rem' }}>
-                  Reset link sent
+                  {t('login.resetLinkSent')}
                 </h2>
                 <p className="eco-text-muted" style={{ margin: 0, lineHeight: 1.65 }}>
                   If an EcoTrack account exists for <strong style={{ color: 'var(--eco-text)' }}>{resetEmail.trim()}</strong>,
@@ -301,11 +302,10 @@ export default function Login() {
             ) : (
               <>
                 <h2 className="eco-display" style={{ fontSize: '1.5rem', margin: '0 0 0.6rem' }}>
-                  Reset your password
+                  {t('login.resetTitle')}
                 </h2>
                 <p className="eco-text-muted" style={{ margin: '0 0 1.5rem', fontSize: '0.92rem', lineHeight: 1.6 }}>
-                  Enter the email on your account and we&rsquo;ll send a link to choose a new
-                  password.
+                  {t('login.resetSubtitle')}
                 </p>
 
                 <form className="eco-form" onSubmit={handleResetSubmit} noValidate>
@@ -324,7 +324,7 @@ export default function Login() {
                       />
                       <label htmlFor="reset-email">
                         <Mail size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                        Email address
+                        {t('login.emailAddress')}
                       </label>
                     </div>
                     {resetTouched && resetEmailError && (
@@ -353,12 +353,12 @@ export default function Login() {
                             animation: 'eco-spin 0.8s linear infinite',
                           }}
                         />
-                        Sending…
+                        {t('login.sending')}
                       </>
                     ) : (
                       <>
                         <Send size={16} />
-                        Send reset link
+                        {t('login.sendResetLink')}
                       </>
                     )}
                   </button>
@@ -378,7 +378,7 @@ export default function Login() {
             and a password, so burying it under the thing it replaces would be
             perverse. It signs in existing accounts and creates new ones. */}
         <GoogleSignInButton
-          label="Sign in with Google"
+          label={t('login.signInWithGoogle')}
           onDone={(result) =>
             navigate(result?.twoFactorRequired ? '/verify-2fa' : redirectTo, { replace: true })
           }
@@ -395,7 +395,7 @@ export default function Login() {
           >
             <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
             <span className="eco-text-muted" style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}>
-              OR
+              {t('login.orDivider')}
             </span>
             <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
           </div>
@@ -421,7 +421,7 @@ export default function Login() {
               />
               <label htmlFor="login-email">
                 <Mail size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                Email address
+                {t('login.emailAddress')}
               </label>
             </div>
 
@@ -446,7 +446,7 @@ export default function Login() {
                 id="login-password"
                 name="password"
                 className={`form-control ${fieldClass('password')}`}
-                placeholder="Your password"
+                placeholder={t('login.passwordPlaceholder')}
                 value={form.password}
                 onChange={handleChange}
                 onBlur={handleBlur}
@@ -456,13 +456,13 @@ export default function Login() {
               />
               <label htmlFor="login-password">
                 <Lock size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                Password
+                {t('login.password')}
               </label>
 
               <button
                 type="button"
                 onClick={() => setShowPassword((shown) => !shown)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                 style={{
                   position: 'absolute',
                   right: 12,
@@ -505,7 +505,7 @@ export default function Login() {
                   color: 'var(--eco-text-muted)',
                 }}
               >
-                Forgot password?
+                {t('login.forgotPassword')}
               </button>
             </div>
           </div>
@@ -531,11 +531,11 @@ export default function Login() {
                     animation: 'eco-spin 0.8s linear infinite',
                   }}
                 />
-                Signing in…
+                {t('login.signingIn')}
               </>
             ) : (
               <>
-                Sign in
+                {t('login.signIn')}
                 <ArrowRight size={17} />
               </>
             )}
@@ -547,9 +547,9 @@ export default function Login() {
           className="eco-text-muted"
           style={{ textAlign: 'center', marginTop: '1.6rem', marginBottom: 0, fontSize: '0.9rem' }}
         >
-          New to EcoTrack?{' '}
+          {t('login.newToEcoTrack')}{' '}
           <Link to="/register" style={{ fontWeight: 600 }}>
-            Create an account
+            {t('login.createAccount')}
           </Link>
         </p>
           </motion.div>

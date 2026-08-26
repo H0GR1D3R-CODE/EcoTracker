@@ -41,5 +41,32 @@
     "readAloud": "このページを読み上げる",
     "stopReading": "読み上げを停止",
     "skipToContent": "メインコンテンツへスキップ"
+  },
+  "login": {
+    "signInMarker": "ログイン",
+    "subtitle": "前回の続きからログインしましょう——記録したすべての活動、その傾向、そして進行中の目標。",
+    "feature1Title": "データを見られるのはあなただけ",
+    "feature1Note": "サーバーはリクエストごとに本人確認を行います",
+    "feature2Title": "無料、カード登録不要",
+    "feature2Note": "支払いは不要で、期限が切れる体験版もありません",
+    "backToSignIn": "ログインに戻る",
+    "checkInbox": "受信トレイをご確認ください",
+    "resetLinkSent": "リセットリンクを送信しました",
+    "resetTitle": "パスワードをリセット",
+    "resetSubtitle": "アカウントのメールアドレスを入力すると、新しいパスワードを設定するためのリンクをお送りします。",
+    "emailAddress": "メールアドレス",
+    "sendResetLink": "リセットリンクを送信",
+    "sending": "送信中…",
+    "orDivider": "または",
+    "password": "パスワード",
+    "passwordPlaceholder": "パスワード",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを隠す",
+    "forgotPassword": "パスワードをお忘れですか？",
+    "signingIn": "ログイン中…",
+    "signIn": "ログイン",
+    "signInWithGoogle": "Googleでログイン",
+    "newToEcoTrack": "EcoTrackは初めてですか？",
+    "createAccount": "アカウントを作成"
   }
 }

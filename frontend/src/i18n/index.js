@@ -6,12 +6,14 @@
 // loading flash for no real benefit at this size.
 //
 // COVERAGE, STATED HONESTLY
-// Only the navbar (present on every page) and the Home page's hero are
-// translated so far, in every language below - see locales/*.json. Every
-// other page still reads in English regardless of the selector. Extending
-// coverage means adding more keys to every locale file and swapping the
-// relevant component's literal strings for t('namespace.key') calls - the
-// same pattern Navbar.jsx and Home.jsx already use, not a new mechanism.
+// The navbar (present on every page), the Home page's hero, and the Login
+// page are translated so far, in every language below - see locales/*.json.
+// Every other page still reads in English regardless of the selector.
+// Extending coverage means adding more keys to every locale file and
+// swapping the relevant component's literal strings for t('namespace.key')
+// calls - the same pattern Navbar.jsx, Home.jsx and Login.jsx already use,
+// not a new mechanism. Register.jsx (the natural next stop after Login) is
+// the best next candidate.
 //
 // English is always the fallback: an untranslated key never renders as a
 // raw "nav.dashboard" placeholder, it silently shows the English string.
