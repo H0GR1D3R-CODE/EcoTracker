@@ -230,7 +230,7 @@ export default function Navbar() {
           </div>
 
           {/* ---------- Right side ---------- */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <ReadAloudButton />
             <LanguageToggle />
             <ThemeToggle />
@@ -287,14 +287,36 @@ export default function Navbar() {
                   </div>
                 </Link>
 
+                {/* Icon-only at the lg breakpoint, same treatment as the
+                    Donate heart button right beside it - full "Logout" text
+                    plus padding was the single widest item in this cluster,
+                    and adding the Read Aloud button (below, at desktop
+                    widths that used to just barely fit) pushed the row past
+                    the viewport on real laptop screens: it does not wrap
+                    (this is a plain flex row, nowrap), and the page clips
+                    overflow-x rather than scrolling to it (see index.css's
+                    body rule), so the clipped item is simply invisible with
+                    no way to reach it - not a resolution issue on the
+                    visitor's end. */}
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="eco-btn eco-btn-ghost d-none d-lg-inline-flex"
-                  style={{ padding: '0.45rem 0.9rem', fontSize: '0.86rem' }}
+                  className="d-none d-lg-flex"
+                  title={t('nav.logout')}
+                  aria-label={t('nav.logout')}
+                  style={{
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    border: '1px solid var(--eco-border)',
+                    background: 'transparent',
+                    color: 'var(--eco-text-muted)',
+                    cursor: 'pointer',
+                  }}
                 >
                   <LogOut size={16} />
-                  {t('nav.logout')}
                 </button>
               </>
             ) : (
