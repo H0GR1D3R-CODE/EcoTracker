@@ -26,6 +26,7 @@ from flask import Blueprint, g, request
 
 from config import Config
 from routes import api_error, api_success, check_rate_limit, require_auth
+from routes.assistant import _call_gemini
 
 try:
     from google import genai
@@ -156,7 +157,8 @@ def parse_voice_log():
         )
 
     try:
-        response = client.models.generate_content(
+        response = _call_gemini(
+            client,
             model=Config.ASSISTANT_MODEL,
             contents=[
                 genai_types.Content(
