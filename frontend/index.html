@@ -80,7 +80,15 @@
          backend/generate_app_icons.py), not the placeholder emoji this used
          to be - a tab full of real site icons next to one emoji glyph was
          the tell that this one wasn't actually designed. -->
-    <link rel="icon" href="/icons/icon-48.webp" type="image/webp" />
+    <!-- Explicit 16/32 entries so the browser tab uses a crisp, purpose-built
+         tiny render (see backend/generate_web_favicon.py's TINY_SIZES) rather
+         than shrinking the 48px one itself, which is what made the tab icon
+         look muddy before this. sizes="any" on the SVG-less webp fallback
+         chain lets a browser that ignores sizes matching just pick the first
+         it understands. -->
+    <link rel="icon" href="/icons/icon-16.webp" type="image/webp" sizes="16x16" />
+    <link rel="icon" href="/icons/icon-32.webp" type="image/webp" sizes="32x32" />
+    <link rel="icon" href="/icons/icon-48.webp" type="image/webp" sizes="48x48" />
     <link rel="icon" href="/icons/icon-192.webp" type="image/webp" sizes="192x192" />
 
     <!-- Was inline here - moved to its own file (public/theme-init.js) so

@@ -52,7 +52,16 @@ LEAF_COLOR = (255, 255, 255, 255)
 LEAF_BLOB_D = "M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"
 LEAF_VEIN_D = "M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"
 
-OUTPUT_SIZES = [48, 72, 96, 128, 192, 256, 512]
+# 16 and 32 render from their own SIMPLE master (see _draw_master_icon's
+# detailed=False branch) rather than being Lanczos-downscaled from the same
+# 512px master everything else uses. The vein line survives that downscale
+# as a a few stray anti-aliased pixels, not a line - at actual browser-tab
+# size that read as visual noise on the leaf rather than a leaf marking, the
+# original reason a browser tab's icon looked "so bad": there was no 16/32
+# asset at all before this, so the browser fell back to shrinking the 48px
+# one itself, which is exactly the blur this file exists to avoid.
+TINY_SIZES = {16, 32}
+OUTPUT_SIZES = [16, 32, 48, 72, 96, 128, 192, 256, 512]
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "public", "icons")
 
 
@@ -96,40 +105,51 @@ def _fit_transform(points_groups, canvas_size, margin_ratio=0.16):
     return transform
 
 
-def _draw_master_icon():
-    """The 512x512-at-8x master render, downscaled per output size below."""
+def _draw_master_icon(detailed=True, margin_ratio=0.16):
+    """
+    The 512x512-at-8x master render, downscaled per output size below.
+
+    detailed=False drops the vein line and gives the blob a touch more room
+    (a smaller margin_ratio) - what actually reads as "a leaf" at 16-32px is
+    the bold silhouette, and the vein has no pixels left to survive that
+    downscale anyway, so keeping it there only adds speckling.
+    """
     blob_points = _sample_path(LEAF_BLOB_D)
     vein_points = _sample_path(LEAF_VEIN_D)
 
-    transform = _fit_transform([blob_points, vein_points], CANVAS)
+    fit_groups = [blob_points, vein_points] if detailed else [blob_points]
+    transform = _fit_transform(fit_groups, CANVAS, margin_ratio=margin_ratio)
     blob_px = [transform(p) for p in blob_points]
-    vein_px = [transform(p) for p in vein_points]
 
     img = Image.new("RGBA", (CANVAS, CANVAS), BG_COLOR)
     draw = ImageDraw.Draw(img)
 
     draw.polygon(blob_px, fill=LEAF_COLOR)
 
-    # The vein, cut back through in the background green - a stroke width
-    # proportional to the canvas so it stays a fine line at every output
-    # size rather than a fixed pixel count that would look chunky once
-    # downscaled from an 8x-scaled master.
-    vein_width = max(2, round(CANVAS * 0.018))
-    draw.line(vein_px, fill=BG_COLOR, width=vein_width, joint="curve")
-    # Rounded line caps - ImageDraw.line has none of its own
-    r = vein_width / 2
-    for x, y in (vein_px[0], vein_px[-1]):
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=BG_COLOR)
+    if detailed:
+        vein_px = [transform(p) for p in vein_points]
+        # The vein, cut back through in the background green - a stroke width
+        # proportional to the canvas so it stays a fine line at every output
+        # size rather than a fixed pixel count that would look chunky once
+        # downscaled from an 8x-scaled master.
+        vein_width = max(2, round(CANVAS * 0.018))
+        draw.line(vein_px, fill=BG_COLOR, width=vein_width, joint="curve")
+        # Rounded line caps - ImageDraw.line has none of its own
+        r = vein_width / 2
+        for x, y in (vein_px[0], vein_px[-1]):
+            draw.ellipse([x - r, y - r, x + r, y + r], fill=BG_COLOR)
 
     return img
 
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    master = _draw_master_icon()
+    master = _draw_master_icon(detailed=True)
+    tiny_master = _draw_master_icon(detailed=False, margin_ratio=0.11)
 
     for size in OUTPUT_SIZES:
-        resized = master.resize((size, size), Image.LANCZOS)
+        source = tiny_master if size in TINY_SIZES else master
+        resized = source.resize((size, size), Image.LANCZOS)
         out_path = os.path.join(OUTPUT_DIR, f"icon-{size}.webp")
         resized.save(out_path, "WEBP", quality=92)
         print(f"wrote {out_path} ({size}x{size})")
