@@ -50,7 +50,7 @@ def require_cron_secret(view_function):
 def streak_reminders():
     """
     Runs once a day. Every user with a registered push token gets AT MOST
-    ONE push - two things are checked, in priority order, and the first
+    ONE push - three things are checked, in priority order, and the first
     one that applies is what gets sent:
 
       1. A goal that is achieved but not yet claimed (routes/goals.py's
@@ -63,6 +63,11 @@ def streak_reminders():
          least 2 days with nothing logged yet today - the same closed loop
          the in-app streak flame and freeze mechanic already reward (see
          routes/engagement.py's _compute_streak).
+      3. Otherwise, a user-configured activity reminder (routes/reminders.py)
+         due today (today's weekday is in the reminder's daysOfWeek) for a
+         category nothing has been logged in yet today. See reminders.py's
+         own module docstring for why this is "which days", never a chosen
+         time - this cron only runs once a day in the first place.
 
     Deliberately at most one push, not one for each - two unrelated
     notifications landing back to back the same day reads as spam, not two
@@ -84,6 +89,8 @@ def streak_reminders():
     users_with_tokens = 0
     notified_for_goal = 0
     notified_for_streak = 0
+    notified_for_reminder = 0
+    today_weekday = today.weekday()
 
     for user_doc in db.collection(Config.COLLECTION_USERS).stream():
         tokens = (user_doc.to_dict() or {}).get("fcmTokens") or []
@@ -132,9 +139,38 @@ def streak_reminders():
             )
             if sent:
                 notified_for_streak += 1
+            continue
+
+        # --- 3. otherwise, a user-configured reminder due today ---
+        reminder_docs = list(
+            db.collection(Config.COLLECTION_ACTIVITY_REMINDERS)
+            .where(filter=gcloud_firestore.FieldFilter("userId", "==", uid))
+            .stream()
+        )
+        if not reminder_docs:
+            continue
+
+        logged_today_categories = {r["category"] for r in records if r["recordedDate"] == today.isoformat()}
+        due_today = [
+            doc.to_dict()
+            for doc in reminder_docs
+            if today_weekday in doc.to_dict().get("daysOfWeek", [])
+            and doc.to_dict().get("category") not in logged_today_categories
+        ]
+        if due_today:
+            first = due_today[0]
+            body = (
+                f"Don't forget to log your {first['category']} today."
+                if len(due_today) == 1
+                else f"{len(due_today)} reminders are due today - starting with {first['category']}."
+            )
+            sent = send_push_to_user(uid, "Reminder", body, url="/calculator")
+            if sent:
+                notified_for_reminder += 1
 
     return api_success({
         "usersWithTokens": users_with_tokens,
         "notifiedForGoal": notified_for_goal,
         "notifiedForStreak": notified_for_streak,
+        "notifiedForReminder": notified_for_reminder,
     })

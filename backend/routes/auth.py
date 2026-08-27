@@ -42,6 +42,7 @@ from routes import (
     api_success,
     check_rate_limit,
     client_ip,
+    fetch_user_records,
     is_admin,
     is_valid_email,
     require_auth,
@@ -147,6 +148,56 @@ def _validate_name(name):
 # ---------------------------------------------------------------------------
 # POST /api/auth/register        (PUBLIC - no token, the account does not exist yet)
 # ---------------------------------------------------------------------------
+
+@auth_bp.route("/check-email", methods=["POST"])
+def check_email():
+    """
+    Whether an account already exists for this email - lets Register.jsx
+    show "an account already exists" the moment someone leaves the email
+    field, instead of only after a full three-step form and a submit.
+
+    NOT A NEW ENUMERATION SURFACE, JUST AN EARLIER ONE
+    register() below already reveals exactly this (via the email_exists
+    code on a real submit attempt) to anyone willing to fill in a throwaway
+    name/password - the property this route trades on already existed. What
+    changes here is convenience, not what an attacker could already learn,
+    so this gets the same rate-limit posture as register() (same bucket
+    key even, deliberately: both routes answer the identical question, and
+    sharing one budget between them is what actually caps how many times
+    that question can be asked from one IP per hour, rather than each route
+    quietly doubling the real limit).
+
+    Body: {"email": "someone@example.com"}
+    Always 200 with {"exists": true|false} - a malformed email is simply
+    reported as not existing rather than as a 400, so the frontend does not
+    need a second error path for a field it is already validating live.
+    """
+    if not check_rate_limit("register", client_ip(), max_attempts=8, window_seconds=3600):
+        return api_error(
+            "Too many requests from this connection. Please try again later.",
+            429,
+            code="rate_limited",
+        )
+
+    body = request.get_json(silent=True) or {}
+    email = _clean_text(body.get("email")).lower()
+
+    if not email or not is_valid_email(email):
+        return api_success({"exists": False})
+
+    try:
+        firebase_auth.get_user_by_email(email)
+        return api_success({"exists": True})
+    except firebase_auth.UserNotFoundError:
+        return api_success({"exists": False})
+    except Exception:
+        # A genuine infrastructure hiccup, not a signal either way - report
+        # not-found so the frontend just quietly skips the early hint rather
+        # than showing an error under a field that has not been submitted
+        # yet, the same "degrade to no signal" reasoning forgot_password
+        # uses further down this file.
+        return api_success({"exists": False})
+
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
@@ -737,3 +788,141 @@ def update_profile():
     profile["isAdmin"] = is_admin(g.uid, g.email)
 
     return api_success(profile, message="Profile updated successfully.")
+
+
+# ---------------------------------------------------------------------------
+# Data export and account deletion
+# ---------------------------------------------------------------------------
+
+def _json_safe(value):
+    """
+    Recursively turn Firestore's own return types (DatetimeWithNanoseconds,
+    plain datetime) into plain JSON-safe values, the same conversion
+    _serialize_user already does by hand for a single field. Every OTHER
+    route in this backend only ever serializes one flat, known shape at a
+    time, so a hand-written field-by-field serializer has always been
+    enough; export_data below is the first route returning several whole,
+    differently-shaped Firestore documents verbatim, which is what makes a
+    generic walker worth having here rather than four more hand-written ones.
+    """
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+def _docs_for_user(collection_name, uid, field="userId"):
+    """Every document in a collection belonging to this uid, as plain,
+    JSON-safe dicts with their document id included."""
+    db = get_db()
+    docs = (
+        db.collection(collection_name)
+        .where(filter=gcloud_firestore.FieldFilter(field, "==", uid))
+        .stream()
+    )
+    return [_json_safe({"id": doc.id, **(doc.to_dict() or {})}) for doc in docs]
+
+
+@auth_bp.route("/export", methods=["GET"])
+@require_auth
+def export_data():
+    """
+    Every piece of this account's own data, as one JSON download.
+
+    Reports.jsx's own CSV export covers one chosen period at a time; this is
+    everything, ever, in one response - the "download all my data" half of
+    the same privacy control delete_account below provides the other half of.
+    """
+    db = get_db()
+    uid = g.uid
+
+    user_doc = db.collection(Config.COLLECTION_USERS).document(uid).get()
+    profile = _json_safe(user_doc.to_dict()) if user_doc.exists else {}
+    # Never leaked to anyone else via this same shape - see _serialize_user -
+    # but this IS the user's own export of their own account, so nothing is
+    # stripped from it the way the public-facing profile shape strips things.
+
+    return api_success({
+        "exportedAt": datetime.now(timezone.utc).isoformat(),
+        "profile": profile,
+        # fetch_user_records with no date bounds returns full, unbounded history
+        "carbonRecords": fetch_user_records(uid),
+        "goals": _docs_for_user(Config.COLLECTION_GOALS, uid),
+        "reports": _docs_for_user(Config.COLLECTION_REPORTS, uid),
+        "challenges": _docs_for_user(Config.COLLECTION_CHALLENGES, uid),
+        "activityReminders": _docs_for_user(Config.COLLECTION_ACTIVITY_REMINDERS, uid),
+    })
+
+
+@auth_bp.route("/account", methods=["DELETE"])
+@require_auth
+def delete_account():
+    """
+    Permanently delete this account and every piece of data tied to it.
+
+    ORDER MATTERS: APPLICATION DATA FIRST, THE FIREBASE AUTH IDENTITY LAST
+    If the Firebase Auth deletion below ran first and something after it
+    then failed, the account would be unrecoverable (no way to sign back in
+    to retry) while its data sat orphaned in Firestore forever. Deleting
+    every Firestore trace first means the worst failure mode is "the Auth
+    account still exists but every trace of the person is already gone" -
+    recoverable by simply calling this route again.
+
+    WHAT IS DELETED VS. WHAT IS KEPT
+    carbonRecords, goals, reports, challenges, interventions, activity
+    templates, activity reminders, the twoFactorCodes doc, and household
+    membership (via the exact same _leave_household_for household.py's own
+    /leave route uses) are all removed outright. A
+    donations row (routes/payments.py) is NOT deleted - it is a real,
+    Razorpay-verified financial transaction, and most jurisdictions'
+    accounting rules expect those kept - but its userId is cleared, the
+    same "keep the record, drop the personal link" treatment a shredded
+    paper receipt gets in a filing cabinet.
+    """
+    db = get_db()
+    uid = g.uid
+
+    # --- household membership, via the exact same rules /leave uses ---
+    from routes.household import _leave_household_for
+    _leave_household_for(uid)
+
+    # --- every collection keyed by userId ---
+    for collection_name in (
+        Config.COLLECTION_CARBON_RECORDS,
+        Config.COLLECTION_GOALS,
+        Config.COLLECTION_REPORTS,
+        Config.COLLECTION_CHALLENGES,
+        Config.COLLECTION_INTERVENTIONS,
+        Config.COLLECTION_ACTIVITY_TEMPLATES,
+        Config.COLLECTION_ACTIVITY_REMINDERS,
+    ):
+        for doc in (
+            db.collection(collection_name)
+            .where(filter=gcloud_firestore.FieldFilter("userId", "==", uid))
+            .stream()
+        ):
+            doc.reference.delete()
+
+    # --- disassociate, don't delete, financial records ---
+    for doc in (
+        db.collection("donations")
+        .where(filter=gcloud_firestore.FieldFilter("userId", "==", uid))
+        .stream()
+    ):
+        doc.reference.update({"userId": None})
+
+    # --- the two documents keyed directly by uid, not by a userId field ---
+    db.collection(Config.COLLECTION_TWO_FACTOR_CODES).document(uid).delete()
+    db.collection(Config.COLLECTION_USERS).document(uid).delete()
+    db.collection(Config.COLLECTION_ADMINS).document(uid).delete()
+
+    # --- the identity itself, last ---
+    try:
+        firebase_auth.delete_user(uid)
+    except firebase_auth.UserNotFoundError:
+        pass  # already gone - not an error from this route's point of view
+
+    return api_success({"deleted": True}, message="Your account and all associated data have been deleted.")

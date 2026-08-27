@@ -287,32 +287,52 @@ def join_household():
 # POST /api/household/leave
 # ---------------------------------------------------------------------------
 
-@household_bp.route("/leave", methods=["POST"])
-@require_auth
-def leave_household():
-    household_ref, household_doc = _get_own_household_doc(g.uid)
+def _leave_household_for(uid):
+    """
+    The actual leave-a-household logic, factored out of the route below so
+    routes/auth.py's account-deletion cascade can reuse the exact same
+    membership/ownership-handoff/disband rules rather than a second,
+    driftable copy of them.
+
+    Returns (was_in_household, was_disbanded) - the route below turns that
+    into its own success/error response and message; the deletion cascade
+    just needs the side effect and does not care which message would have
+    been shown.
+    """
+    household_ref, household_doc = _get_own_household_doc(uid)
     if household_ref is None:
-        return api_error("You're not in a household.", 400, code="not_in_household")
+        return False, False
 
     data = household_doc.to_dict()
-    remaining = [member for member in data.get("memberUids", []) if member != g.uid]
+    remaining = [member for member in data.get("memberUids", []) if member != uid]
 
     db = get_db()
-    db.collection(Config.COLLECTION_USERS).document(g.uid).set({"householdId": None}, merge=True)
+    db.collection(Config.COLLECTION_USERS).document(uid).set({"householdId": None}, merge=True)
 
     if not remaining:
         # The last member leaving deletes the household - an empty group
         # with a live invite code would just be a dangling door to nowhere.
         household_ref.delete()
-        return api_success({"inHousehold": False}, message="Household disbanded.")
+        return True, True
 
     update = {"memberUids": remaining}
-    if data.get("ownerUid") == g.uid:
+    if data.get("ownerUid") == uid:
         # Ownership passes to whoever is left, arbitrarily but deterministically
         update["ownerUid"] = remaining[0]
     household_ref.update(update)
 
-    return api_success({"inHousehold": False}, message="Left the household.")
+    return True, False
+
+
+@household_bp.route("/leave", methods=["POST"])
+@require_auth
+def leave_household():
+    was_in_household, was_disbanded = _leave_household_for(g.uid)
+    if not was_in_household:
+        return api_error("You're not in a household.", 400, code="not_in_household")
+
+    message = "Household disbanded." if was_disbanded else "Left the household."
+    return api_success({"inHousehold": False}, message=message)
 
 
 # ---------------------------------------------------------------------------

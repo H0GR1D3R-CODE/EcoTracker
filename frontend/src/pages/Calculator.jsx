@@ -15,6 +15,7 @@
 // Mounted at /calculator
 
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { AlertCircle, CheckCircle2, CloudOff, Info, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
@@ -984,11 +985,16 @@ export default function Calculator() {
           <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: 0 }}>
             This month&rsquo;s entries
           </h2>
-          {displayRecords.length > 0 && (
-            <span className="eco-readout" style={{ fontSize: '0.85rem', fontWeight: 600 }}>
-              {String(displayRecords.length).padStart(2, '0')}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <Link to="/activity-log" className="eco-footer-link" style={{ fontSize: '0.84rem' }}>
+              View full activity log →
+            </Link>
+            {displayRecords.length > 0 && (
+              <span className="eco-readout" style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                {String(displayRecords.length).padStart(2, '0')}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Only appears once something is actually queued - not a permanent

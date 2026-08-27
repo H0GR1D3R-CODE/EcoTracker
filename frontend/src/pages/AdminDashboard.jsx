@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   BarChart3,
   Calendar,
+  Check,
   Database,
   Download,
   Eye,
@@ -29,10 +30,13 @@ import {
   Leaf,
   MapPin,
   MessageSquare,
+  Pencil,
+  Plus,
   RefreshCw,
   Search,
   Send,
   Shield,
+  Sigma,
   Star,
   Target,
   Trash2,
@@ -41,11 +45,12 @@ import {
   X,
 } from 'lucide-react';
 
-import { adminApi, getErrorMessage } from '../utils/api';
+import { adminApi, factorsApi, getErrorMessage } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import StatCard from '../components/StatCard';
+import SelectField from '../components/SelectField';
 import {
   AdoptionRateBarChart,
   CategoryDoughnutChart,
@@ -118,6 +123,29 @@ export default function AdminDashboard() {
   // The Research tab's adoption-rate/impact stats, lazy-loaded the same way.
   const [researchStats, setResearchStats] = useState(null);
   const [researchStatsLoading, setResearchStatsLoading] = useState(false);
+
+  // The Factors tab - lazy-loaded the same way as System/Research above.
+  // Reuses GET /api/factors (the same public endpoint the Calculator page
+  // itself reads from), not a separate admin-only listing route - there is
+  // only ever one true list of factors, and admins should see exactly what
+  // everyone else's Calculator dropdown sees.
+  const [allFactors, setAllFactors] = useState(null);
+  const [factorsLoading, setFactorsLoading] = useState(false);
+  const [showFactorForm, setShowFactorForm] = useState(false);
+  const [newFactor, setNewFactor] = useState({
+    category: CATEGORY_ORDER[0],
+    subType: '',
+    factorValue: '',
+    unit: '',
+    region: '',
+    source: '',
+  });
+  const [savingFactor, setSavingFactor] = useState(false);
+  const [editingFactorId, setEditingFactorId] = useState(null);
+  const [editFactorValue, setEditFactorValue] = useState('');
+  const [deletingFactorId, setDeletingFactorId] = useState(null);
+
+  const factorCount = allFactors?.count ?? null;
 
   // The System tab's "invite an admin" form. Deliberately sends from
   // whichever real admin is signed in and clicking the button - see
@@ -206,6 +234,74 @@ export default function AdminDashboard() {
     if (tab === 'system' && !system && !systemLoading) loadSystem();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const loadFactors = async () => {
+    setFactorsLoading(true);
+    try {
+      setAllFactors(await factorsApi.getAll());
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not load emission factors.'));
+    } finally {
+      setFactorsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'factors' && !allFactors && !factorsLoading) loadFactors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const handleCreateFactor = async () => {
+    if (savingFactor) return;
+    setSavingFactor(true);
+    try {
+      await factorsApi.create({
+        ...newFactor,
+        subType: newFactor.subType.trim().toLowerCase().replace(/\s+/g, '_'),
+        factorValue: Number(newFactor.factorValue),
+      });
+      toast.success('Factor created.');
+      setShowFactorForm(false);
+      setNewFactor({ category: CATEGORY_ORDER[0], subType: '', factorValue: '', unit: '', region: '', source: '' });
+      loadFactors();
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not create that factor.'));
+    } finally {
+      setSavingFactor(false);
+    }
+  };
+
+  const handleSaveFactorEdit = async (factorId) => {
+    const value = Number(editFactorValue);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error('Enter a factor value greater than zero.');
+      return;
+    }
+    setSavingFactor(true);
+    try {
+      await factorsApi.update(factorId, { factorValue: value });
+      toast.success('Factor updated.');
+      setEditingFactorId(null);
+      loadFactors();
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not update that factor.'));
+    } finally {
+      setSavingFactor(false);
+    }
+  };
+
+  const handleDeleteFactor = async (factorId) => {
+    setDeletingFactorId(factorId);
+    try {
+      await factorsApi.remove(factorId);
+      toast.success('Factor deleted.');
+      loadFactors();
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not delete that factor.'));
+    } finally {
+      setDeletingFactorId(null);
+    }
+  };
 
   const loadResearchStats = async () => {
     setResearchStatsLoading(true);
@@ -664,6 +760,7 @@ export default function AdminDashboard() {
           { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: feedback.length },
           { id: 'system', label: 'System', icon: Activity, count: null, dot: system?.overall },
           { id: 'research', label: 'Research', icon: FlaskConical, count: null },
+          { id: 'factors', label: 'Factors', icon: Sigma, count: factorCount },
         ].map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
@@ -2256,6 +2353,236 @@ export default function AdminDashboard() {
             walk-forward backtest - run <code>python evaluate_forecast.py</code> from the
             backend folder to produce that table.
           </p>
+        </div>
+      </motion.div>
+      )}
+
+      {/* ============ FACTORS ============ */}
+      {/* The actual delivery of this file's own POINT: routes/factors.py's
+          module docstring has always said "an admin can update a factor
+          from the admin dashboard when a new DEFRA or IPCC report is
+          published" - for a long time nothing here let that happen except
+          the Firestore console directly. This tab is that missing piece. */}
+      {tab === 'factors' && (
+      <motion.div
+        key="tab-factors"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.4rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Sigma size={17} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Emission factors</h2>
+            </div>
+            {!showFactorForm && (
+              <button
+                type="button"
+                onClick={() => setShowFactorForm(true)}
+                className="eco-btn eco-btn-outline"
+                style={{ fontSize: '0.85rem' }}
+              >
+                <Plus size={15} /> Add factor
+              </button>
+            )}
+          </div>
+
+          <p className="eco-text-muted" style={{ fontSize: '0.87rem', marginBottom: '1.6rem', maxWidth: '62ch' }}>
+            The scientific constant behind every logged entry: emission = quantity × factorValue.
+            Editing factorValue here is the one supported way to update a number when a new
+            DEFRA, IPCC or CEA report is published - no code change, no redeploy.
+          </p>
+
+          {showFactorForm && (
+            <div className="eco-card" style={{ marginBottom: '1.6rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.9rem', marginBottom: '1rem' }}>
+                <SelectField
+                  id="new-factor-category"
+                  label="Category"
+                  value={newFactor.category}
+                  onChange={(value) => setNewFactor((f) => ({ ...f, category: value }))}
+                  options={CATEGORY_ORDER.map((c) => ({ value: c, label: formatCategory(c) }))}
+                />
+                <div>
+                  <div className="form-floating">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="subType"
+                      value={newFactor.subType}
+                      onChange={(event) => setNewFactor((f) => ({ ...f, subType: event.target.value }))}
+                    />
+                    <label>subType (e.g. e_scooter)</label>
+                  </div>
+                </div>
+                <div>
+                  <div className="form-floating">
+                    <input
+                      type="number"
+                      className="form-control"
+                      placeholder="factorValue"
+                      value={newFactor.factorValue}
+                      onChange={(event) => setNewFactor((f) => ({ ...f, factorValue: event.target.value }))}
+                      step="any"
+                    />
+                    <label>factorValue (kg CO₂ per unit)</label>
+                  </div>
+                </div>
+                <div>
+                  <div className="form-floating">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="unit"
+                      value={newFactor.unit}
+                      onChange={(event) => setNewFactor((f) => ({ ...f, unit: event.target.value }))}
+                    />
+                    <label>unit (km, kWh, kg…)</label>
+                  </div>
+                </div>
+                <div>
+                  <div className="form-floating">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="region"
+                      value={newFactor.region}
+                      onChange={(event) => setNewFactor((f) => ({ ...f, region: event.target.value }))}
+                    />
+                    <label>region (optional)</label>
+                  </div>
+                </div>
+                <div>
+                  <div className="form-floating">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="source"
+                      value={newFactor.source}
+                      onChange={(event) => setNewFactor((f) => ({ ...f, source: event.target.value }))}
+                    />
+                    <label>source (e.g. DEFRA 2026)</label>
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                <button type="button" onClick={() => setShowFactorForm(false)} className="eco-btn eco-btn-ghost">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateFactor}
+                  disabled={savingFactor || !newFactor.subType || !newFactor.factorValue || !newFactor.unit}
+                  className="eco-btn eco-btn-primary"
+                >
+                  {savingFactor ? (
+                    <span style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'eco-spin 0.8s linear infinite' }} />
+                  ) : (
+                    'Create'
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {factorsLoading && !allFactors && <SkeletonTable rows={6} />}
+
+          {allFactors && (
+            <div className="eco-table-wrap">
+              <table className="eco-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Factor</th>
+                    <th>Unit</th>
+                    <th>Region</th>
+                    <th>Source</th>
+                    <th aria-label="Actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {CATEGORY_ORDER.flatMap((category) => allFactors.factors?.[category] || []).map((factor) => (
+                    <tr key={factor.id}>
+                      <td style={{ color: CATEGORY_META[factor.category]?.color }}>{formatCategory(factor.category)}</td>
+                      <td>{formatSubType(factor.subType)}</td>
+                      <td>
+                        {editingFactorId === factor.id ? (
+                          <input
+                            type="number"
+                            className="form-control"
+                            style={{ width: 100, padding: '0.3rem 0.5rem' }}
+                            value={editFactorValue}
+                            onChange={(event) => setEditFactorValue(event.target.value)}
+                            step="any"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="eco-readout">{factor.factorValue}</span>
+                        )}
+                      </td>
+                      <td className="eco-text-muted">{factor.unit}</td>
+                      <td className="eco-text-muted">{factor.region || '—'}</td>
+                      <td className="eco-text-muted" style={{ fontSize: '0.82rem' }}>{factor.source || '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                          {editingFactorId === factor.id ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleSaveFactorEdit(factor.id)}
+                                disabled={savingFactor}
+                                aria-label="Save"
+                                style={{ background: 'transparent', border: 'none', color: 'var(--eco-primary)', cursor: 'pointer', padding: 6, display: 'flex' }}
+                              >
+                                <Check size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingFactorId(null)}
+                                aria-label="Cancel"
+                                style={{ background: 'transparent', border: 'none', color: 'var(--eco-text-muted)', cursor: 'pointer', padding: 6, display: 'flex' }}
+                              >
+                                <X size={15} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingFactorId(factor.id);
+                                  setEditFactorValue(String(factor.factorValue));
+                                }}
+                                aria-label="Edit factor value"
+                                style={{ background: 'transparent', border: 'none', color: 'var(--eco-text-muted)', cursor: 'pointer', padding: 6, display: 'flex' }}
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFactor(factor.id)}
+                                disabled={deletingFactorId === factor.id}
+                                aria-label="Delete factor"
+                                style={{ background: 'transparent', border: 'none', color: 'var(--eco-text-muted)', cursor: 'pointer', padding: 6, display: 'flex' }}
+                              >
+                                {deletingFactorId === factor.id ? (
+                                  <span style={{ width: 14, height: 14, border: '2px solid var(--eco-border)', borderTopColor: 'var(--eco-text-muted)', borderRadius: '50%', display: 'inline-block', animation: 'eco-spin 0.8s linear infinite' }} />
+                                ) : (
+                                  <Trash2 size={15} />
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </motion.div>
       )}

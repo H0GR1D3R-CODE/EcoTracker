@@ -186,6 +186,13 @@ class Config:
     # idempotent - see routes/household.py's cheer routes.
     COLLECTION_HOUSEHOLD_CHEERS = "householdCheers"
 
+    # One document per recurring "remind me to log X" reminder a user sets
+    # up - see routes/reminders.py. Delivered through the SAME once-daily
+    # cron job routes/cron.py already runs (Vercel's Hobby tier caps how
+    # many cron jobs and how often they can fire), so a reminder is scoped
+    # to "which days of the week", never a chosen time of day.
+    COLLECTION_ACTIVITY_REMINDERS = "activityReminders"
+
     # The seven emission categories EcoTrack supports.
     # Routes validate incoming data against this list, and the ORDER here is the
     # order the Calculator page shows its tabs in - so keep it stable.

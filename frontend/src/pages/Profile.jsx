@@ -18,14 +18,18 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   AlertCircle,
+  AlertTriangle,
   Bell,
+  BellRing,
   CalendarDays,
   Check,
   Contrast,
   Database,
+  Download,
   Eye,
   EyeOff,
   KeyRound,
@@ -34,20 +38,24 @@ import {
   Mail,
   MapPin,
   Moon,
+  Plus,
   Save,
   Shield,
   Sparkles,
   Sun,
   Target,
+  Trash2,
   Trophy,
   Type,
   User,
   Waves,
+  X,
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { dashboardApi, getErrorMessage } from '../utils/api';
+import { authApi, dashboardApi, factorsApi, getErrorMessage, remindersApi } from '../utils/api';
+import { CATEGORY_ORDER } from '../utils/emissionHelpers';
 import {
   disablePushNotifications,
   enablePushNotifications,
@@ -64,6 +72,11 @@ import { NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation'
 // enforces, so the field never rejects something the server would allow, or
 // the other way round.
 const MIN_PASSWORD_LENGTH = 6;
+
+// Index 0 = Monday, matching Python's date.weekday() - the exact value
+// backend/routes/reminders.py and cron.py compare a reminder's daysOfWeek
+// against, so there is no day-numbering translation anywhere in this feature.
+const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const REGIONS = [
   'India',
@@ -89,7 +102,8 @@ const REGIONS = [
 ];
 
 export default function Profile() {
-  const { user, profile, isAdmin, updateProfile, changePassword, setTwoFactorEnabled } = useAuth();
+  const { user, profile, isAdmin, updateProfile, changePassword, setTwoFactorEnabled, logout } = useAuth();
+  const navigate = useNavigate();
   const {
     isDark,
     toggleTheme,
@@ -166,6 +180,110 @@ export default function Profile() {
       toast.error(error.message);
     } finally {
       setSavingAlias(false);
+    }
+  };
+
+  // --- recurring activity reminders ---
+  const [reminders, setReminders] = useState(null);
+  const [factors, setFactors] = useState(null);
+  const [showReminderForm, setShowReminderForm] = useState(false);
+  const [reminderCategory, setReminderCategory] = useState(CATEGORY_ORDER[0]);
+  const [reminderSubType, setReminderSubType] = useState('');
+  const [reminderDays, setReminderDays] = useState([]);
+  const [savingReminder, setSavingReminder] = useState(false);
+  const [deletingReminderId, setDeletingReminderId] = useState(null);
+
+  useEffect(() => {
+    remindersApi.getAll().then((data) => setReminders(data.reminders)).catch(() => setReminders([]));
+    factorsApi.getAll().then(setFactors).catch(() => {});
+  }, []);
+
+  const subTypeOptionsForReminder = (factors?.factors?.[reminderCategory] || []).map((factor) => ({
+    value: factor.subType,
+    label: factor.subType.replace(/_/g, ' '),
+  }));
+
+  const toggleReminderDay = (dayIndex) => {
+    setReminderDays((current) =>
+      current.includes(dayIndex) ? current.filter((d) => d !== dayIndex) : [...current, dayIndex].sort()
+    );
+  };
+
+  const handleAddReminder = async () => {
+    if (!reminderSubType || reminderDays.length === 0 || savingReminder) return;
+    setSavingReminder(true);
+    try {
+      const result = await remindersApi.create({
+        category: reminderCategory,
+        subType: reminderSubType,
+        daysOfWeek: reminderDays,
+      });
+      setReminders((current) => [...(current || []), result.reminder]);
+      setShowReminderForm(false);
+      setReminderSubType('');
+      setReminderDays([]);
+      toast.success('Reminder added.');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not add that reminder.'));
+    } finally {
+      setSavingReminder(false);
+    }
+  };
+
+  const handleDeleteReminder = async (reminderId) => {
+    setDeletingReminderId(reminderId);
+    try {
+      await remindersApi.remove(reminderId);
+      setReminders((current) => current.filter((r) => r.id !== reminderId));
+      toast.success('Reminder deleted.');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not delete that reminder.'));
+    } finally {
+      setDeletingReminderId(null);
+    }
+  };
+
+  // --- data export ---
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportData = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const data = await authApi.exportData();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ecotrack-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Your data has been downloaded.');
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not export your data.'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // --- account deletion ---
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE' || deletingAccount) return;
+    setDeletingAccount(true);
+    try {
+      await authApi.deleteAccount();
+      toast.success('Your account has been deleted.');
+      await logout();
+      navigate('/', { replace: true });
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not delete your account. Please try again.'));
+      setDeletingAccount(false);
     }
   };
 
@@ -1089,6 +1207,267 @@ export default function Profile() {
           </form>
         </motion.div>
       )}
+
+      {/* ---------- Recurring activity reminders ---------- */}
+      {/* A push notification, never an auto-logged record - see
+          backend/routes/reminders.py's own module docstring for why. Scoped
+          to days of the week, not a chosen time, because the one cron job
+          that delivers these only runs once a day. */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="eco-card"
+        style={{ marginTop: '1.3rem' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1.2rem', flexWrap: 'wrap', marginBottom: '1.2rem' }}>
+          <div style={{ display: 'flex', gap: '0.7rem' }}>
+            <BellRing size={17} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.4rem' }}>
+                Reminders
+              </h3>
+              <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.6, maxWidth: '48ch' }}>
+                A push notification on the days you choose - never logs anything for you, just nudges you to.
+              </p>
+            </div>
+          </div>
+          {!showReminderForm && (
+            <button
+              type="button"
+              onClick={() => setShowReminderForm(true)}
+              className="eco-btn eco-btn-outline"
+              style={{ padding: '0.5rem 0.9rem', fontSize: '0.85rem', flexShrink: 0 }}
+            >
+              <Plus size={15} /> Add
+            </button>
+          )}
+        </div>
+
+        {reminders === null ? (
+          <div className="eco-skeleton" style={{ height: 60, borderRadius: 'var(--eco-radius-sm)' }} />
+        ) : (
+          <div style={{ display: 'grid', gap: '0.7rem' }}>
+            {reminders.map((reminder) => (
+              <div
+                key={reminder.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.8rem',
+                  padding: '0.7rem 0.9rem',
+                  border: '1px solid var(--eco-border)',
+                  borderRadius: 'var(--eco-radius-sm)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 500, textTransform: 'capitalize' }}>
+                    {reminder.subType.replace(/_/g, ' ')}
+                  </div>
+                  <div className="eco-text-muted" style={{ fontSize: '0.78rem', marginTop: '0.15rem' }}>
+                    {reminder.daysOfWeek.map((d) => DAY_LABELS[d]).join(', ')}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteReminder(reminder.id)}
+                  disabled={deletingReminderId === reminder.id}
+                  aria-label="Delete reminder"
+                  style={{ background: 'transparent', border: 'none', color: 'var(--eco-text-muted)', cursor: 'pointer', padding: 8, display: 'flex' }}
+                >
+                  {deletingReminderId === reminder.id ? (
+                    <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+                  ) : (
+                    <Trash2 size={15} />
+                  )}
+                </button>
+              </div>
+            ))}
+
+            {reminders.length === 0 && !showReminderForm && (
+              <p className="eco-text-muted" style={{ fontSize: '0.87rem', margin: 0 }}>
+                No reminders set.
+              </p>
+            )}
+          </div>
+        )}
+
+        {showReminderForm && (
+          <div style={{ marginTop: '1.2rem', paddingTop: '1.1rem', borderTop: '1px solid var(--rule)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.9rem', marginBottom: '1rem' }}>
+              <SelectField
+                id="reminder-category"
+                label="Category"
+                value={reminderCategory}
+                onChange={(value) => {
+                  setReminderCategory(value);
+                  setReminderSubType('');
+                }}
+                options={CATEGORY_ORDER.map((category) => ({ value: category, label: formatCategory(category) }))}
+              />
+              <SelectField
+                id="reminder-subtype"
+                label="Type"
+                value={reminderSubType}
+                onChange={setReminderSubType}
+                options={subTypeOptionsForReminder}
+                placeholder="Choose a type"
+              />
+            </div>
+
+            <div style={{ marginBottom: '1.2rem' }}>
+              <span className="eco-text-muted" style={{ fontSize: '0.72rem', fontWeight: 500, display: 'block', marginBottom: '0.5rem' }}>
+                Days
+              </span>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {DAY_LABELS.map((label, index) => {
+                  const active = reminderDays.includes(index);
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => toggleReminderDay(index)}
+                      style={{
+                        width: 42,
+                        height: 36,
+                        borderRadius: 999,
+                        border: `1px solid ${active ? 'var(--eco-primary)' : 'var(--eco-border)'}`,
+                        background: active ? 'rgba(var(--eco-primary-rgb), 0.12)' : 'transparent',
+                        color: active ? 'var(--eco-primary)' : 'var(--eco-text-muted)',
+                        fontWeight: active ? 600 : 400,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {label.slice(0, 2)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReminderForm(false);
+                  setReminderSubType('');
+                  setReminderDays([]);
+                }}
+                className="eco-btn eco-btn-ghost"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddReminder}
+                disabled={!reminderSubType || reminderDays.length === 0 || savingReminder}
+                className="eco-btn eco-btn-primary"
+              >
+                {savingReminder ? <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} /> : 'Save reminder'}
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
+
+      {/* ---------- Danger zone ---------- */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.03 }}
+        className="eco-card"
+        style={{ marginTop: '1.3rem', border: '1px solid color-mix(in srgb, var(--eco-danger) 30%, var(--eco-border))' }}
+      >
+        <div style={{ display: 'flex', gap: '0.7rem', marginBottom: '1.3rem' }}>
+          <AlertTriangle size={17} style={{ color: 'var(--eco-danger)', flexShrink: 0, marginTop: 2 }} />
+          <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
+            Data and account
+          </h3>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', paddingBottom: '1.2rem', borderBottom: '1px solid var(--rule)', marginBottom: '1.2rem' }}>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: '0.92rem' }}>Download your data</div>
+            <div className="eco-text-muted" style={{ fontSize: '0.84rem', marginTop: '0.15rem' }}>
+              Every activity, goal, report and reminder you've ever saved, as one JSON file.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportData}
+            disabled={exporting}
+            className="eco-btn eco-btn-outline"
+            style={{ flexShrink: 0 }}
+          >
+            {exporting ? <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} /> : <Download size={15} />}
+            Download
+          </button>
+        </div>
+
+        {!showDeleteConfirm ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontWeight: 500, fontSize: '0.92rem' }}>Delete your account</div>
+              <div className="eco-text-muted" style={{ fontSize: '0.84rem', marginTop: '0.15rem' }}>
+                Permanently removes your account and everything tied to it. This cannot be undone.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="eco-btn eco-btn-outline"
+              style={{ flexShrink: 0, borderColor: 'var(--eco-danger)', color: 'var(--eco-danger)' }}
+            >
+              <Trash2 size={15} /> Delete account
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, margin: '0 0 1rem' }}>
+              This permanently deletes your account, every logged activity, goal, report, reminder,
+              and household membership. Type <strong>DELETE</strong> to confirm.
+            </p>
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                className="form-control"
+                value={deleteConfirmText}
+                onChange={(event) => setDeleteConfirmText(event.target.value)}
+                placeholder="Type DELETE"
+                style={{ maxWidth: 220 }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteConfirmText('');
+                }}
+                className="eco-btn eco-btn-ghost"
+              >
+                <X size={15} /> Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText !== 'DELETE' || deletingAccount}
+                className="eco-btn eco-btn-primary"
+                style={{ background: 'var(--eco-danger)', borderColor: 'var(--eco-danger)' }}
+              >
+                {deletingAccount ? (
+                  <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+                ) : (
+                  <>
+                    <Trash2 size={15} /> Permanently delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 }

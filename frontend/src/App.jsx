@@ -67,6 +67,7 @@ const Goals = lazy(() => import('./pages/Goals'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Household = lazy(() => import('./pages/Household'));
 const Achievements = lazy(() => import('./pages/Achievements'));
+const ActivityLog = lazy(() => import('./pages/ActivityLog'));
 const Profile = lazy(() => import('./pages/Profile'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -328,6 +329,14 @@ export default function App() {
               element={
                 <ProtectedRoute userOnly>
                   <MotionPage><Achievements /></MotionPage>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/activity-log"
+              element={
+                <ProtectedRoute userOnly>
+                  <MotionPage><ActivityLog /></MotionPage>
                 </ProtectedRoute>
               }
             />

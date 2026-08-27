@@ -11,7 +11,7 @@
 //   Step 2  password + confirmation
 //   Step 3  region, then create the account
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -34,6 +34,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { authApi } from '../utils/api';
 import SelectField from '../components/SelectField';
 import { EMAIL_ERROR, EMAIL_PATTERN, NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
 import { isNativeApp } from '../utils/platform';
@@ -135,6 +136,11 @@ export default function Register() {
   // Whether the requirements box is showing (opens when the password field is
   // focused, so it appears "when you click the password field")
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  // Which email POST /api/auth/check-email last actually ran for - a ref,
+  // not state, because it exists only to skip a redundant network call on a
+  // second blur with nothing changed, never to drive a render itself.
+  const lastCheckedEmailRef = useRef('');
 
   const [form, setForm] = useState({
     name: '',
@@ -209,6 +215,40 @@ export default function Register() {
   const handleBlur = (event) => {
     const { name } = event.target;
     setTouched((previous) => ({ ...previous, [name]: true }));
+  };
+
+  // The email field's own blur handler, on top of the generic one above -
+  // this is what shows "an account already exists" the moment someone
+  // leaves the field, instead of only after a full three-step submit (see
+  // POST /api/auth/check-email's own docstring for why this is not a new
+  // privacy exposure, just an earlier one).
+  const handleEmailBlur = (event) => {
+    handleBlur(event);
+
+    const email = form.email.trim();
+    // Skip a request for a value that is empty, not even email-shaped yet,
+    // or the exact one already checked - a blur can fire more than once
+    // (tab, then a stray click back onto the same field) without the value
+    // changing at all.
+    if (!email || errors.email || email === lastCheckedEmailRef.current) return;
+
+    lastCheckedEmailRef.current = email;
+    setCheckingEmail(true);
+    authApi
+      .checkEmail(email)
+      .then((result) => {
+        // Only act if this is still the email currently in the field - a
+        // slow response for an address the user has since edited away from
+        // must not resurrect the panel under whatever they typed next.
+        if (result?.exists && form.email.trim() === email) {
+          setEmailExistsError(true);
+        }
+      })
+      .catch(() => {
+        // A nice-to-have early hint, not a required check - register()
+        // itself still catches a real email_exists on submit either way.
+      })
+      .finally(() => setCheckingEmail(false));
   };
 
   const fieldClass = (field) => {
@@ -515,7 +555,7 @@ export default function Register() {
                         placeholder="you@example.com"
                         value={form.email}
                         onChange={handleChange}
-                        onBlur={handleBlur}
+                        onBlur={handleEmailBlur}
                         autoComplete="email"
                       />
                       <label htmlFor="reg-email">
@@ -528,6 +568,9 @@ export default function Register() {
                         <AlertCircle size={13} />
                         {errors.email}
                       </div>
+                    )}
+                    {checkingEmail && !errors.email && (
+                      <div className="eco-field-hint">Checking…</div>
                     )}
                   </div>
 

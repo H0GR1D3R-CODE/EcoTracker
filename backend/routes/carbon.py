@@ -322,6 +322,189 @@ def list_records():
 
 
 # ---------------------------------------------------------------------------
+# GET /api/carbon/records/all      (full history, filterable, paginated)
+# ---------------------------------------------------------------------------
+
+DEFAULT_PAGE_SIZE = 25
+MAX_PAGE_SIZE = 100
+
+
+@carbon_bp.route("/records/all", methods=["GET"])
+@require_auth
+def list_all_records():
+    """
+    The Activity Log page's data source: every record this account has ever
+    logged, not one month or year at a time like GET /records above (which
+    Calculator.jsx's recent-entries list still uses, unchanged).
+
+    Query parameters (all optional):
+        ?category=transport         one of Config.CATEGORIES
+        ?startDate=2026-01-01       inclusive
+        ?endDate=2026-12-31         inclusive
+        ?page=1                     1-indexed, defaults to 1
+        ?pageSize=25                defaults to 25, capped at 100
+
+    PAGINATED IN PYTHON, NOT IN FIRESTORE, ON PURPOSE
+    fetch_user_records already loads every one of this user's records into
+    memory before this route ever runs (the same call GET /records and the
+    streak/challenge routes already make) - Firestore's own cursor-based
+    pagination would need a composite index for "this user, this category,
+    ordered by date" that does not exist and is not worth adding for a
+    figure that tops out at a few hundred rows for even a multi-year power
+    user. Slicing an already-fetched, already-sorted Python list is the
+    honest cost here, not a shortcut.
+    """
+    category = (request.args.get("category") or "").strip().lower()
+    if category and category not in Config.CATEGORIES:
+        return api_error(
+            f"Unknown category '{category}'. Valid categories are: {', '.join(Config.CATEGORIES)}.",
+            400,
+            code="invalid_category",
+        )
+
+    start_date_param = (request.args.get("startDate") or "").strip()
+    end_date_param = (request.args.get("endDate") or "").strip()
+
+    if start_date_param:
+        _, error = parse_date_string(start_date_param, "startDate")
+        if error:
+            return api_error(error, 400, code="invalid_start_date")
+    if end_date_param:
+        _, error = parse_date_string(end_date_param, "endDate")
+        if error:
+            return api_error(error, 400, code="invalid_end_date")
+
+    page_param = (request.args.get("page") or "1").strip()
+    page_size_param = (request.args.get("pageSize") or str(DEFAULT_PAGE_SIZE)).strip()
+    if not page_param.isdigit() or int(page_param) < 1:
+        return api_error("page must be a positive whole number.", 400, code="invalid_page")
+    if not page_size_param.isdigit() or not (1 <= int(page_size_param) <= MAX_PAGE_SIZE):
+        return api_error(f"pageSize must be between 1 and {MAX_PAGE_SIZE}.", 400, code="invalid_page_size")
+
+    page = int(page_param)
+    page_size = int(page_size_param)
+
+    records = fetch_user_records(
+        g.uid,
+        start_date=start_date_param or None,
+        end_date=end_date_param or None,
+    )
+    if category:
+        records = [record for record in records if record["category"] == category]
+
+    # fetch_user_records already sorts newest-first
+    total_count = len(records)
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
+    start_index = (page - 1) * page_size
+    page_records = records[start_index:start_index + page_size]
+
+    return api_success({
+        "records": page_records,
+        "totalCount": total_count,
+        "page": page,
+        "pageSize": page_size,
+        "totalPages": total_pages,
+    })
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/carbon/records/<record_id>      (edit a saved record)
+# ---------------------------------------------------------------------------
+
+@carbon_bp.route("/records/<record_id>", methods=["PUT"])
+@require_auth
+def update_record(record_id):
+    """
+    Edit a previously saved record - the one thing DELETE below could not
+    do on its own (delete-and-relog loses the original createdAt and, on
+    the Activity Log page, loses your place in a long filtered list).
+
+    Body: any of {"subType", "quantity", "unit", "recordedDate"} - category
+    is deliberately NOT editable here. A record's category and subType
+    together are what selected the emission factor in the first place;
+    changing category without re-running the whole category/subType picker
+    UI risks a subType that does not exist under the new category at all.
+    Changing subType within the SAME category is safe and supported (the
+    factor lookup below re-runs for whatever category+subType the edited
+    record now has), so the practical path for "wrong category" is still
+    delete-and-relog, same as before this route existed.
+
+    Recalculates emissionKgco2 from scratch via the same factor lookup
+    save_calculated_record uses - never trusts a client-sent emission value,
+    for the same reason the original save never did.
+    """
+    db = get_db()
+    record_ref = db.collection(Config.COLLECTION_CARBON_RECORDS).document(record_id)
+    record_doc = record_ref.get()
+
+    if not record_doc.exists:
+        return api_error("Record not found.", 404, code="record_not_found")
+
+    existing = record_doc.to_dict()
+    if existing.get("userId") != g.uid:
+        return api_error(
+            "You do not have permission to edit this record.",
+            403,
+            code="not_record_owner",
+        )
+
+    body = request.get_json(silent=True) or {}
+    category = existing.get("category")
+    sub_type = str(body.get("subType", existing.get("subType"))).strip().lower()
+    unit = str(body.get("unit", "")).strip()
+
+    try:
+        quantity = float(body.get("quantity", existing.get("quantity")))
+    except (TypeError, ValueError):
+        return api_error("Quantity must be a number.", 400, code="invalid_quantity")
+
+    if quantity <= 0:
+        return api_error("Quantity must be greater than zero.", 400, code="invalid_quantity")
+    if quantity > MAX_QUANTITY:
+        return api_error(
+            f"Quantity looks too large. Please enter a value under {MAX_QUANTITY:,}.",
+            400,
+            code="quantity_too_large",
+        )
+
+    recorded_date_raw = body.get("recordedDate", existing.get("recordedDate"))
+    recorded_date, date_error = parse_date_string(recorded_date_raw, "recordedDate")
+    if date_error:
+        return api_error(date_error, 400, code="invalid_date")
+    if recorded_date > date.today():
+        return api_error("You cannot log emissions for a future date.", 400, code="future_date")
+    if recorded_date.isoformat() < EARLIEST_DATE:
+        return api_error(f"Date must be on or after {EARLIEST_DATE}.", 400, code="date_too_early")
+
+    factor, factor_error = _find_emission_factor(category, sub_type, _user_region(g.uid))
+    if factor_error:
+        return api_error(factor_error, 404, code="factor_not_found")
+
+    if unit and factor["unit"] and unit.lower() != factor["unit"].lower():
+        return api_error(
+            f"Unit mismatch: {category}/{sub_type} is measured in "
+            f"'{factor['unit']}', not '{unit}'.",
+            400,
+            code="unit_mismatch",
+        )
+
+    emission = round(quantity * factor["factorValue"], 3)
+
+    record_ref.update({
+        "subType": sub_type,
+        "quantity": quantity,
+        "unit": factor["unit"] or unit or existing.get("unit"),
+        "emissionKgco2": emission,
+        "recordedDate": recorded_date.isoformat(),
+    })
+
+    return api_success(
+        {"record": serialize_record(record_ref.get())},
+        message="Record updated successfully.",
+    )
+
+
+# ---------------------------------------------------------------------------
 # DELETE /api/carbon/records/<record_id>
 # ---------------------------------------------------------------------------
 

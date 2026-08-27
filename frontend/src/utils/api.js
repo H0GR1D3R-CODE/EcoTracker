@@ -181,6 +181,19 @@ export const authApi = {
   // Public route - creates the Firebase Auth account and the Firestore profile
   register: (payload) => api.post('/api/auth/register', payload).then(unwrap),
 
+  // Public route - lets Register.jsx show "an account already exists" the
+  // moment someone leaves the email field, not just after a full submit.
+  checkEmail: (email) => api.post('/api/auth/check-email', { email }).then(unwrap),
+
+  // Every piece of this account's own data, in one JSON response - see
+  // backend/routes/auth.py's export_data.
+  exportData: () => api.get('/api/auth/export').then(unwrap),
+
+  // Permanently deletes the account and every piece of data tied to it -
+  // see backend/routes/auth.py's delete_account for exactly what is
+  // removed vs. kept.
+  deleteAccount: () => api.delete('/api/auth/account').then(unwrap),
+
   // Exchanges a Firebase ID token for the user's profile
   login: (idToken) => api.post('/api/auth/login', { idToken }).then(unwrap),
 
@@ -213,6 +226,11 @@ export const factorsApi = {
 
   getOne: (category, subType) =>
     api.get(`/api/factors/${category}/${subType}`).then(unwrap),
+
+  // Admin-only - see backend/routes/factors.py's create_factor/update_factor/delete_factor
+  create: (payload) => api.post('/api/factors', payload).then(unwrap),
+  update: (factorId, payload) => api.put(`/api/factors/${factorId}`, payload).then(unwrap),
+  remove: (factorId) => api.delete(`/api/factors/${factorId}`).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
@@ -226,6 +244,14 @@ export const carbonApi = {
   // params is {month: "2026-07"} or {year: "2026"}
   getRecords: (params = {}) =>
     api.get('/api/carbon/records', { params }).then(unwrap),
+
+  // The Activity Log page's data source - full history, filterable,
+  // paginated. params: {category, startDate, endDate, page, pageSize}
+  getAllRecords: (params = {}) =>
+    api.get('/api/carbon/records/all', { params }).then(unwrap),
+
+  updateRecord: (recordId, payload) =>
+    api.put(`/api/carbon/records/${recordId}`, payload).then(unwrap),
 
   deleteRecord: (recordId) =>
     api.delete(`/api/carbon/records/${recordId}`).then(unwrap),
@@ -520,6 +546,16 @@ export const learnApi = {
 
 export const achievementsApi = {
   getAll: () => api.get('/api/achievements').then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// ACTIVITY REMINDERS (see routes/reminders.py)
+// ---------------------------------------------------------------------------
+
+export const remindersApi = {
+  getAll: () => api.get('/api/reminders').then(unwrap),
+  create: (payload) => api.post('/api/reminders', payload).then(unwrap),
+  remove: (reminderId) => api.delete(`/api/reminders/${reminderId}`).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
