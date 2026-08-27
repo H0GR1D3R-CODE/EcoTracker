@@ -6,14 +6,18 @@
 // loading flash for no real benefit at this size.
 //
 // COVERAGE, STATED HONESTLY
-// The navbar (present on every page), the Home page's hero, and the Login
-// page are translated so far, in every language below - see locales/*.json.
-// Every other page still reads in English regardless of the selector.
-// Extending coverage means adding more keys to every locale file and
-// swapping the relevant component's literal strings for t('namespace.key')
-// calls - the same pattern Navbar.jsx, Home.jsx and Login.jsx already use,
-// not a new mechanism. Register.jsx (the natural next stop after Login) is
-// the best next candidate.
+// The navbar (present on every page), the Home page's hero, and both auth
+// pages (Login, Register) are translated so far, in every language below -
+// see locales/*.json. Every other page still reads in English regardless of
+// the selector. Extending coverage means adding more keys to every locale
+// file and swapping the relevant component's literal strings for
+// t('namespace.key') calls - the same pattern already used everywhere
+// above, not a new mechanism. Dashboard and Calculator (the two pages every
+// signed-in user hits most) are the best next candidates. Register.jsx's
+// REGIONS list (Indian state names) is deliberately left untranslated -
+// place names in a region picker are conventionally kept as-is rather than
+// transliterated per language, and 20 names × 10 languages was out of scope
+// for this pass regardless.
 //
 // English is always the fallback: an untranslated key never renders as a
 // raw "nav.dashboard" placeholder, it silently shows the English string.

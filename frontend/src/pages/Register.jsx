@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 import {
   AlertCircle,
   ArrowLeft,
@@ -42,10 +43,14 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 
 const TOTAL_STEPS = 3;
 
+// titleKey/subtitleKey, not title/subtitle - this array is evaluated once at
+// module load, and useTranslation() is only callable inside a component, so
+// the actual strings are resolved via t(key) where this is used below (the
+// same labelKey pattern Navbar.jsx's APP_LINKS already uses).
 const STEP_TITLES = [
-  { title: 'Your details', subtitle: 'Tell us who you are' },
-  { title: 'Secure your account', subtitle: 'Choose a strong password' },
-  { title: 'Almost done', subtitle: 'Where are you tracking from?' },
+  { titleKey: 'register.step1Title', subtitleKey: 'register.step1Subtitle' },
+  { titleKey: 'register.step2Title', subtitleKey: 'register.step2Subtitle' },
+  { titleKey: 'register.step3Title', subtitleKey: 'register.step3Subtitle' },
 ];
 
 // Region matters because emission factors differ by region - India's grid
@@ -77,17 +82,18 @@ const REGIONS = [
 // checklist shown next to the field AND whether the password is accepted - so
 // the rules the user sees are exactly the rules that are enforced. The Flask
 // backend enforces the same set, so the policy cannot be bypassed.
+// labelKey, not label - same reasoning as STEP_TITLES above
 const PASSWORD_RULES = [
-  { label: 'At least 8 characters', test: (p) => p.length >= 8 },
-  { label: 'An uppercase letter (A–Z)', test: (p) => /[A-Z]/.test(p) },
-  { label: 'A lowercase letter (a–z)', test: (p) => /[a-z]/.test(p) },
-  { label: 'A number (0–9)', test: (p) => /\d/.test(p) },
-  { label: 'A special character (!@#$…)', test: (p) => /[^A-Za-z0-9]/.test(p) },
+  { labelKey: 'register.ruleMinLength', test: (p) => p.length >= 8 },
+  { labelKey: 'register.ruleUppercase', test: (p) => /[A-Z]/.test(p) },
+  { labelKey: 'register.ruleLowercase', test: (p) => /[a-z]/.test(p) },
+  { labelKey: 'register.ruleNumber', test: (p) => /\d/.test(p) },
+  { labelKey: 'register.ruleSpecial', test: (p) => /[^A-Za-z0-9]/.test(p) },
 ];
 
 /** How many rules a password satisfies, for the strength bar. */
 function scorePassword(password) {
-  if (!password) return { score: 0, label: '', color: 'var(--eco-border)' };
+  if (!password) return { score: 0, labelKey: null, color: 'var(--eco-border)' };
 
   const met = PASSWORD_RULES.filter((rule) => rule.test(password)).length;
 
@@ -98,12 +104,12 @@ function scorePassword(password) {
   // gold, giving a real progression toward green rather than two granular
   // near-identical yellows.
   const levels = [
-    { label: 'Too weak', color: 'var(--eco-danger)' },
-    { label: 'Too weak', color: 'var(--eco-danger)' },
-    { label: 'Weak', color: 'var(--eco-danger)' },
-    { label: 'Fair', color: 'var(--readout)' },
-    { label: 'Good', color: 'var(--cat-electricity)' },
-    { label: 'Strong', color: 'var(--eco-primary)' },
+    { labelKey: 'register.strengthTooWeak', color: 'var(--eco-danger)' },
+    { labelKey: 'register.strengthTooWeak', color: 'var(--eco-danger)' },
+    { labelKey: 'register.strengthWeak', color: 'var(--eco-danger)' },
+    { labelKey: 'register.strengthFair', color: 'var(--readout)' },
+    { labelKey: 'register.strengthGood', color: 'var(--cat-electricity)' },
+    { labelKey: 'register.strengthStrong', color: 'var(--eco-primary)' },
   ];
 
   return { score: met, total: PASSWORD_RULES.length, ...levels[met] };
@@ -112,6 +118,7 @@ function scorePassword(password) {
 export default function Register() {
   const { register, user, loading } = useAuth();
   const { prefersReducedMotion } = useTheme();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -334,7 +341,7 @@ export default function Register() {
             <Leaf size={16} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
             <span className="eco-marker">EcoTrack</span>
             <span className="eco-readout" style={{ fontSize: '0.86rem', fontWeight: 600 }}>
-              NEW ACCOUNT
+              {t('register.newAccountMarker')}
             </span>
             <span style={{ width: 46, height: 1, background: 'var(--rule-strong)' }} />
           </div>
@@ -349,9 +356,7 @@ export default function Register() {
             className="eco-text-muted"
             style={{ fontSize: '1.05rem', maxWidth: '46ch', margin: '0 0 2.4rem' }}
           >
-            Three short steps, then one logged activity — a car trip, an
-            electricity bill, a meal — is enough to bring the whole dashboard to
-            life.
+            {t('register.subtitle')}
           </p>
 
           {/* The step list, out here where there is room for it to say what each
@@ -366,7 +371,7 @@ export default function Register() {
 
               return (
                 <div
-                  key={item.title}
+                  key={item.titleKey}
                   style={{
                     display: 'flex',
                     alignItems: 'baseline',
@@ -388,13 +393,13 @@ export default function Register() {
                   </span>
                   <span>
                     <span className="eco-display" style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                      {item.title}
+                      {t(item.titleKey)}
                     </span>
                     <span
                       className="eco-text-muted"
                       style={{ display: 'block', fontSize: '0.84rem', marginTop: '0.1rem' }}
                     >
-                      {item.subtitle}
+                      {t(item.subtitleKey)}
                     </span>
                   </span>
                 </div>
@@ -423,7 +428,7 @@ export default function Register() {
               marginBottom: '0.6rem',
             }}
           >
-            <span className="eco-marker">{STEP_TITLES[step - 1].title}</span>
+            <span className="eco-marker">{t(STEP_TITLES[step - 1].titleKey)}</span>
             <span className="eco-readout" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
               {String(step).padStart(2, '0')} / {String(TOTAL_STEPS).padStart(2, '0')}
             </span>
@@ -479,7 +484,7 @@ export default function Register() {
                         id="reg-name"
                         name="name"
                         className={`form-control ${fieldClass('name')}`}
-                        placeholder="Your full name"
+                        placeholder={t('register.fullNamePlaceholder')}
                         value={form.name}
                         onChange={handleChange}
                         onBlur={handleBlur}
@@ -489,7 +494,7 @@ export default function Register() {
                       />
                       <label htmlFor="reg-name">
                         <User size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                        Full name
+                        {t('register.fullName')}
                       </label>
                     </div>
                     {touched.name && errors.name && (
@@ -515,7 +520,7 @@ export default function Register() {
                       />
                       <label htmlFor="reg-email">
                         <Mail size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                        Email address
+                        {t('login.emailAddress')}
                       </label>
                     </div>
                     {touched.email && errors.email && (
@@ -545,7 +550,7 @@ export default function Register() {
                       <div style={{ display: 'flex', gap: '0.55rem', marginBottom: '0.8rem' }}>
                         <AlertCircle size={16} style={{ color: 'var(--eco-danger)', flexShrink: 0, marginTop: 1 }} />
                         <p style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.5 }}>
-                          An account already exists for this email.
+                          {t('register.accountExists')}
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
@@ -557,7 +562,7 @@ export default function Register() {
                             navigate('/login', { state: { prefillEmail: form.email.trim() } })
                           }
                         >
-                          <LogIn size={14} /> Sign in instead
+                          <LogIn size={14} /> {t('register.signInInstead')}
                         </button>
                         <button
                           type="button"
@@ -569,7 +574,7 @@ export default function Register() {
                             })
                           }
                         >
-                          <KeyRound size={14} /> Forgot password?
+                          <KeyRound size={14} /> {t('login.forgotPassword')}
                         </button>
                       </div>
                     </div>
@@ -587,7 +592,7 @@ export default function Register() {
                         id="reg-password"
                         name="password"
                         className={`form-control ${fieldClass('password')}`}
-                        placeholder="Choose a password"
+                        placeholder={t('register.choosePasswordPlaceholder')}
                         value={form.password}
                         onChange={handleChange}
                         onFocus={() => setPasswordFocused(true)}
@@ -601,12 +606,12 @@ export default function Register() {
                       />
                       <label htmlFor="reg-password">
                         <Lock size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                        Password
+                        {t('login.password')}
                       </label>
                       <button
                         type="button"
                         onClick={() => setShowPassword((shown) => !shown)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                         style={{
                           position: 'absolute',
                           right: 12,
@@ -640,7 +645,7 @@ export default function Register() {
                           className="eco-field-hint"
                           style={{ color: strength.color, fontWeight: 500 }}
                         >
-                          {strength.label}
+                          {strength.labelKey ? t(strength.labelKey) : ''}
                         </div>
                       </>
                     )}
@@ -678,7 +683,7 @@ export default function Register() {
                               className="eco-text-muted"
                               style={{ fontSize: '0.74rem', fontWeight: 600, marginBottom: '0.55rem' }}
                             >
-                              Your password needs:
+                              {t('register.passwordNeeds')}
                             </div>
 
                             <div style={{ display: 'grid', gap: '0.4rem' }}>
@@ -686,7 +691,7 @@ export default function Register() {
                                 const met = rule.test(form.password);
                                 return (
                                   <div
-                                    key={rule.label}
+                                    key={rule.labelKey}
                                     style={{
                                       display: 'flex',
                                       alignItems: 'center',
@@ -712,7 +717,7 @@ export default function Register() {
                                         }}
                                       />
                                     )}
-                                    {rule.label}
+                                    {t(rule.labelKey)}
                                   </div>
                                 );
                               })}
@@ -736,7 +741,7 @@ export default function Register() {
                         id="reg-confirm"
                         name="confirmPassword"
                         className={`form-control ${fieldClass('confirmPassword')}`}
-                        placeholder="Repeat your password"
+                        placeholder={t('register.confirmPasswordPlaceholder')}
                         value={form.confirmPassword}
                         onChange={handleChange}
                         onBlur={handleBlur}
@@ -744,7 +749,7 @@ export default function Register() {
                       />
                       <label htmlFor="reg-confirm">
                         <Lock size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                        Confirm password
+                        {t('register.confirmPassword')}
                       </label>
                     </div>
                     {touched.confirmPassword && errors.confirmPassword && (
@@ -763,7 +768,7 @@ export default function Register() {
                   <div className="mb-3">
                     <SelectField
                       id="reg-region"
-                      label="Region"
+                      label={t('register.region')}
                       value={form.region}
                       // SelectField hands back the value directly rather than an
                       // event, so it is reshaped to match the other fields
@@ -774,7 +779,7 @@ export default function Register() {
                     />
                     <div className="eco-field-hint">
                       <MapPin size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-                      Emission factors vary by region — this keeps your results accurate.
+                      {t('register.regionHint')}
                     </div>
                   </div>
 
@@ -790,11 +795,11 @@ export default function Register() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                      <span className="eco-text-muted">Name</span>
+                      <span className="eco-text-muted">{t('register.reviewName')}</span>
                       <span style={{ fontWeight: 600 }}>{form.name}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span className="eco-text-muted">Email</span>
+                      <span className="eco-text-muted">{t('register.reviewEmail')}</span>
                       <span style={{ fontWeight: 600, wordBreak: 'break-all' }}>{form.email}</span>
                     </div>
                   </div>
@@ -822,14 +827,14 @@ export default function Register() {
                     className="eco-text-muted"
                     style={{ fontSize: '0.74rem', letterSpacing: '0.04em' }}
                   >
-                    OR
+                    {t('login.orDivider')}
                   </span>
                   <span style={{ flex: 1, height: 1, background: 'var(--eco-border)' }} />
                 </div>
               )}
 
               <GoogleSignInButton
-                label="Sign up with Google"
+                label={t('register.signUpWithGoogle')}
                 onDone={() => navigate('/dashboard', { replace: true })}
               />
 
@@ -838,7 +843,7 @@ export default function Register() {
                   className="eco-text-muted"
                   style={{ fontSize: '0.74rem', textAlign: 'center', margin: '0.7rem 0 0' }}
                 >
-                  No password to choose — Google has already verified your email
+                  {t('register.googleNoPassword')}
                 </p>
               )}
             </>
@@ -855,7 +860,7 @@ export default function Register() {
                 style={{ flex: '0 0 auto', padding: '0.8rem 1.1rem' }}
               >
                 <ArrowLeft size={17} />
-                Back
+                {t('register.back')}
               </button>
             )}
 
@@ -866,7 +871,7 @@ export default function Register() {
                 className="eco-btn eco-btn-primary"
                 style={{ flex: 1, padding: '0.8rem' }}
               >
-                Continue
+                {t('register.continueBtn')}
                 <ArrowRight size={17} />
               </button>
             ) : (
@@ -890,11 +895,11 @@ export default function Register() {
                         animation: 'eco-spin 0.8s linear infinite',
                       }}
                     />
-                    Creating account…
+                    {t('register.creatingAccount')}
                   </>
                 ) : (
                   <>
-                    Create account
+                    {t('register.createAccount')}
                     <Check size={17} />
                   </>
                 )}
@@ -909,9 +914,9 @@ export default function Register() {
           className="eco-text-muted"
           style={{ textAlign: 'center', marginTop: '1.4rem', marginBottom: 0, fontSize: '0.88rem' }}
         >
-          Already have an account?{' '}
+          {t('register.alreadyHaveAccount')}{' '}
           <Link to="/login" style={{ fontWeight: 600 }}>
-            Sign in
+            {t('login.signIn')}
           </Link>
         </p>
         </motion.div>
