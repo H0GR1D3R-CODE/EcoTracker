@@ -25,7 +25,6 @@ const LINK_COLUMNS = [
       { label: 'Gallery', to: '/gallery' },
       { label: 'Estimate your footprint', to: '/estimate' },
       { label: 'Collective impact', to: '/impact' },
-      { label: 'Public API', to: '/api-docs' },
     ],
   },
   {

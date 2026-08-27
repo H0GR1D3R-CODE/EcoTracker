@@ -57,7 +57,6 @@ const Learn = lazy(() => import('./pages/Learn'));
 const Gallery = lazy(() => import('./pages/Gallery'));
 const Estimate = lazy(() => import('./pages/Estimate'));
 const Impact = lazy(() => import('./pages/Impact'));
-const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 const Journey = lazy(() => import('./pages/Journey'));
 const Feedback = lazy(() => import('./pages/Feedback'));
 const Donate = lazy(() => import('./pages/Donate'));
@@ -268,7 +267,6 @@ export default function App() {
             <Route path="/gallery" element={<MotionPage><Gallery /></MotionPage>} />
             <Route path="/estimate" element={<MotionPage><Estimate /></MotionPage>} />
             <Route path="/impact" element={<MotionPage><Impact /></MotionPage>} />
-            <Route path="/api-docs" element={<MotionPage><ApiDocs /></MotionPage>} />
             <Route path="/journey/:uid" element={<MotionPage><Journey /></MotionPage>} />
             <Route path="/feedback" element={<MotionPage><Feedback /></MotionPage>} />
             {/* Donations are deliberately open to everyone - a visitor should

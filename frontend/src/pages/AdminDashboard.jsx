@@ -21,6 +21,7 @@ import {
   BarChart3,
   Calendar,
   Check,
+  Code2,
   Database,
   Download,
   Eye,
@@ -51,6 +52,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import StatCard from '../components/StatCard';
 import SelectField from '../components/SelectField';
+import ApiEndpointCard from '../components/ApiEndpointCard';
 import {
   AdoptionRateBarChart,
   CategoryDoughnutChart,
@@ -761,6 +763,7 @@ export default function AdminDashboard() {
           { id: 'system', label: 'System', icon: Activity, count: null, dot: system?.overall },
           { id: 'research', label: 'Research', icon: FlaskConical, count: null },
           { id: 'factors', label: 'Factors', icon: Sigma, count: factorCount },
+          { id: 'api', label: 'API', icon: Code2, count: null },
         ].map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
@@ -3124,6 +3127,90 @@ export default function AdminDashboard() {
             )}
           </motion.div>
         </div>
+      )}
+
+      {/* ============ API ============ */}
+      {/* Was a public /api-docs page linked from Impact and the footer -
+          moved here on request, admin-only now. The underlying endpoints
+          (routes/community.py's impact/leaderboard) are still public and
+          unauthenticated either way - Impact.jsx itself depends on that to
+          render for a signed-out visitor - only this DOCUMENTATION moved,
+          not the data access itself. */}
+      {tab === 'api' && (
+      <motion.div
+        key="tab-api"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+            <Code2 size={17} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Public API reference</h2>
+          </div>
+          <p className="eco-text-muted" style={{ fontSize: '0.87rem', marginBottom: '2rem', maxWidth: 640 }}>
+            The two public, unauthenticated GET endpoints Impact.jsx itself calls to render for
+            signed-out visitors - documented here for your own reference (a viva demo, a citation
+            in the report) rather than on a public page, since these numbers do not need their own
+            marketing surface.
+          </p>
+
+          <ApiEndpointCard
+            method="GET"
+            path="/api/community/impact"
+            description="Platform-wide totals: users, entries logged, emissions measured, category breakdown, and accepted recommendation savings. Recomputed at most once every 6 hours."
+            fields={[
+              ['totalUsers', 'number', 'Accounts registered on the platform.'],
+              ['totalEntriesLogged', 'number', 'Individual carbon-log entries across every user, ever.'],
+              ['totalEmissionKg', 'number', 'Sum of every logged entry’s emissions, in kg CO₂.'],
+              ['categoryBreakdownKg', 'object', 'totalEmissionKg split across the seven tracked categories.'],
+              ['recommendationsAccepted', 'number', 'AI-suggested swaps users have actually accepted, not just seen.'],
+              ['totalPotentialSavingKg', 'number', 'Combined projected monthly saving from every accepted swap.'],
+              ['treeYearsEquivalent', 'number', 'totalEmissionKg divided by 21 kg (a mature tree’s yearly CO₂ absorption, US Forest Service).'],
+            ]}
+            curl="curl https://eco-tracker-hogrider.vercel.app/api/community/impact"
+            sampleJson={`{
+  "success": true,
+  "data": {
+    "totalUsers": 412,
+    "totalEntriesLogged": 5830,
+    "totalEmissionKg": 48210.6,
+    "categoryBreakdownKg": {
+      "transport": 18420.1,
+      "electricity": 15310.4,
+      "...": "..."
+    },
+    "recommendationsAccepted": 96,
+    "totalPotentialSavingKg": 412.3,
+    "treeYearsEquivalent": 2296
+  }
+}`}
+          />
+
+          <ApiEndpointCard
+            method="GET"
+            path="/api/community/leaderboard"
+            description="The opt-in leaderboard - up to 50 users who have chosen to appear, ranked by lifetime effort points rather than raw emissions. Recomputed at most once every hour."
+            fields={[
+              ['entries', 'array', 'Up to 50 opted-in users, ranked by lifetime effort points (highest first).'],
+              ['entries[].displayName', 'string', 'A chosen alias, or a masked "First L." name - never a full name or email.'],
+              ['entries[].rewardPoints', 'number', 'Lifetime points earned by claiming challenges and reaching goals.'],
+              ['entries[].stageLabel', 'string', 'The reward-tree stage that points total corresponds to (Seed through Banyan).'],
+              ['totalOptedIn', 'number', 'How many users have opted in, including any past the top 50 shown.'],
+            ]}
+            curl="curl https://eco-tracker-hogrider.vercel.app/api/community/leaderboard"
+            sampleJson={`{
+  "success": true,
+  "data": {
+    "entries": [
+      { "displayName": "EcoWarrior", "rewardPoints": 620, "stageLabel": "Mature tree" }
+    ],
+    "totalOptedIn": 37
+  }
+}`}
+          />
+        </div>
+      </motion.div>
       )}
 
       {/* ============ DELETE CONFIRMATION ============ */}
