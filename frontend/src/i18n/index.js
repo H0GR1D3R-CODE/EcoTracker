@@ -6,18 +6,32 @@
 // loading flash for no real benefit at this size.
 //
 // COVERAGE, STATED HONESTLY
-// The navbar (present on every page), the Home page's hero, and both auth
-// pages (Login, Register) are translated so far, in every language below -
-// see locales/*.json. Every other page still reads in English regardless of
-// the selector. Extending coverage means adding more keys to every locale
-// file and swapping the relevant component's literal strings for
-// t('namespace.key') calls - the same pattern already used everywhere
-// above, not a new mechanism. Dashboard and Calculator (the two pages every
-// signed-in user hits most) are the best next candidates. Register.jsx's
-// REGIONS list (Indian state names) is deliberately left untranslated -
-// place names in a region picker are conventionally kept as-is rather than
-// transliterated per language, and 20 names × 10 languages was out of scope
-// for this pass regardless.
+// The navbar, the Home page's hero, both auth pages (Login, Register), and
+// Dashboard's STATIC chrome (headings, labels, buttons, empty/error states)
+// are translated so far, in every language below - see locales/*.json.
+// Extending coverage means adding more keys to every locale file and
+// swapping the relevant component's literal strings for t('namespace.key')
+// calls - the same pattern already used everywhere above, not a new
+// mechanism. Calculator is the best next candidate.
+//
+// TWO THINGS DELIBERATELY STAY ENGLISH EVERYWHERE, NOT JUST ON DASHBOARD:
+//   1. Category/sub-type names (formatCategory/formatSubType in
+//      utils/formatters.js) - these are plain capitalisation helpers with no
+//      locale awareness, called from dozens of files across the app. Making
+//      them translatable is a real, bounded next step (7 categories, ~25
+//      sub-types) but a structural one - formatCategory is a plain function,
+//      not a hook, so it cannot call t() itself without either threading a
+//      translate function through every call site or reading i18next's
+//      singleton directly. Worth doing as its own pass, not folded into a
+//      page-by-page translation pass.
+//   2. Dashboard's buildInsights() output and the SDG-13 context paragraph -
+//      both interpolate real numbers AND category names into English prose
+//      at render time. Translating them properly needs (1) to be solved
+//      first, so category names inside a translated sentence do not read as
+//      an English word dropped into another language.
+// Register.jsx's REGIONS list (Indian state names) is deliberately left
+// untranslated too - place names in a region picker are conventionally kept
+// as-is, and 20 names × 10 languages was out of scope regardless.
 //
 // English is always the fallback: an untranslated key never renders as a
 // raw "nav.dashboard" placeholder, it silently shows the English string.

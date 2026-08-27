@@ -25,6 +25,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import {
   Activity,
   AlertTriangle,
@@ -172,6 +173,7 @@ const TONE_STYLES = {
 export default function Dashboard() {
   const { profile } = useAuth();
   const { prefersReducedMotion } = useTheme();
+  const { t } = useTranslation();
   const {
     summary,
     monthlyChart,
@@ -209,17 +211,17 @@ export default function Dashboard() {
         <div style={{ maxWidth: 560, paddingTop: '1.1rem', borderTop: '2px solid var(--eco-danger)' }}>
           <AlertTriangle size={22} style={{ color: 'var(--eco-danger)', display: 'block', marginBottom: '0.9rem' }} />
           <span className="eco-marker" style={{ display: 'block', marginBottom: '0.6rem' }}>
-            No signal
+            {t('dashboard.noSignal')}
           </span>
           <h2 className="eco-display" style={{ fontSize: 'clamp(1.6rem, 3.6vw, 2.2rem)', margin: '0 0 0.7rem' }}>
-            Could not load your dashboard
+            {t('dashboard.couldNotLoad')}
           </h2>
           <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.92rem' }}>
             {error}
           </p>
           <button type="button" className="eco-btn eco-btn-primary" onClick={reload}>
             <RefreshCw size={16} />
-            Try again
+            {t('dashboard.tryAgain')}
           </button>
         </div>
       </div>
@@ -256,7 +258,7 @@ export default function Dashboard() {
             className="eco-text-muted"
             style={{ textAlign: 'center', fontSize: '0.85rem', marginTop: '2rem' }}
           >
-            Waking up the server — the first request after a quiet spell can take a few seconds.
+            {t('dashboard.wakingServer')}
           </p>
         )}
       </div>
@@ -289,12 +291,12 @@ export default function Dashboard() {
         photo="earth"
         alt="The Earth seen from space"
         color="var(--cat-water)"
-        title="Welcome back,"
+        title={t('dashboard.welcomeBack')}
         titleAccent={firstName}
         subtitle={
           hasData
-            ? 'Here is where your footprint stands today.'
-            : 'Log your first activity to bring this dashboard to life.'
+            ? t('dashboard.subtitleHasData')
+            : t('dashboard.subtitleNoData')
         }
         action={
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
@@ -318,13 +320,15 @@ export default function Dashboard() {
                         : 'none',
                   }}
                 />
-                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {t('dashboard.updatedAt', {
+                  time: lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                })}
               </span>
             )}
 
             <Link to="/calculator" className="eco-btn eco-btn-primary">
               <Plus size={17} />
-              Log emission
+              {t('dashboard.logEmission')}
             </Link>
           </div>
         }
@@ -374,14 +378,14 @@ export default function Dashboard() {
           >
             <div>
               <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
-                Your logging streak
+                {t('dashboard.loggingStreak')}
               </span>
               <StreakFlame />
             </div>
 
             <div>
               <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
-                Your reward tree
+                {t('dashboard.rewardTree')}
               </span>
               <RewardTree bump={rewardsBump} />
             </div>
@@ -389,7 +393,7 @@ export default function Dashboard() {
 
           <div style={{ marginTop: '1.4rem', paddingTop: '1.2rem', borderTop: '1px solid var(--rule)' }}>
             <span className="eco-marker" style={{ display: 'block', marginBottom: '0.5rem' }}>
-              This week's challenges
+              {t('dashboard.weekChallenges')}
             </span>
             <ChallengeList onClaimed={() => setRewardsBump((n) => n + 1)} />
           </div>
@@ -401,7 +405,7 @@ export default function Dashboard() {
               className="eco-btn eco-btn-outline"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
             >
-              <Sparkles size={15} /> View your recap
+              <Sparkles size={15} /> {t('dashboard.viewRecap')}
             </button>
           </div>
         </div>
@@ -424,17 +428,16 @@ export default function Dashboard() {
         >
           <Leaf size={22} style={{ color: 'var(--eco-primary)', display: 'block', marginBottom: '0.9rem' }} />
           <span className="eco-marker" style={{ display: 'block', marginBottom: '0.6rem' }}>
-            No readings
+            {t('dashboard.noReadings')}
           </span>
           <h2 className="eco-display" style={{ fontSize: 'clamp(1.6rem, 3.6vw, 2.2rem)', margin: '0 0 0.7rem' }}>
-            Nothing logged yet
+            {t('dashboard.nothingLoggedYet')}
           </h2>
           <p className="eco-text-muted" style={{ maxWidth: '54ch', margin: '0 0 1.6rem' }}>
-            Your first entry takes about thirty seconds. Log one car journey or one
-            electricity bill and every chart below fills in.
+            {t('dashboard.emptyStateBody')}
           </p>
           <Link to="/calculator" className="eco-btn eco-btn-primary">
-            Open the calculator
+            {t('dashboard.openCalculator')}
             <ArrowRight size={17} />
           </Link>
         </motion.div>
@@ -454,7 +457,7 @@ export default function Dashboard() {
       >
         <StatCard
           icon={CalendarDays}
-          label="This month"
+          label={t('dashboard.statThisMonth')}
           value={summary?.thisMonth || 0}
           unit="kg CO₂"
           trend={summary?.trend}
@@ -464,16 +467,16 @@ export default function Dashboard() {
         />
         <StatCard
           icon={Activity}
-          label="This year"
+          label={t('dashboard.statThisYear')}
           value={summary?.thisYear || 0}
           unit="kg CO₂"
           accent="var(--org-goldstandard)"
-          hint={`${formatNumber(summary?.totalRecords || 0, 0)} entries logged in total`}
+          hint={t('dashboard.entriesLoggedTotal', { count: formatNumber(summary?.totalRecords || 0, 0) })}
           delay={0.06}
         />
         <StatCard
           icon={Leaf}
-          label="Best category"
+          label={t('dashboard.statBestCategory')}
           value={summary?.bestCategory?.thisMonth || 0}
           unit="kg CO₂"
           accent="var(--cat-water)"
@@ -481,19 +484,19 @@ export default function Dashboard() {
           hint={
             summary?.bestCategory
               ? summary.bestCategory.reason === 'largest_reduction'
-                ? `${formatCategory(summary.bestCategory.category)} — your biggest cut this month`
-                : `${formatCategory(summary.bestCategory.category)} — your lowest emitter`
-              : 'No activity logged yet'
+                ? `${formatCategory(summary.bestCategory.category)} — ${t('dashboard.yourBiggestCut')}`
+                : `${formatCategory(summary.bestCategory.category)} — ${t('dashboard.yourLowestEmitter')}`
+              : t('dashboard.noActivityLogged')
           }
           delay={0.12}
         />
         <StatCard
           icon={Target}
-          label="Active goals"
+          label={t('dashboard.statActiveGoals')}
           value={summary?.activeGoals || 0}
           decimals={0}
           accent="var(--cat-electricity)"
-          hint={summary?.activeGoals ? 'In progress right now' : 'No goals set yet'}
+          hint={summary?.activeGoals ? t('dashboard.inProgressNow') : t('dashboard.noGoalsSetYet')}
           delay={0.18}
         />
       </div>
@@ -504,9 +507,9 @@ export default function Dashboard() {
           the tree needed to live somewhere motivating anyway. */}
       <div className="eco-card" style={{ marginBottom: '2.5rem', maxWidth: 460 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <span className="eco-marker">This month's forecast</span>
+          <span className="eco-marker">{t('dashboard.monthForecast')}</span>
           <Link to="/insights" className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
-            Full forecast →
+            {t('dashboard.fullForecast')}
           </Link>
         </div>
         <ForecastGauge compact />
@@ -541,10 +544,10 @@ export default function Dashboard() {
         >
           <div>
             <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>
-              Six-month trend
+              {t('dashboard.sixMonthTrend')}
             </h2>
             <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-              Total emissions per month, oldest to newest
+              {t('dashboard.trendSubtitle')}
             </p>
           </div>
           <span className="eco-marker">kg CO₂ per month</span>
@@ -569,10 +572,10 @@ export default function Dashboard() {
         {/* Doughnut with a custom legend underneath */}
         <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
           <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>
-            Where it comes from
+            {t('dashboard.whereItComesFrom')}
           </h2>
           <p className="eco-text-muted" style={{ margin: '0 0 1.4rem', fontSize: '0.85rem' }}>
-            This month, split by category
+            {t('dashboard.splitByCategory')}
           </p>
 
           {doughnutData.length > 0 ? (
@@ -630,7 +633,7 @@ export default function Dashboard() {
             </>
           ) : (
             <p className="eco-text-muted" style={{ fontSize: '0.9rem' }}>
-              No emissions recorded this month yet.
+              {t('dashboard.noEmissionsThisMonth')}
             </p>
           )}
         </div>
@@ -638,10 +641,10 @@ export default function Dashboard() {
         {/* The pictorial "what does this mean" panel */}
         <ImpactEquivalents
           emissionKg={summary?.thisMonth || 0}
-          title="What this month actually means"
+          title={t('dashboard.whatThisMonthMeans')}
           subtitle={
             summary?.thisMonth
-              ? `${formatNumber(summary.thisMonth, 1)} kg of CO₂, in everyday terms`
+              ? t('dashboard.inEverydayTerms', { value: formatNumber(summary.thisMonth, 1) })
               : ''
           }
         />
@@ -661,10 +664,10 @@ export default function Dashboard() {
         >
           <div>
             <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.25rem' }}>
-              This month against last
+              {t('dashboard.monthAgainstLast')}
             </h2>
             <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-              Category by category — shorter bars are better
+              {t('dashboard.shorterBarsBetter')}
             </p>
           </div>
 
@@ -678,7 +681,7 @@ export default function Dashboard() {
                   background: 'var(--eco-purple)',
                 }}
               />
-              Last month
+              {t('dashboard.lastMonth')}
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <span
@@ -689,7 +692,7 @@ export default function Dashboard() {
                   background: 'var(--eco-primary)',
                 }}
               />
-              This month
+              {t('dashboard.thisMonthLegend')}
             </span>
           </div>
         </div>
@@ -715,7 +718,7 @@ export default function Dashboard() {
           >
             <Lightbulb size={18} style={{ color: 'var(--readout)' }} />
             <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: 0 }}>
-              What the numbers are telling you
+              {t('dashboard.whatNumbersTelling')}
             </h2>
           </div>
 
@@ -788,7 +791,7 @@ export default function Dashboard() {
 
           <div>
             <h2 className="eco-display" style={{ fontSize: '1.25rem', margin: '0 0 0.5rem' }}>
-              Your number in context — <span className="eco-gradient-text">SDG 13</span>
+              {t('dashboard.sdgContextHeading')} <span className="eco-gradient-text">SDG 13</span>
             </h2>
             <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0, maxWidth: '64ch', lineHeight: 1.7 }}>
               To hold warming to 1.5 °C, the average person needs a footprint of
@@ -832,18 +835,16 @@ export default function Dashboard() {
 
           <div style={{ flex: '1 1 260px', minWidth: 0 }}>
             <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.35rem' }}>
-              Cutting your own footprint is one lever
+              {t('dashboard.oneLeverTitle')}
             </h2>
             <p className="eco-text-muted" style={{ fontSize: '0.88rem', lineHeight: 1.6, margin: 0 }}>
-              The other is funding the people already doing it. Anything you give
-              through EcoTrack goes straight on to climate organisations — we keep
-              nothing.
+              {t('dashboard.oneLeverBody')}
             </p>
           </div>
 
           <Link to="/donate" className="eco-btn eco-btn-primary" style={{ flexShrink: 0 }}>
             <Heart size={16} />
-            Give to the cause
+            {t('dashboard.giveToCause')}
           </Link>
         </div>
       </Reveal>
