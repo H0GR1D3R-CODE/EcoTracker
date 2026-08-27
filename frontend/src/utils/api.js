@@ -500,6 +500,8 @@ export const wrappedApi = {
 
 export const communityApi = {
   getImpact: () => api.get('/api/community/impact').then(unwrap),
+  // Public, opt-in only - see routes/community.py's get_leaderboard.
+  getLeaderboard: () => api.get('/api/community/leaderboard').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
@@ -510,6 +512,14 @@ export const learnApi = {
   getProgress: () => api.get('/api/learn/progress').then(unwrap),
   completeModule: (module) =>
     api.post('/api/learn/complete-module', { module }).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// ACHIEVEMENTS (badge unlock rollup - see routes/achievements.py)
+// ---------------------------------------------------------------------------
+
+export const achievementsApi = {
+  getAll: () => api.get('/api/achievements').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

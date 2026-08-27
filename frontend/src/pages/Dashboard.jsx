@@ -30,6 +30,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
+  Award,
   CalendarDays,
   Cloud,
   Flame,
@@ -398,7 +399,7 @@ export default function Dashboard() {
             <ChallengeList onClaimed={() => setRewardsBump((n) => n + 1)} />
           </div>
 
-          <div style={{ marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid var(--rule)' }}>
+          <div style={{ marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid var(--rule)', display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => setShowWrapped(true)}
@@ -407,6 +408,13 @@ export default function Dashboard() {
             >
               <Sparkles size={15} /> {t('dashboard.viewRecap')}
             </button>
+            <Link
+              to="/achievements"
+              className="eco-btn eco-btn-outline"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Award size={15} /> {t('dashboard.viewAchievements')}
+            </Link>
           </div>
         </div>
       </div>

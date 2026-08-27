@@ -50,6 +50,7 @@ from routes.household import household_bp
 from routes.community import community_bp
 from routes.learn import learn_bp
 from routes.voice import voice_bp
+from routes.achievements import achievements_bp
 
 
 def create_app():
@@ -105,6 +106,7 @@ def create_app():
     app.register_blueprint(community_bp)   # /api/community/impact  (public, aggregate-only)
     app.register_blueprint(learn_bp)       # /api/learn/*  (climate literacy quiz progress)
     app.register_blueprint(voice_bp)       # /api/voice/*  (speech-to-log extraction)
+    app.register_blueprint(achievements_bp)  # /api/achievements  (badge unlock rollup)
 
     # -----------------------------------------------------------------------
     # Security headers, on every response

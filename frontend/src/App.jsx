@@ -57,6 +57,7 @@ const Learn = lazy(() => import('./pages/Learn'));
 const Gallery = lazy(() => import('./pages/Gallery'));
 const Estimate = lazy(() => import('./pages/Estimate'));
 const Impact = lazy(() => import('./pages/Impact'));
+const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 const Feedback = lazy(() => import('./pages/Feedback'));
 const Donate = lazy(() => import('./pages/Donate'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -65,6 +66,7 @@ const Insights = lazy(() => import('./pages/Insights'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Household = lazy(() => import('./pages/Household'));
+const Achievements = lazy(() => import('./pages/Achievements'));
 const Profile = lazy(() => import('./pages/Profile'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -264,6 +266,7 @@ export default function App() {
             <Route path="/gallery" element={<MotionPage><Gallery /></MotionPage>} />
             <Route path="/estimate" element={<MotionPage><Estimate /></MotionPage>} />
             <Route path="/impact" element={<MotionPage><Impact /></MotionPage>} />
+            <Route path="/api-docs" element={<MotionPage><ApiDocs /></MotionPage>} />
             <Route path="/feedback" element={<MotionPage><Feedback /></MotionPage>} />
             {/* Donations are deliberately open to everyone - a visitor should
                 never have to make an account before they can support the project. */}
@@ -317,6 +320,14 @@ export default function App() {
               element={
                 <ProtectedRoute userOnly>
                   <MotionPage><Household /></MotionPage>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/achievements"
+              element={
+                <ProtectedRoute userOnly>
+                  <MotionPage><Achievements /></MotionPage>
                 </ProtectedRoute>
               }
             />

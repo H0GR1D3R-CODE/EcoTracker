@@ -24,7 +24,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeftRight, CalendarRange, ChevronDown, Target, ThermometerSun, Users, Zap } from 'lucide-react';
+import { ArrowLeftRight, CalendarRange, ChevronDown, Compass, Target, ThermometerSun, Users, Zap } from 'lucide-react';
 
 import { dashboardApi, insightsApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
@@ -38,7 +38,18 @@ import ActivityHeatmap from '../components/ActivityHeatmap';
 import CohortCurve from '../components/CohortCurve';
 import WeatherContext from '../components/WeatherContext';
 import GridIntensityCard from '../components/GridIntensityCard';
-import { currentMonthISO } from '../utils/formatters';
+import { PathwayChart } from '../components/EmissionChart';
+import { currentMonthISO, formatEmission, formatNumber } from '../utils/formatters';
+
+// The same personal-budget figure Reports.jsx's DAILY_BUDGET_KG and
+// Dashboard's SDG-13 strip already anchor on - 2,000 kg CO2/year is this
+// app's one, consistently-used "1.5°C compatible" personal footprint. Kept
+// as its own named constant here rather than imported, the same independent-
+// but-identical-value pattern this codebase already uses for figures shared
+// across the JS/Python boundary (see emissionHelpers.js's own comment on
+// FALLBACK_PETROL_CAR_FACTOR).
+const ANNUAL_BUDGET_KG = 2000;
+const MONTHLY_BUDGET_KG = ANNUAL_BUDGET_KG / 12;
 
 function Section({ icon: Icon, title, subtitle, children, delay = 0 }) {
   const { prefersReducedMotion } = useTheme();
@@ -69,6 +80,8 @@ export default function Insights() {
   const [swapsData, setSwapsData] = useState(null);
   const [swapsError, setSwapsError] = useState(null);
   const [baselineTotal, setBaselineTotal] = useState(null);
+  const [yearToDateKg, setYearToDateKg] = useState(null);
+  const [pathwayChart, setPathwayChart] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [gridData, setGridData] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -81,8 +94,23 @@ export default function Insights() {
 
     dashboardApi
       .getSummary()
-      .then((data) => setBaselineTotal(data.thisMonth))
-      .catch(() => setBaselineTotal(0));
+      .then((data) => {
+        setBaselineTotal(data.thisMonth);
+        setYearToDateKg(data.thisYear || 0);
+      })
+      .catch(() => {
+        setBaselineTotal(0);
+        setYearToDateKg(0);
+      });
+
+    // A trailing 12 months, not "since January" - the trend line's own
+    // months already come from this same endpoint (Dashboard uses 6), so
+    // reusing it rather than adding a new route keeps one source of truth
+    // for "monthly total" everywhere it is charted.
+    dashboardApi
+      .getMonthlyChart(12)
+      .then(setPathwayChart)
+      .catch(() => {});
 
     insightsApi
       .getWeather()
@@ -96,6 +124,27 @@ export default function Insights() {
   }, []);
 
   const showWeather = weatherData && weatherData.status !== 'weather_unavailable' && weatherData.status !== 'insufficient_data';
+
+  // A straight-line projection from this calendar year's own pace, not a
+  // model - "if the rest of the year looks like the part that has already
+  // happened" is exactly as much certainty as a partial year of real data
+  // actually supports, and saying so plainly beats dressing up a simple
+  // average as a forecast. monthsElapsed is never 0: getMonth() is 0-indexed,
+  // so January alone already reads as 1.
+  const monthsElapsed = new Date().getMonth() + 1;
+  const projectedAnnualKg = yearToDateKg !== null ? (yearToDateKg / monthsElapsed) * 12 : null;
+  const percentVsBudget =
+    projectedAnnualKg !== null ? ((projectedAnnualKg - ANNUAL_BUDGET_KG) / ANNUAL_BUDGET_KG) * 100 : null;
+  const monthsRemaining = 12 - monthsElapsed;
+  const remainingBudgetKg = yearToDateKg !== null ? ANNUAL_BUDGET_KG - yearToDateKg : null;
+  // Only a meaningful number with real months left AND real budget left -
+  // showing "-4 kg/month" once the year is already over budget would read
+  // as an instruction to emit a NEGATIVE amount, which is not a pace anyone
+  // can actually hit; the copy below switches to a plain "over" framing instead.
+  const paceNeededKg =
+    remainingBudgetKg !== null && monthsRemaining > 0 && remainingBudgetKg > 0
+      ? remainingBudgetKg / monthsRemaining
+      : null;
 
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem' }}>
@@ -111,6 +160,93 @@ export default function Insights() {
 
       <Section icon={Target} title="Month-end forecast" subtitle="Projected from your own logging pattern, with an honest range of uncertainty.">
         <ForecastGauge />
+      </Section>
+
+      {/* Always visible, not behind "Show more analysis" - this is meant to
+          answer "am I actually on a 1.5°C-aligned path", which deserves the
+          same first-glance visibility as the month-end forecast above it,
+          not to be one more panel someone has to opt into finding. */}
+      <Section
+        icon={Compass}
+        title="Your pathway to a 1.5°C-aligned year"
+        subtitle="A personal footprint of 2,000 kg CO₂ a year (about 167 kg a month) is the figure widely cited as consistent with holding warming to 1.5°C - the same budget line the Dashboard's SDG-13 strip already references."
+      >
+        {yearToDateKg === null || !pathwayChart ? (
+          <SkeletonCard lines={2} height={220} />
+        ) : (
+          <>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '1.4rem',
+                marginBottom: '1.6rem',
+              }}
+            >
+              <div>
+                <span className="eco-marker" style={{ display: 'block', marginBottom: '0.3rem' }}>
+                  Projected this year
+                </span>
+                <span
+                  className="eco-readout"
+                  style={{
+                    fontSize: '1.4rem',
+                    fontWeight: 500,
+                    color: percentVsBudget > 0 ? 'var(--readout)' : 'var(--eco-primary)',
+                  }}
+                >
+                  {formatEmission(projectedAnnualKg, { compact: true })}
+                </span>
+                <div className="eco-text-muted" style={{ fontSize: '0.78rem', marginTop: '0.2rem' }}>
+                  at your year-to-date pace
+                </div>
+              </div>
+
+              <div>
+                <span className="eco-marker" style={{ display: 'block', marginBottom: '0.3rem' }}>
+                  Versus the budget
+                </span>
+                <span
+                  className="eco-readout"
+                  style={{
+                    fontSize: '1.4rem',
+                    fontWeight: 500,
+                    color: percentVsBudget > 0 ? 'var(--readout)' : 'var(--eco-primary)',
+                  }}
+                >
+                  {percentVsBudget > 0 ? '+' : ''}
+                  {formatNumber(percentVsBudget, 0)}%
+                </span>
+                <div className="eco-text-muted" style={{ fontSize: '0.78rem', marginTop: '0.2rem' }}>
+                  {percentVsBudget > 0 ? 'over the 2,000 kg line' : 'under the 2,000 kg line'}
+                </div>
+              </div>
+
+              <div>
+                <span className="eco-marker" style={{ display: 'block', marginBottom: '0.3rem' }}>
+                  Pace for the rest of the year
+                </span>
+                <span className="eco-readout" style={{ fontSize: '1.4rem', fontWeight: 500 }}>
+                  {paceNeededKg !== null ? formatEmission(paceNeededKg, { compact: true }) : '—'}
+                </span>
+                <div className="eco-text-muted" style={{ fontSize: '0.78rem', marginTop: '0.2rem' }}>
+                  {paceNeededKg !== null
+                    ? 'a month, to land inside budget'
+                    : monthsRemaining <= 0
+                      ? 'the year is already over'
+                      : 'already past this year’s budget'}
+                </div>
+              </div>
+            </div>
+
+            <PathwayChart
+              labels={pathwayChart.labels}
+              data={pathwayChart.data}
+              budgetPerMonth={MONTHLY_BUDGET_KG}
+              height={260}
+            />
+          </>
+        )}
       </Section>
 
       <motion.section

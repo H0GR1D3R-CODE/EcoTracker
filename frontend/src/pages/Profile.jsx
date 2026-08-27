@@ -30,6 +30,7 @@ import {
   EyeOff,
   KeyRound,
   Leaf,
+  Loader2,
   Mail,
   MapPin,
   Moon,
@@ -38,6 +39,7 @@ import {
   Sparkles,
   Sun,
   Target,
+  Trophy,
   Type,
   User,
   Waves,
@@ -134,6 +136,39 @@ export default function Profile() {
     }
   };
 
+  // --- opt-in public leaderboard ---
+  const [togglingLeaderboard, setTogglingLeaderboard] = useState(false);
+  const [aliasInput, setAliasInput] = useState(profile?.leaderboardAlias || '');
+  const [savingAlias, setSavingAlias] = useState(false);
+
+  const handleLeaderboardToggle = async () => {
+    if (togglingLeaderboard) return;
+    setTogglingLeaderboard(true);
+    try {
+      await updateProfile({ leaderboardOptIn: !profile?.leaderboardOptIn });
+      toast.success(
+        profile?.leaderboardOptIn ? 'Removed from the public leaderboard.' : 'Added to the public leaderboard.'
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setTogglingLeaderboard(false);
+    }
+  };
+
+  const handleAliasSave = async () => {
+    if (savingAlias) return;
+    setSavingAlias(true);
+    try {
+      await updateProfile({ leaderboardAlias: aliasInput.trim() });
+      toast.success('Leaderboard name saved.');
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSavingAlias(false);
+    }
+  };
+
   // --- push notifications ---
   // pushEnabled starts from localStorage synchronously (no flash of "off"
   // before an effect runs) - see utils/pushNotifications.js for why a token
@@ -172,6 +207,7 @@ export default function Profile() {
   useEffect(() => {
     if (profile) {
       setForm({ name: profile.name || '', region: profile.region || 'India' });
+      setAliasInput(profile.leaderboardAlias || '');
     }
   }, [profile]);
 
@@ -756,6 +792,82 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      {/* ---------- Public leaderboard opt-in ---------- */}
+      {/* Off by default. See routes/community.py's get_leaderboard: opting
+          in publishes only a points total and either a chosen alias or a
+          masked first-name-plus-initial - never a full name, email, or
+          region - to a page anyone can view without signing in. */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.03 }}
+        className="eco-card"
+        style={{ marginTop: '1.3rem' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1.2rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.7rem' }}>
+            <Trophy size={17} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.4rem' }}>
+                Public leaderboard
+              </h3>
+              <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.6, maxWidth: '48ch' }}>
+                {profile?.leaderboardOptIn
+                  ? 'On. Your points and an alias (or a masked name) show on the public Impact page - never your email or region.'
+                  : 'Off. Turn this on to appear on the public "top reducers" list at /impact, ranked by lifetime points, not by whose footprint is smaller.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleLeaderboardToggle}
+            disabled={togglingLeaderboard}
+            className={`eco-btn ${profile?.leaderboardOptIn ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+            style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', flexShrink: 0 }}
+          >
+            {togglingLeaderboard ? (
+              <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+            ) : profile?.leaderboardOptIn ? (
+              'On'
+            ) : (
+              'Off'
+            )}
+          </button>
+        </div>
+
+        {profile?.leaderboardOptIn && (
+          <div style={{ marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid var(--rule)', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+              <label
+                htmlFor="leaderboard-alias"
+                className="eco-text-muted"
+                style={{ fontSize: '0.72rem', fontWeight: 500, display: 'block', marginBottom: 6 }}
+              >
+                Leaderboard name (optional)
+              </label>
+              <input
+                id="leaderboard-alias"
+                type="text"
+                className="form-control"
+                placeholder="Leave blank to show a masked name"
+                value={aliasInput}
+                onChange={(event) => setAliasInput(event.target.value)}
+                maxLength={24}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleAliasSave}
+              disabled={savingAlias || aliasInput.trim() === (profile?.leaderboardAlias || '')}
+              className="eco-btn eco-btn-outline"
+              style={{ padding: '0.55rem 1rem', fontSize: '0.85rem' }}
+            >
+              {savingAlias ? <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} /> : 'Save'}
+            </button>
+          </div>
+        )}
+      </motion.div>
 
       {/* ---------- Push notifications ---------- */}
       {/* Only rendered once this deployment actually has a VAPID key - see

@@ -106,6 +106,11 @@ def _serialize_user(doc_id, data):
         # isoformat() only exists on datetime objects, so check before calling it
         "createdAt": created_at.isoformat() if created_at else None,
         "twoFactorEnabled": bool(data.get("twoFactorEnabled", False)),
+        # Off by default - see routes/community.py's get_leaderboard for what
+        # opting in actually exposes (an alias and a points total, never the
+        # real name unless the alias field is left blank).
+        "leaderboardOptIn": bool(data.get("leaderboardOptIn", False)),
+        "leaderboardAlias": data.get("leaderboardAlias", ""),
     }
 
 
@@ -667,13 +672,15 @@ def get_profile():
 @require_auth
 def update_profile():
     """
-    Update the editable parts of the profile (name and region).
+    Update the editable parts of the profile (name, region, and the two
+    leaderboard-privacy fields).
 
     Email is deliberately NOT editable here - changing an email address has to
     go through Firebase Auth itself, otherwise the Auth account and the Firestore
     profile would disagree about who the user is.
 
-    Body: {"name": "Aadi S", "region": "Karnataka"}
+    Body: {"name": "Aadi S", "region": "Karnataka", "leaderboardOptIn": true,
+           "leaderboardAlias": "EcoWarrior"}
     """
     body = request.get_json(silent=True) or {}
 
@@ -707,8 +714,21 @@ def update_profile():
             )
         updates["region"] = region
 
+    if "leaderboardOptIn" in body:
+        updates["leaderboardOptIn"] = bool(body.get("leaderboardOptIn"))
+
+    if "leaderboardAlias" in body:
+        alias = _clean_text(body.get("leaderboardAlias"))
+        if len(alias) > 24:
+            return api_error(
+                "Leaderboard name must be 24 characters or fewer.",
+                400,
+                code="invalid_alias",
+            )
+        updates["leaderboardAlias"] = alias
+
     if not updates:
-        return api_error("Nothing to update. Send a name or a region.", 400, code="empty_update")
+        return api_error("Nothing to update. Send a name, region, or leaderboard preference.", 400, code="empty_update")
 
     user_ref.update(updates)  # update() only touches the listed fields
 

@@ -472,4 +472,87 @@ export function InterventionTrendChart({ labels = [], shown = [], accepted = [],
   );
 }
 
+// ---------------------------------------------------------------------------
+// PATHWAY CHART - monthly totals as bars, colour-coded against a flat
+// "sustainable pace" reference line, for the science-based target tracker
+// on Insights.jsx. Each bar is green if that month sat at or under the
+// 1.5°C-aligned monthly budget, the instrument amber if it ran over - the
+// same amber this app already uses for "needs attention" elsewhere (see
+// Dashboard's TONE_STYLES), not a new colour meaning introduced here.
+// ---------------------------------------------------------------------------
+
+export function PathwayChart({ labels = [], data = [], budgetPerMonth = 0, height = 300 }) {
+  const baseOptions = useBaseOptions();
+  const { theme } = useTheme();
+
+  const chartData = useMemo(() => {
+    const primary = readCssVariable('--eco-primary', '#4fbe80');
+    const readout = readCssVariable('--readout', '#c9a04e');
+    const muted = readCssVariable('--eco-text-muted', '#93a58c');
+
+    return {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Monthly total',
+          data,
+          backgroundColor: data.map((value) =>
+            value <= budgetPerMonth ? `${primary}99` : `${readout}99`
+          ),
+          borderColor: data.map((value) => (value <= budgetPerMonth ? primary : readout)),
+          borderWidth: 1,
+          borderRadius: 6,
+          borderSkipped: false,
+          order: 2,
+        },
+        {
+          type: 'line',
+          label: '1.5°C-aligned pace',
+          data: labels.map(() => budgetPerMonth),
+          borderColor: muted,
+          borderWidth: 2,
+          borderDash: [6, 5],
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false,
+          order: 1,
+        },
+      ],
+    };
+  }, [labels, data, budgetPerMonth, theme]);
+
+  const options = useMemo(
+    () => ({
+      ...baseOptions,
+      plugins: {
+        ...baseOptions.plugins,
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: {
+            boxWidth: 10,
+            color: readCssVariable('--eco-text-muted', '#93a58c'),
+            font: { family: 'Inter, sans-serif', size: 11 },
+          },
+        },
+        tooltip: {
+          ...baseOptions.plugins.tooltip,
+          callbacks: {
+            label: (item) => ` ${item.dataset.label}: ${item.parsed.y.toFixed(1)} kg CO₂`,
+          },
+        },
+      },
+    }),
+    [baseOptions]
+  );
+
+  return (
+    <div style={{ height }}>
+      <Bar data={chartData} options={options} />
+    </div>
+  );
+}
+
 export default TrendLineChart;

@@ -7,8 +7,9 @@
 // there is no threshold to enforce.
 
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Globe2, Sprout, TrendingDown, Users } from 'lucide-react';
+import { Award, Globe2, Sprout, TrendingDown, Trophy, Users } from 'lucide-react';
 
 import { communityApi } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
@@ -39,12 +40,22 @@ export default function Impact() {
   const { prefersReducedMotion } = useTheme();
   const [stats, setStats] = useState(null);
   const [error, setError] = useState(false);
+  const [leaderboard, setLeaderboard] = useState(null);
 
   useEffect(() => {
     communityApi
       .getImpact()
       .then(setStats)
       .catch(() => setError(true));
+
+    // Its own request, its own failure mode - a leaderboard that fails to
+    // load is not a reason to hide the aggregate figures above it, so this
+    // has no shared error state with `stats`. Silently absent on failure:
+    // this section is additive, not the page's main point.
+    communityApi
+      .getLeaderboard()
+      .then(setLeaderboard)
+      .catch(() => {});
   }, []);
 
   const totalCategoryKg = stats
@@ -167,6 +178,65 @@ export default function Impact() {
                 Refreshed every few hours. Aggregate figures only - EcoTrack never publishes any
                 individual user's data.
               </p>
+
+              {/* --- opt-in leaderboard --- */}
+              {leaderboard && leaderboard.entries.length > 0 && (
+                <div style={{ marginTop: '3.5rem', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.5rem' }}>
+                    <Trophy size={17} style={{ color: 'var(--readout)' }} />
+                    <span className="eco-marker">Top reducers</span>
+                  </div>
+                  <p className="eco-text-muted" style={{ fontSize: '0.85rem', margin: '0 0 1.4rem', maxWidth: 560 }}>
+                    Ranked by lifetime effort points, not by whose life happens to produce less
+                    carbon - the same reasoning a household leaderboard uses. Entirely opt-in;
+                    turn it on for your own account from Profile.
+                  </p>
+
+                  <div style={{ display: 'grid', gap: 0, maxWidth: 520 }}>
+                    {leaderboard.entries.slice(0, 15).map((entry, index) => (
+                      <div
+                        key={`${entry.displayName}-${index}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.9rem',
+                          padding: '0.65rem 0',
+                          borderTop: index === 0 ? '1px solid var(--rule-strong)' : '1px solid var(--rule)',
+                        }}
+                      >
+                        <span
+                          className="eco-readout"
+                          style={{ fontSize: '0.82rem', fontWeight: 600, width: 24, flexShrink: 0 }}
+                        >
+                          {index + 1}
+                        </span>
+                        <span style={{ flex: 1, minWidth: 0, fontSize: '0.9rem' }}>{entry.displayName}</span>
+                        <span className="eco-text-muted" style={{ fontSize: '0.78rem' }}>
+                          {entry.stageLabel}
+                        </span>
+                        <span
+                          className="eco-readout"
+                          style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap' }}
+                        >
+                          {formatNumber(entry.rewardPoints, 0)} pts
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* --- research API --- */}
+              <div style={{ marginTop: '3rem', paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)', display: 'flex', alignItems: 'center', gap: '0.9rem', flexWrap: 'wrap' }}>
+                <Award size={17} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
+                <p className="eco-text-muted" style={{ fontSize: '0.85rem', margin: 0, flex: '1 1 320px' }}>
+                  Every figure on this page is available as a free, public API for research or
+                  education - no key required.
+                </p>
+                <Link to="/api-docs" className="eco-btn eco-btn-outline" style={{ flexShrink: 0, fontSize: '0.82rem', padding: '0.5rem 1rem' }}>
+                  View the API docs
+                </Link>
+              </div>
             </>
           )}
         </div>

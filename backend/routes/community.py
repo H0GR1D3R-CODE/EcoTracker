@@ -26,6 +26,7 @@ Mounted at /api/community
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint
+from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
 from routes import api_success
@@ -33,6 +34,8 @@ from routes import api_success
 community_bp = Blueprint("community", __name__, url_prefix="/api/community")
 
 COMMUNITY_CACHE_HOURS = 6
+LEADERBOARD_CACHE_HOURS = 1
+LEADERBOARD_SIZE = 50
 
 # US Forest Service: a mature tree absorbs roughly 21 kg CO2 per year - the
 # same figure frontend/src/components/ImpactEquivalents.jsx and
@@ -110,3 +113,100 @@ def get_impact():
 
     stats = {k: v for k, v in stats.items() if k != "computedAt"}
     return api_success(stats)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/community/leaderboard        (PUBLIC - opt-in only, no token required)
+# ---------------------------------------------------------------------------
+
+LEADERBOARD_DOC_ID = "leaderboard"
+
+
+def _display_name(user_data):
+    """
+    An opted-in alias if one was set, otherwise a first-name-plus-initial
+    fallback built from the real name - never the full name unmasked. See
+    routes/auth.py's update_profile for where leaderboardAlias is set: it is
+    a SEPARATE opt-in from leaderboardOptIn itself, so leaving it blank must
+    not fall back to publishing a full real name to a logged-out visitor.
+    """
+    alias = (user_data.get("leaderboardAlias") or "").strip()
+    if alias:
+        return alias
+
+    name = (user_data.get("name") or "").strip()
+    if not name:
+        return "EcoTrack member"
+
+    parts = name.split()
+    if len(parts) == 1:
+        return parts[0]
+    return f"{parts[0]} {parts[-1][0]}."
+
+
+def _compute_leaderboard():
+    db = get_db()
+    # Imported here rather than at module load time to match the existing
+    # convention (household.py imports the same helper from engagement.py
+    # at its own top level; kept local here only because community.py and
+    # engagement.py have no other reason to know about each other).
+    from routes.engagement import _tree_progress
+
+    entries = []
+    total_opted_in = 0
+    for doc in (
+        db.collection(Config.COLLECTION_USERS)
+        .where(filter=gcloud_firestore.FieldFilter("leaderboardOptIn", "==", True))
+        .stream()
+    ):
+        data = doc.to_dict() or {}
+        total_opted_in += 1
+        points = data.get("rewardPoints", 0)
+        # Someone who opted in but has never earned a point yet would only
+        # ever sit at the bottom of a long tie, so they are left off the
+        # RANKED list (though still counted in totalOptedIn above) rather
+        # than padding entries with zero-point rows - the same reasoning
+        # community.py's own aggregate stats keep to real, already-happened
+        # activity rather than potential activity.
+        if not points:
+            continue
+        entries.append({
+            "displayName": _display_name(data),
+            "rewardPoints": points,
+            "stageLabel": _tree_progress(points)["stageLabel"],
+        })
+
+    entries.sort(key=lambda entry: entry["rewardPoints"], reverse=True)
+    top = entries[:LEADERBOARD_SIZE]
+
+    result = {
+        "entries": top,
+        "totalOptedIn": total_opted_in,
+        "computedAt": datetime.now(timezone.utc),
+    }
+    db.collection("communityStats").document(LEADERBOARD_DOC_ID).set(result)
+    return result
+
+
+@community_bp.route("/leaderboard", methods=["GET"])
+def get_leaderboard():
+    """Public - no @require_auth. Only ever shows users who explicitly set
+    leaderboardOptIn (see routes/auth.py's update_profile), and only their
+    alias (or a masked first-name-plus-initial) and lifetime points - never
+    an email, region, or anything else from their profile."""
+    db = get_db()
+    doc = db.collection("communityStats").document(LEADERBOARD_DOC_ID).get()
+    result = doc.to_dict() if doc.exists else None
+
+    stale = True
+    if result:
+        computed_at = result.get("computedAt")
+        stale = (not computed_at) or (
+            datetime.now(timezone.utc) - computed_at > timedelta(hours=LEADERBOARD_CACHE_HOURS)
+        )
+
+    if result is None or stale:
+        result = _compute_leaderboard()
+
+    result = {k: v for k, v in result.items() if k != "computedAt"}
+    return api_success(result)
