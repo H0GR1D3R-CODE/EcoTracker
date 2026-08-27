@@ -183,6 +183,37 @@ export default function Profile() {
     }
   };
 
+  // --- public "my climate journey" page ---
+  // A separate opt-in from the leaderboard above - see routes/auth.py's
+  // publicProfileOptIn comment for why these are two different choices.
+  const [togglingJourney, setTogglingJourney] = useState(false);
+
+  const journeyUrl = user ? `${window.location.origin}/journey/${user.uid}` : '';
+
+  const handleJourneyToggle = async () => {
+    if (togglingJourney) return;
+    setTogglingJourney(true);
+    try {
+      await updateProfile({ publicProfileOptIn: !profile?.publicProfileOptIn });
+      toast.success(
+        profile?.publicProfileOptIn ? 'Your journey page is now private.' : 'Your journey page is now public.'
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setTogglingJourney(false);
+    }
+  };
+
+  const handleCopyJourneyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(journeyUrl);
+      toast.success('Link copied.');
+    } catch {
+      toast.error('Could not copy the link. Copy it from the address bar instead.');
+    }
+  };
+
   // --- recurring activity reminders ---
   const [reminders, setReminders] = useState(null);
   const [factors, setFactors] = useState(null);
@@ -982,6 +1013,65 @@ export default function Profile() {
               style={{ padding: '0.55rem 1rem', fontSize: '0.85rem' }}
             >
               {savingAlias ? <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} /> : 'Save'}
+            </button>
+          </div>
+        )}
+      </motion.div>
+
+      {/* ---------- Public "my climate journey" page ---------- */}
+      {/* Ties badges, streak and tree stage into one shareable link - a
+          separate opt-in from the leaderboard above (routes/auth.py's
+          publicProfileOptIn), reusing the same alias field for its display
+          name since both surfaces ask the identical question. */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.02 }}
+        className="eco-card"
+        style={{ marginTop: '1.3rem' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1.2rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.7rem' }}>
+            <Sparkles size={17} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.4rem' }}>
+                Public journey page
+              </h3>
+              <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.6, maxWidth: '48ch' }}>
+                {profile?.publicProfileOptIn
+                  ? 'On. Anyone with the link can see your badges, streak and tree stage - never an email, region, or raw activity.'
+                  : 'Off. Turn this on for a shareable link showing your badges, streak and tree stage - the same badges Achievements tracks.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleJourneyToggle}
+            disabled={togglingJourney}
+            className={`eco-btn ${profile?.publicProfileOptIn ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+            style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', flexShrink: 0 }}
+          >
+            {togglingJourney ? (
+              <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+            ) : profile?.publicProfileOptIn ? (
+              'On'
+            ) : (
+              'Off'
+            )}
+          </button>
+        </div>
+
+        {profile?.publicProfileOptIn && (
+          <div style={{ marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid var(--rule)', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="form-control"
+              value={journeyUrl}
+              readOnly
+              style={{ flex: '1 1 260px', fontSize: '0.85rem' }}
+            />
+            <button type="button" onClick={handleCopyJourneyLink} className="eco-btn eco-btn-outline" style={{ fontSize: '0.85rem' }}>
+              Copy link
             </button>
           </div>
         )}

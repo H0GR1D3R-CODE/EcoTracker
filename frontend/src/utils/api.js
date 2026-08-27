@@ -528,6 +528,9 @@ export const communityApi = {
   getImpact: () => api.get('/api/community/impact').then(unwrap),
   // Public, opt-in only - see routes/community.py's get_leaderboard.
   getLeaderboard: () => api.get('/api/community/leaderboard').then(unwrap),
+
+  // Public, opt-in only - see routes/community.py's get_journey.
+  getJourney: (uid) => api.get(`/api/community/journey/${uid}`).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

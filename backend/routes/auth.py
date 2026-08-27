@@ -112,6 +112,14 @@ def _serialize_user(doc_id, data):
         # real name unless the alias field is left blank).
         "leaderboardOptIn": bool(data.get("leaderboardOptIn", False)),
         "leaderboardAlias": data.get("leaderboardAlias", ""),
+        # A separate opt-in from leaderboardOptIn above - someone might want
+        # a shareable "my climate journey" page (routes/community.py's
+        # get_journey) without wanting to be ranked against other users, or
+        # the other way round. Reuses the same leaderboardAlias for its
+        # display name rather than a third field, since both are "what
+        # should strangers call me" and there is no reason for that answer
+        # to differ between the two surfaces.
+        "publicProfileOptIn": bool(data.get("publicProfileOptIn", False)),
     }
 
 
@@ -777,6 +785,9 @@ def update_profile():
                 code="invalid_alias",
             )
         updates["leaderboardAlias"] = alias
+
+    if "publicProfileOptIn" in body:
+        updates["publicProfileOptIn"] = bool(body.get("publicProfileOptIn"))
 
     if not updates:
         return api_error("Nothing to update. Send a name, region, or leaderboard preference.", 400, code="empty_update")

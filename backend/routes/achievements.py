@@ -45,11 +45,15 @@ def _badge(key, label, description, unlocked, progress_text=None):
     }
 
 
-@achievements_bp.route("", methods=["GET"])
-@require_auth
-def get_achievements():
+def compute_achievements(uid):
+    """
+    The actual badge computation, factored out of the route below so
+    routes/community.py's public journey page can reuse the identical
+    logic for an arbitrary (opted-in) uid rather than a second, driftable
+    copy of it. Not decorated, not gated - the CALLER decides who is
+    allowed to ask for which uid's badges; this function just computes them.
+    """
     db = get_db()
-    uid = g.uid
 
     # --- logging volume ---
     window_start = (date.today() - timedelta(days=STREAK_LOOKBACK_DAYS)).isoformat()
@@ -147,8 +151,21 @@ def get_achievements():
 
     unlocked_count = sum(1 for b in badges if b["unlocked"])
 
-    return api_success({
+    return {
         "badges": badges,
         "unlockedCount": unlocked_count,
         "totalCount": len(badges),
-    })
+        # Returned for callers that need it too (routes/community.py's
+        # journey page shows streak/tree/entry stats alongside badges) so
+        # they do not have to recompute _tree_progress/_compute_streak a
+        # second time for the same uid.
+        "longestStreak": longest_streak,
+        "totalRecords": total_records,
+        "tree": tree,
+    }
+
+
+@achievements_bp.route("", methods=["GET"])
+@require_auth
+def get_achievements():
+    return api_success(compute_achievements(g.uid))

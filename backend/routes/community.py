@@ -210,3 +210,57 @@ def get_leaderboard():
 
     result = {k: v for k, v in result.items() if k != "computedAt"}
     return api_success(result)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/community/journey/<uid>        (PUBLIC - opt-in only, no token required)
+# ---------------------------------------------------------------------------
+
+@community_bp.route("/journey/<uid>", methods=["GET"])
+def get_journey(uid):
+    """
+    A shareable "my climate journey" page - one user's badges, streak and
+    tree stage, at a stable URL anyone can open without signing in. A
+    separate opt-in from the leaderboard (routes/auth.py's
+    publicProfileOptIn), so someone can have one without the other.
+
+    404, NOT 403, WHEN NOT OPTED IN
+    Returning "forbidden" for a real uid that has not opted in would still
+    confirm that uid belongs to a real account - the same reasoning
+    routes/auth.py's forgot-password route already applies to email
+    enumeration. A uid that does not exist and a uid that exists but is
+    private both get the identical "not found" response.
+    """
+    db = get_db()
+    user_doc = db.collection(Config.COLLECTION_USERS).document(uid).get()
+
+    if not user_doc.exists or not user_doc.to_dict().get("publicProfileOptIn"):
+        return api_error("This journey page does not exist or is not public.", 404, code="journey_not_found")
+
+    user_data = user_doc.to_dict()
+
+    # Imported here for the same reason _compute_leaderboard imports
+    # _tree_progress locally above - no other reason for this file to know
+    # about engagement.py or achievements.py at module load time.
+    from routes.achievements import compute_achievements
+
+    achievements = compute_achievements(uid)
+    created_at = user_data.get("createdAt")
+
+    return api_success({
+        "displayName": _display_name(user_data),
+        # Year and month only, never the exact day - a stable, low-
+        # resolution "how long they have been tracking" fact rather than a
+        # precise timestamp a stranger has no reason to see.
+        "memberSince": created_at.strftime("%Y-%m") if created_at else None,
+        "stageLabel": achievements["tree"]["stageLabel"],
+        "stageIndex": achievements["tree"]["stageIndex"],
+        "treesGrown": achievements["tree"]["treesGrown"],
+        "currentTreePoints": achievements["tree"]["currentTreePoints"],
+        "pointsPerTree": achievements["tree"]["pointsPerTree"],
+        "longestStreak": achievements["longestStreak"],
+        "totalEntriesLogged": achievements["totalRecords"],
+        "badges": achievements["badges"],
+        "unlockedCount": achievements["unlockedCount"],
+        "totalCount": achievements["totalCount"],
+    })
