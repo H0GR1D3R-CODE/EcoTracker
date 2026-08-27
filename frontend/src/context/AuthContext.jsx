@@ -453,18 +453,20 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Save changes to the user's name, region, or leaderboard-privacy
-   * preferences. Only the fields actually passed are sent - see
-   * backend/routes/auth.py's update_profile, which only touches whatever
-   * keys are present in the request body.
+   * Save changes to the user's name, region, or any of the privacy
+   * preferences (leaderboard opt-in/alias, public journey page opt-in).
+   * Only the fields actually passed are sent - see backend/routes/auth.py's
+   * update_profile, which only touches whatever keys are present in the
+   * request body.
    */
-  const updateProfile = useCallback(async ({ name, region, leaderboardOptIn, leaderboardAlias }) => {
+  const updateProfile = useCallback(async ({ name, region, leaderboardOptIn, leaderboardAlias, publicProfileOptIn }) => {
     try {
       const body = {};
       if (name !== undefined) body.name = name;
       if (region !== undefined) body.region = region;
       if (leaderboardOptIn !== undefined) body.leaderboardOptIn = leaderboardOptIn;
       if (leaderboardAlias !== undefined) body.leaderboardAlias = leaderboardAlias;
+      if (publicProfileOptIn !== undefined) body.publicProfileOptIn = publicProfileOptIn;
 
       const data = await authApi.updateProfile(body);
       setProfile(data);
