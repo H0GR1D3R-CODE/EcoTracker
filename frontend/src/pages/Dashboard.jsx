@@ -2,21 +2,36 @@
 // The main screen for a signed-in user.
 //
 // SECTIONS, IN ORDER
-//   1.  Greeting and last-updated line
-//   2.  Streak & reward tree    - moved to the top, deliberately - motivation to
-//                                 log something works best the moment the app
-//                                 opens, not several scrolls down. See
-//                                 components/{StreakFlame,RewardTree,ChallengeList}.jsx
-//   3.  Four stat cards        - this month, this year, best category, active goals
-//   4.  Forecast (compact)     - full detail lives on /insights
-//   5.  The bigger picture     - photo-led context (GlobalPictureSection)
-//   6.  Six-month trend line   - is the footprint going up or down over time
-//   7.  Category doughnut      - what the footprint is made of, right now
-//   8.  Impact equivalents     - what the number actually means in real terms
-//   9.  This month vs last     - which categories moved, and in which direction
-//   10. Insights               - plain-English observations drawn from the data
-//   11. SDG 13 context strip   - ties the personal number to the global goal
-//   12. Give to the cause      - donation CTA, last on purpose
+//   1.  Greeting and last-updated line - the page's one hero photograph
+//   2.  Quick actions          - plain text links, no photo: activity log
+//                                 (search/edit/undo/CSV import) and the public
+//                                 climate journey page, both easy to lose
+//                                 track of behind a nav link or a Profile
+//                                 toggle
+//   3.  Streak & reward tree    - motivation to log something works best the
+//                                 moment the app opens, not several scrolls
+//                                 down. See
+//                                 components/{StreakFlame,RewardTree,ChallengeList}.jsx.
+//                                 Used to carry its own photo too - cut, since
+//                                 stacked right under the banner's it just
+//                                 doubled up the same opening image rather
+//                                 than adding anything
+//   4.  Four stat cards        - this month, this year, best category, active goals
+//   4a. AI-suggested goal      - one real next step, grounded in the numbers
+//                                 just above (AiPlanCard.jsx - hides itself
+//                                 when there is nothing to suggest)
+//   5.  Forecast (compact)     - full detail lives on /insights
+//   6.  The bigger picture     - this page's only OTHER photography
+//                                 (GlobalPictureSection), kept deliberately
+//                                 singular so it still reads as a considered
+//                                 photo essay rather than one of several
+//   7.  Six-month trend line   - is the footprint going up or down over time
+//   8.  Category doughnut      - what the footprint is made of, right now
+//   9.  Impact equivalents     - what the number actually means in real terms
+//   10. This month vs last     - which categories moved, and in which direction
+//   11. Insights               - plain-English observations drawn from the data
+//   12. SDG 13 context strip   - ties the personal number to the global goal
+//   13. Give to the cause      - donation CTA, last on purpose
 //
 // Every figure comes from GET /api/dashboard/summary. The page does no emission
 // maths of its own: the backend calculated and stored each value when the user
@@ -38,8 +53,10 @@ import {
   Info,
   Leaf,
   Lightbulb,
+  ListChecks,
   Plus,
   RefreshCw,
+  Share2,
   Sparkles,
   Target,
   TrendingDown,
@@ -54,13 +71,12 @@ import ImpactEquivalents from '../components/ImpactEquivalents';
 import PageBanner from '../components/PageBanner';
 import Reveal from '../components/Reveal';
 import GlobalPictureSection from '../components/GlobalPictureSection';
-import Photo from '../components/Photo';
-import { PHOTOS } from '../utils/photos';
 import ForecastGauge from '../components/ForecastGauge';
 import StreakFlame from '../components/StreakFlame';
 import RewardTree from '../components/RewardTree';
 import ChallengeList from '../components/ChallengeList';
 import WrappedCard from '../components/WrappedCard';
+import AiPlanCard from '../components/AiPlanCard';
 import {
   CategoryDoughnutChart,
   ComparisonBarChart,
@@ -172,7 +188,7 @@ const TONE_STYLES = {
 // ---------------------------------------------------------------------------
 
 export default function Dashboard() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const { t } = useTranslation();
   const {
@@ -335,87 +351,114 @@ export default function Dashboard() {
         }
       />
 
-      {/* ============ 2. STREAK & REWARD TREE ============ */}
-      {/* First thing on the page after the banner, on purpose - the whole
-          point of a streak and a growing tree is to be the thing that
-          nudges someone to log something the moment they open the app, not
-          a detail they might scroll past. Shown even with zero history: a
-          fresh account's streak is 0 and its tree is a bare seed, which is
-          itself the invitation to log a first entry, not a state worth
-          hiding until there is something to show. */}
+      {/* ============ 2. QUICK ACTIONS ============ */}
+      {/* One plain row, no photographs - the banner right above already
+          carries this page's opening image, and stacking a second one here
+          (the streak card used to have its own) read as two hero shots back
+          to back before any real content. This row exists to put the two
+          newer, easy-to-miss ways of getting data into EcoTrack somewhere a
+          returning user actually passes through, instead of leaving them
+          undiscoverable behind Calculator's own BillScanner/VoiceLogger or
+          a Profile toggle no one thinks to visit. */}
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '0.7rem',
+          marginBottom: '1.8rem',
+        }}
+      >
+        <Link
+          to="/activity-log"
+          className="eco-btn eco-btn-outline"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+        >
+          <ListChecks size={15} /> {t('dashboard.fullActivityLog')}
+        </Link>
+
+        {/* Where this points depends on whether the page is even live yet -
+            same profile.publicProfileOptIn field Profile.jsx's own toggle
+            reads and writes, so this always agrees with that switch's real
+            state instead of assuming either way. */}
+        {profile?.publicProfileOptIn && user ? (
+          <Link
+            to={`/journey/${user.uid}`}
+            className="eco-btn eco-btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Share2 size={15} /> {t('dashboard.viewMyJourney')}
+          </Link>
+        ) : (
+          <Link
+            to="/profile"
+            className="eco-btn eco-btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Share2 size={15} /> {t('dashboard.shareMyJourney')}
+          </Link>
+        )}
+      </div>
+
+      {/* ============ 3. STREAK & REWARD TREE ============ */}
+      {/* First thing on the page after the banner and the quick-actions row,
+          on purpose - the whole point of a streak and a growing tree is to
+          be the thing that nudges someone to log something the moment they
+          open the app, not a detail they might scroll past. Shown even with
+          zero history: a fresh account's streak is 0 and its tree is a bare
+          seed, which is itself the invitation to log a first entry, not a
+          state worth hiding until there is something to show. */}
       <div
         className="eco-card"
         style={{
           marginBottom: hasData ? '2.5rem' : '1.5rem',
           border: '1px solid color-mix(in srgb, var(--eco-primary) 24%, var(--eco-border))',
-          overflow: 'hidden',
-          padding: 0,
         }}
       >
-        {/* A real photograph, not just another flat panel - same
-            photo-strip-above-content composition GlobalPictureSection
-            already uses lower on this page, borrowed here rather than
-            reinvented. youngTree is its own catalogued id (utils/photos.js)
-            distinct from every other forest/growth shot already used
-            elsewhere in the app, per that file's own no-repeats rule. */}
-        <div className="eco-photo-zoom" style={{ height: 150, overflow: 'hidden' }}>
-          <Photo
-            id={PHOTOS.youngTree}
-            alt="A healthy tree canopy against a clear blue sky"
-            width={900}
-            color="var(--eco-primary)"
-            className="eco-photo-cover"
-            style={{ width: '100%', height: '100%', display: 'block' }}
-          />
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '1.8rem',
+          }}
+        >
+          <div>
+            <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
+              {t('dashboard.loggingStreak')}
+            </span>
+            <StreakFlame />
+          </div>
+
+          <div>
+            <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
+              {t('dashboard.rewardTree')}
+            </span>
+            <RewardTree bump={rewardsBump} />
+          </div>
         </div>
 
-        <div style={{ padding: 'var(--space-6)' }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: '1.8rem',
-            }}
+        <div style={{ marginTop: '1.4rem', paddingTop: '1.2rem', borderTop: '1px solid var(--rule)' }}>
+          <span className="eco-marker" style={{ display: 'block', marginBottom: '0.5rem' }}>
+            {t('dashboard.weekChallenges')}
+          </span>
+          <ChallengeList onClaimed={() => setRewardsBump((n) => n + 1)} />
+        </div>
+
+        <div style={{ marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid var(--rule)', display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setShowWrapped(true)}
+            className="eco-btn eco-btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
           >
-            <div>
-              <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
-                {t('dashboard.loggingStreak')}
-              </span>
-              <StreakFlame />
-            </div>
-
-            <div>
-              <span className="eco-marker" style={{ display: 'block', marginBottom: '0.9rem' }}>
-                {t('dashboard.rewardTree')}
-              </span>
-              <RewardTree bump={rewardsBump} />
-            </div>
-          </div>
-
-          <div style={{ marginTop: '1.4rem', paddingTop: '1.2rem', borderTop: '1px solid var(--rule)' }}>
-            <span className="eco-marker" style={{ display: 'block', marginBottom: '0.5rem' }}>
-              {t('dashboard.weekChallenges')}
-            </span>
-            <ChallengeList onClaimed={() => setRewardsBump((n) => n + 1)} />
-          </div>
-
-          <div style={{ marginTop: '1.2rem', paddingTop: '1rem', borderTop: '1px solid var(--rule)', display: 'flex', gap: '0.7rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setShowWrapped(true)}
-              className="eco-btn eco-btn-outline"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-            >
-              <Sparkles size={15} /> {t('dashboard.viewRecap')}
-            </button>
-            <Link
-              to="/achievements"
-              className="eco-btn eco-btn-outline"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-            >
-              <Award size={15} /> {t('dashboard.viewAchievements')}
-            </Link>
-          </div>
+            <Sparkles size={15} /> {t('dashboard.viewRecap')}
+          </button>
+          <Link
+            to="/achievements"
+            className="eco-btn eco-btn-outline"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <Award size={15} /> {t('dashboard.viewAchievements')}
+          </Link>
         </div>
       </div>
 
@@ -508,6 +551,14 @@ export default function Dashboard() {
           delay={0.18}
         />
       </div>
+
+      {/* ============ 2a. AI-SUGGESTED GOAL ============ */}
+      {/* Right after the numbers it is actually grounded in, so "here is what
+          they add up to" is immediately followed by "here is one real thing
+          to do about it" - self-contained (see AiPlanCard.jsx: hides itself
+          entirely when the assistant is not configured, or once dismissed),
+          so this costs the page nothing when there is nothing to suggest. */}
+      <AiPlanCard />
 
       {/* ============ 2b. FORECAST (compact, links to /insights) ============ */}
       {/* The streak card that used to sit beside this moved to the top of
