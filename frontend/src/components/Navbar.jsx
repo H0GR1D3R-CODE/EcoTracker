@@ -129,6 +129,17 @@ export default function Navbar() {
   // Where the logo points: admins home is the console, users' is the dashboard
   const homeTo = isAdmin ? '/admin' : user ? '/dashboard' : '/';
 
+  // App.jsx scrolls to top on every route CHANGE - clicking the logo while
+  // already sitting on homeTo is not a route change at all (the path does
+  // not move), so that effect never fires and the click visibly does
+  // nothing. This is the one case that needs its own scroll.
+  const handleLogoClick = (event) => {
+    if (location.pathname === homeTo) {
+      event.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   return (
     <>
       <nav className={`eco-navbar ${scrolled ? 'eco-navbar-scrolled' : ''}`}>
@@ -145,6 +156,7 @@ export default function Navbar() {
           {/* ---------- Logo ---------- */}
           <Link
             to={homeTo}
+            onClick={handleLogoClick}
             style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}
           >
             <motion.span

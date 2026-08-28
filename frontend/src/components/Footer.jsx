@@ -9,17 +9,20 @@
 // DEFRA, Our World in Data) - the same places EcoTrack's emission factors come
 // from - and opens in a new tab. Internal links use the router.
 
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowUpRight, Heart, Leaf } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 
 // Internal navigation, grouped into columns like a normal site footer.
+//
+// No separate "Home" entry - same reasoning as Navbar.jsx's PUBLIC_LINKS:
+// the brand block's own logo already links to "/", right above this column,
+// so a Home link here was a second control doing the exact same thing.
 const LINK_COLUMNS = [
   {
     heading: 'Explore',
     links: [
-      { label: 'Home', to: '/' },
       { label: 'About', to: '/about' },
       { label: 'Learn', to: '/learn' },
       { label: 'Gallery', to: '/gallery' },
@@ -50,11 +53,24 @@ const SOURCE_LINKS = [
 
 export default function Footer() {
   const { user } = useAuth();
+  const location = useLocation();
 
   // Signed-in users are inside the app; the footer belongs to the public site.
   if (user) return null;
 
   const year = new Date().getFullYear();
+
+  // App.jsx already scrolls to top on every route CHANGE - but clicking this
+  // logo while already on "/" is not a route change at all (the path stays
+  // the same), so that effect never fires and the click does nothing,
+  // sitting all the way at the bottom of a long page. This is the one case
+  // that needs its own scroll.
+  const handleLogoClick = (event) => {
+    if (location.pathname === '/') {
+      event.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   return (
     <footer
@@ -77,7 +93,11 @@ export default function Footer() {
         >
           {/* ---- brand block ---- */}
           <div>
-            <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}>
+            <Link
+              to="/"
+              onClick={handleLogoClick}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.9rem' }}
+            >
               <span style={{ display: 'flex', color: 'var(--eco-primary)' }}>
                 <Leaf size={24} />
               </span>
