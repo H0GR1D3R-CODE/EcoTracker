@@ -36,7 +36,15 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { authApi } from '../utils/api';
 import SelectField from '../components/SelectField';
-import { EMAIL_ERROR, EMAIL_PATTERN, NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
+import {
+  EMAIL_ERROR,
+  EMAIL_PATTERN,
+  NAME_ERROR,
+  PASSWORD_RULES,
+  isValidName,
+  sanitizeNameInput,
+  scorePassword,
+} from '../utils/validation';
 import { isNativeApp } from '../utils/platform';
 import { executeRecaptcha } from '../utils/recaptcha';
 import RecaptchaNotice from '../components/RecaptchaNotice';
@@ -79,42 +87,10 @@ const REGIONS = [
   'Other',
 ];
 
-// The password rules. Each has a label and a test. These drive BOTH the live
-// checklist shown next to the field AND whether the password is accepted - so
-// the rules the user sees are exactly the rules that are enforced. The Flask
-// backend enforces the same set, so the policy cannot be bypassed.
-// labelKey, not label - same reasoning as STEP_TITLES above
-const PASSWORD_RULES = [
-  { labelKey: 'register.ruleMinLength', test: (p) => p.length >= 8 },
-  { labelKey: 'register.ruleUppercase', test: (p) => /[A-Z]/.test(p) },
-  { labelKey: 'register.ruleLowercase', test: (p) => /[a-z]/.test(p) },
-  { labelKey: 'register.ruleNumber', test: (p) => /\d/.test(p) },
-  { labelKey: 'register.ruleSpecial', test: (p) => /[^A-Za-z0-9]/.test(p) },
-];
-
-/** How many rules a password satisfies, for the strength bar. */
-function scorePassword(password) {
-  if (!password) return { score: 0, labelKey: null, color: 'var(--eco-border)' };
-
-  const met = PASSWORD_RULES.filter((rule) => rule.test(password)).length;
-
-  // "Fair" was --eco-orange, which measures 3.29:1 on the paper ground - under
-  // the 4.5:1 floor a label at this size needs. "Good" was a hardcoded
-  // #eab308 matching no theme variable at all. Both are now measured,
-  // theme-aware values: the instrument amber, then the electricity category's
-  // gold, giving a real progression toward green rather than two granular
-  // near-identical yellows.
-  const levels = [
-    { labelKey: 'register.strengthTooWeak', color: 'var(--eco-danger)' },
-    { labelKey: 'register.strengthTooWeak', color: 'var(--eco-danger)' },
-    { labelKey: 'register.strengthWeak', color: 'var(--eco-danger)' },
-    { labelKey: 'register.strengthFair', color: 'var(--readout)' },
-    { labelKey: 'register.strengthGood', color: 'var(--cat-electricity)' },
-    { labelKey: 'register.strengthStrong', color: 'var(--eco-primary)' },
-  ];
-
-  return { score: met, total: PASSWORD_RULES.length, ...levels[met] };
-}
+// PASSWORD_RULES and scorePassword moved to utils/validation.js - shared
+// with ResetPassword.jsx, which enforces this same policy client-side since
+// it talks to Firebase directly and never passes through this backend's own
+// registration check.
 
 export default function Register() {
   const { register, user, loading } = useAuth();

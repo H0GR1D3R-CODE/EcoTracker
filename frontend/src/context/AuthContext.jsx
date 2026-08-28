@@ -424,8 +424,19 @@ export function AuthProvider({ children }) {
    * backend already treats a not-found address as {sent: true} for the same
    * reason; auth/user-not-found from the Firebase fallback gets the same
    * treatment here.
+   *
+   * BOTH EMAILS LAND ON THE SAME IN-APP PAGE
+   * Without actionCodeSettings below, Firebase's own reset link routes
+   * through its generic hosted page (https://{authDomain}/__/auth/action) -
+   * unstyled and not part of this app. handleCodeInApp: true plus this url
+   * makes the link go straight to pages/ResetPassword.jsx instead, matching
+   * what the branded email's own link now does (see backend/routes/auth.py's
+   * forgot_password - same fix, same reasoning, on the other of the "two
+   * emails, one function" pair above).
    */
   const resetPassword = useCallback(async (email) => {
+    const actionCodeSettings = { url: `${window.location.origin}/reset-password`, handleCodeInApp: true };
+
     try {
       const result = await authApi.forgotPassword(email);
       if (result?.sent) return; // the branded email genuinely went out (or a safe no-op)
@@ -435,7 +446,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
     } catch (error) {
       if (error?.code === 'auth/user-not-found') return;
       throw new Error(friendlyAuthError(error));

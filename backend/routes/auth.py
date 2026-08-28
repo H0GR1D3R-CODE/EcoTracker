@@ -676,11 +676,20 @@ def forgot_password():
         )
 
     try:
+        # handle_code_in_app=True is what keeps this whole flow inside
+        # EcoTrack: without it, the link routes through Firebase's own
+        # generic hosted action page (https://{authDomain}/__/auth/action) -
+        # unstyled and not part of this app - before ever reaching url below.
+        # With it, Firebase sends the person straight to url with the reset
+        # code attached (?mode=resetPassword&oobCode=...), and
+        # pages/ResetPassword.jsx on the frontend does the actual reset via
+        # confirmPasswordReset(). AuthContext.resetPassword()'s own Firebase
+        # fallback sets the matching actionCodeSettings for the same reason.
         reset_link = firebase_auth.generate_password_reset_link(
             email,
             action_code_settings=firebase_auth.ActionCodeSettings(
-                url=f"{Config.PUBLIC_APP_URL}/login",
-                handle_code_in_app=False,
+                url=f"{Config.PUBLIC_APP_URL}/reset-password",
+                handle_code_in_app=True,
             ),
         )
     except Exception as error:
