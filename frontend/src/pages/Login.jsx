@@ -10,13 +10,20 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, ArrowLeft, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail, Send } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Eye, EyeOff, Leaf, Lock, Mail, Send, UserPlus } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { authApi } from '../utils/api';
 import { EMAIL_ERROR, EMAIL_PATTERN } from '../utils/validation';
 import { isNativeApp } from '../utils/platform';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+
+// Which Firebase codes plausibly mean "wrong email or password" - worth a
+// follow-up check-email call to tell the two apart. Anything else (network
+// trouble, too-many-requests, a disabled account) is a different problem
+// that a "did you mean to sign up?" panel would only confuse.
+const BAD_CREDENTIAL_CODES = new Set(['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found']);
 
 export default function Login() {
   const { login, resetPassword, user, loading, isAdmin, twoFactorPending } = useAuth();
@@ -43,6 +50,26 @@ export default function Login() {
   const [touched, setTouched] = useState({ email: false, password: false });
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Set after a failed sign-in turns out to be for an email with no EcoTrack
+  // account at all - mirrors Register.jsx's emailExistsError panel for the
+  // opposite case, so "no account with this email" gets real next steps (a
+  // Create account button) instead of just a toast to remember. Cleared the
+  // moment the email field changes again - same reasoning as Register's
+  // version.
+  //
+  // WHY THIS NEEDS A SEPARATE CHECK-EMAIL CALL, NOT JUST error.code
+  // Confirmed live against this project's own Firebase Auth: it returns the
+  // same generic INVALID_LOGIN_CREDENTIALS (auth/invalid-credential) for a
+  // wrong password AND for an email with no account at all - a deliberate
+  // Google anti-enumeration measure, not a bug, and not something client
+  // code can see past. So a failed sign-in with a credential-shaped error
+  // triggers the SAME check-email call Register.jsx already uses (POST
+  // /api/auth/check-email - see that route's own docstring on why this is
+  // an accepted, already-existing trade-off, not a new exposure) to find
+  // out which of the two actually happened, instead of guessing from a code
+  // that no longer reveals it.
+  const [accountNotFoundError, setAccountNotFoundError] = useState(false);
+  const [checkingAccount, setCheckingAccount] = useState(false);
 
   // --- forgot password ---
   const [resetEmail, setResetEmail] = useState(location.state?.prefillEmail || '');
@@ -87,6 +114,7 @@ export default function Login() {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((previous) => ({ ...previous, [name]: value }));
+    if (name === 'email' && accountNotFoundError) setAccountNotFoundError(false);
   };
 
   const handleBlur = (event) => {
@@ -102,6 +130,7 @@ export default function Login() {
     if (!isValid || submitting) return;
 
     setSubmitting(true);
+    setAccountNotFoundError(false);
 
     try {
       const result = await login({ email: form.email.trim(), password: form.password });
@@ -115,8 +144,31 @@ export default function Login() {
       // The admin account is admin-only, so send it straight to the console
       navigate(result?.isAdmin ? '/admin' : redirectTo, { replace: true });
     } catch (error) {
-      // AuthContext has already turned Firebase's raw code into a readable message
-      toast.error(error.message);
+      // A credential-shaped failure could mean "wrong password" or "no
+      // account at all" - Firebase's own error code no longer distinguishes
+      // these (see accountNotFoundError's own comment above), so ask the
+      // backend which one it actually was before deciding what to show.
+      if (BAD_CREDENTIAL_CODES.has(error.code)) {
+        setCheckingAccount(true);
+        try {
+          const result = await authApi.checkEmail(form.email.trim());
+          if (result?.exists === false) {
+            setAccountNotFoundError(true);
+          } else {
+            toast.error(error.message);
+          }
+        } catch {
+          // The check itself failed (network, rate limit) - fall back to the
+          // plain, still-accurate-either-way message rather than leaving the
+          // user with no feedback at all.
+          toast.error(error.message);
+        } finally {
+          setCheckingAccount(false);
+        }
+      } else {
+        // AuthContext has already turned Firebase's raw code into a readable message
+        toast.error(error.message);
+      }
       // Clear only the password - retyping the email every time is annoying
       setForm((previous) => ({ ...previous, password: '' }));
     } finally {
@@ -379,6 +431,7 @@ export default function Login() {
             perverse. It signs in existing accounts and creates new ones. */}
         <GoogleSignInButton
           label={t('login.signInWithGoogle')}
+          requireExisting
           onDone={(result) =>
             navigate(result?.twoFactorRequired ? '/verify-2fa' : redirectTo, { replace: true })
           }
@@ -510,6 +563,43 @@ export default function Login() {
             </div>
           </div>
 
+          {/* Real next steps, not just a toast to remember - mirrors
+              Register.jsx's own "this email already exists" panel for the
+              opposite case. The check-email call above (not Firebase's own
+              error, which no longer distinguishes this - see
+              accountNotFoundError's own comment) has confirmed no account
+              exists for this email, so a "Create account" button (email
+              carried over, same as Register's own reverse link) is a
+              genuine action, not a guess. */}
+          {accountNotFoundError && (
+            <div
+              style={{
+                padding: '0.9rem 1rem',
+                marginBottom: '1rem',
+                borderRadius: 'var(--eco-radius-sm)',
+                border: '1px solid color-mix(in srgb, var(--eco-danger) 35%, var(--eco-border))',
+                background: 'color-mix(in srgb, var(--eco-danger) 6%, var(--eco-card))',
+              }}
+            >
+              <div style={{ display: 'flex', gap: '0.55rem', marginBottom: '0.8rem' }}>
+                <AlertCircle size={16} style={{ color: 'var(--eco-danger)', flexShrink: 0, marginTop: 1 }} />
+                <p style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.5 }}>
+                  No EcoTrack account found for that email address.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="eco-btn eco-btn-primary"
+                style={{ fontSize: '0.82rem', padding: '0.5rem 0.9rem' }}
+                onClick={() =>
+                  navigate('/register', { state: { prefillEmail: form.email.trim() } })
+                }
+              >
+                <UserPlus size={14} /> Create an account
+              </button>
+            </div>
+          )}
+
           <button
             type="submit"
             className="eco-btn eco-btn-primary"
@@ -531,7 +621,7 @@ export default function Login() {
                     animation: 'eco-spin 0.8s linear infinite',
                   }}
                 />
-                {t('login.signingIn')}
+                {checkingAccount ? 'Checking…' : t('login.signingIn')}
               </>
             ) : (
               <>

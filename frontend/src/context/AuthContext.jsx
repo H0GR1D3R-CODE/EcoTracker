@@ -19,6 +19,8 @@ import {
   EmailAuthProvider,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
+  deleteUser,
+  getAdditionalUserInfo,
   onAuthStateChanged,
   reauthenticateWithCredential,
   sendPasswordResetEmail,
@@ -248,7 +250,15 @@ export function AuthProvider({ children }) {
       await authReady;
       credential = await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      throw new Error(friendlyAuthError(error));
+      // .code carried across the wrap (same reasoning as register()'s own
+      // comment on this) - specifically so Login.jsx can tell "no account
+      // with this email at all" (auth/user-not-found) apart from "wrong
+      // password for a real account" (auth/wrong-password/invalid-credential)
+      // and show the former its own "you need to sign up first" panel
+      // instead of a plain toast.
+      const wrapped = new Error(friendlyAuthError(error));
+      wrapped.code = error?.code;
+      throw wrapped;
     }
 
     try {
@@ -261,17 +271,25 @@ export function AuthProvider({ children }) {
   }, [handleLoginResponse]);
 
   /**
-   * Sign in with Google, for both new and returning people.
+   * Sign in with Google.
    *
-   * There is deliberately no separate "register with Google" path. Google tells
-   * us whether the account is new; either way the same two steps follow, and
-   * POST /api/auth/login builds the Firestore profile from the token when one
-   * does not exist yet - using the display name and email Google supplies.
+   * On the Register tab (requireExisting: false, the default) there is
+   * deliberately no separate "register with Google" path - Google tells us
+   * whether the account is new; either way the same two steps follow, and
+   * POST /api/auth/login builds the Firestore profile from the token when
+   * one does not exist yet, using the display name and email Google
+   * supplies. No password is ever needed here, on either tab - Google has
+   * already proven the person owns that inbox.
    *
-   * A side benefit worth knowing: Google has already proven the person owns
-   * that inbox, so these accounts arrive verified with no email round trip.
+   * On the Login tab (requireExisting: true) this is deliberately NOT
+   * symmetric with Register: signing in with a Google identity EcoTrack has
+   * never seen before must not silently create a brand-new account just
+   * because someone clicked Google on the wrong tab - that would leave them
+   * looking "logged in" to an empty account with no idea a second one now
+   * exists. See the isNewUser branch below for how that is caught and
+   * undone before it ever reaches the backend.
    */
-  const loginWithGoogle = useCallback(async () => {
+  const loginWithGoogle = useCallback(async ({ requireExisting = false } = {}) => {
     let credential;
 
     try {
@@ -287,6 +305,32 @@ export function AuthProvider({ children }) {
       credential = await signInWithPopup(auth, provider);
     } catch (error) {
       throw new Error(friendlyAuthError(error));
+    }
+
+    // signInWithPopup above ALWAYS creates the Firebase Auth account on the
+    // spot for a Google identity it has never seen, whether or not anyone
+    // asked for that - there is no "check first" step in the SDK. isNewUser
+    // is what tells apart "this exact call just created it" from "this
+    // Google identity already had an EcoTrack account".
+    if (requireExisting && getAdditionalUserInfo(credential)?.isNewUser) {
+      try {
+        // Undo the account Firebase just created, rather than leaving an
+        // orphaned Auth user with no EcoTrack profile behind it forever -
+        // the sign-in is as fresh as a sign-in can be, so this never needs
+        // the reauthentication a delete normally requires. If they come
+        // back and use Google from the Sign Up tab instead, this identity
+        // is genuinely new again, with no half-created leftover in the way.
+        await deleteUser(credential.user);
+      } catch {
+        // Could not delete (rare) - at minimum, do not leave them looking
+        // signed in to an account that was never actually let through.
+        await signOut(auth).catch(() => {});
+      }
+      const notFound = new Error(
+        'No EcoTrack account found for that Google account. Please use Sign Up instead.'
+      );
+      notFound.code = 'google_account_not_registered';
+      throw notFound;
     }
 
     try {

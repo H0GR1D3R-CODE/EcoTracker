@@ -12,7 +12,7 @@
 //   Step 3  region, then create the account
 
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -121,6 +121,7 @@ export default function Register() {
   const { prefersReducedMotion } = useTheme();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [step, setStep] = useState(1);
   // direction controls which way the slide animation moves: 1 forward, -1 back
@@ -144,7 +145,10 @@ export default function Register() {
 
   const [form, setForm] = useState({
     name: '',
-    email: '',
+    // Carried over when Login.jsx's "no account found" panel sends someone
+    // here to sign up instead - same mechanism Login itself already accepts
+    // prefillEmail through, just running the other direction.
+    email: location.state?.prefillEmail || '',
     password: '',
     confirmPassword: '',
     region: 'India',

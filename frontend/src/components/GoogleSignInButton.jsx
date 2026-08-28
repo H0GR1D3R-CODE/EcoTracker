@@ -1,8 +1,10 @@
 // EcoTrack/frontend/src/components/GoogleSignInButton.jsx
 //
-// One button shared by Login and Register, because it does the same thing on
-// both. Google tells us whether the account is new; the backend builds a
-// profile on first sign-in either way, so there is nothing to branch on.
+// One button shared by Login and Register - almost the same thing on both,
+// but not quite: pass requireExisting on the Login tab so a Google identity
+// EcoTrack has never seen is rejected with "sign up first" instead of
+// silently creating a new account (see AuthContext.loginWithGoogle for where
+// that is actually decided; this component only forwards the flag).
 //
 // The caller owns navigation - this component only signs in and reports errors.
 
@@ -44,7 +46,7 @@ function GoogleMark({ size = 18 }) {
   );
 }
 
-export default function GoogleSignInButton({ label = 'Continue with Google', onDone }) {
+export default function GoogleSignInButton({ label = 'Continue with Google', onDone, requireExisting = false }) {
   const { loginWithGoogle } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const [busy, setBusy] = useState(false);
@@ -59,7 +61,7 @@ export default function GoogleSignInButton({ label = 'Continue with Google', onD
     if (busy) return;
     setBusy(true);
     try {
-      const result = await loginWithGoogle();
+      const result = await loginWithGoogle({ requireExisting });
       // Two-step verification pending: no profile to greet by name yet, and
       // the caller's onDone is what sends them to enter the code instead of
       // wherever a normal sign-in would go.
