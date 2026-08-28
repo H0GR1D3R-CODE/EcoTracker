@@ -29,6 +29,7 @@ All routes are mounted under /api/auth
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from urllib.parse import parse_qs, urlparse
 
 from flask import Blueprint, g, request
 from firebase_admin import auth as firebase_auth
@@ -676,22 +677,30 @@ def forgot_password():
         )
 
     try:
-        # handle_code_in_app=True is what keeps this whole flow inside
-        # EcoTrack: without it, the link routes through Firebase's own
-        # generic hosted action page (https://{authDomain}/__/auth/action) -
-        # unstyled and not part of this app - before ever reaching url below.
-        # With it, Firebase sends the person straight to url with the reset
-        # code attached (?mode=resetPassword&oobCode=...), and
-        # pages/ResetPassword.jsx on the frontend does the actual reset via
-        # confirmPasswordReset(). AuthContext.resetPassword()'s own Firebase
-        # fallback sets the matching actionCodeSettings for the same reason.
-        reset_link = firebase_auth.generate_password_reset_link(
-            email,
-            action_code_settings=firebase_auth.ActionCodeSettings(
-                url=f"{Config.PUBLIC_APP_URL}/reset-password",
-                handle_code_in_app=True,
-            ),
-        )
+        # generate_password_reset_link() is still the only way to mint a
+        # real, valid oobCode - but the URL it RETURNS always routes through
+        # Firebase's own generic hosted action page
+        # (https://{authDomain}/__/auth/action) first, no matter what
+        # ActionCodeSettings says. Confirmed live: handle_code_in_app is for
+        # MOBILE deep-linking, not a web bypass switch - opening a real
+        # generated link showed Firebase's own unstyled FirebaseUI reset form
+        # every time. The actual web bypass (a Console-level "custom action
+        # URL") turned out to need a DNS-verified custom domain connected
+        # through Firebase Hosting - not available for a project on a plain
+        # *.web.app domain, and not something to gate this feature on.
+        #
+        # So this route does not use Firebase's own link at all - only the
+        # oobCode Firebase generates inside it, pulled out below and placed
+        # into a URL THIS APP builds and controls, pointing straight at
+        # pages/ResetPassword.jsx. Verified live that a code reaches
+        # verifyPasswordResetCode()/confirmPasswordReset() identically either
+        # way - Firebase validates the code itself, not how the browser got
+        # hold of it.
+        raw_link = firebase_auth.generate_password_reset_link(email)
+        oob_code = parse_qs(urlparse(raw_link).query).get("oobCode", [None])[0]
+        if not oob_code:
+            raise ValueError("generate_password_reset_link returned no oobCode")
+        reset_link = f"{Config.PUBLIC_APP_URL}/reset-password?mode=resetPassword&oobCode={oob_code}"
     except Exception as error:
         if _link_generation_failure_hides_account(error):
             # sent:True here does not mean an email went out - it means

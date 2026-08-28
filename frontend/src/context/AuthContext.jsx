@@ -425,14 +425,20 @@ export function AuthProvider({ children }) {
    * reason; auth/user-not-found from the Firebase fallback gets the same
    * treatment here.
    *
-   * BOTH EMAILS LAND ON THE SAME IN-APP PAGE
-   * Without actionCodeSettings below, Firebase's own reset link routes
-   * through its generic hosted page (https://{authDomain}/__/auth/action) -
-   * unstyled and not part of this app. handleCodeInApp: true plus this url
-   * makes the link go straight to pages/ResetPassword.jsx instead, matching
-   * what the branded email's own link now does (see backend/routes/auth.py's
-   * forgot_password - same fix, same reasoning, on the other of the "two
-   * emails, one function" pair above).
+   * THIS FALLBACK EMAIL STILL LANDS ON FIREBASE'S OWN HOSTED PAGE
+   * Unlike the branded email (backend/routes/auth.py's forgot_password,
+   * which builds its own link straight to pages/ResetPassword.jsx - see that
+   * route's own comment for why), this path calls Firebase's native
+   * sendPasswordResetEmail(), which composes and sends the ENTIRE email
+   * itself - there is no hook to rewrite the link inside it the way the
+   * backend can for its own email. actionCodeSettings.url below still adds
+   * a "continue" link back to /reset-password after Firebase's hosted page
+   * finishes the reset (confirmed live: handleCodeInApp does not skip that
+   * hosted page for a web app - it is a mobile deep-linking flag), so this
+   * is a smaller improvement, not the same fix. In practice this path is
+   * rarely hit at all: RESEND_API_KEY is configured, so the branded email
+   * above - the one that DOES land directly on this app - is what real
+   * users actually get.
    */
   const resetPassword = useCallback(async (email) => {
     const actionCodeSettings = { url: `${window.location.origin}/reset-password`, handleCodeInApp: true };

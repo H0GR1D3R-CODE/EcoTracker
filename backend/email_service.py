@@ -19,11 +19,16 @@ Firebase Admin SDK's auth.generate_password_reset_link() creates a real,
 working reset link WITHOUT sending any email - which is exactly the split
 this needs: the backend generates the link, then hands it to Resend instead
 of letting Firebase email it automatically. routes/auth.py's forgot_password
-passes handle_code_in_app=True with url=f"{PUBLIC_APP_URL}/reset-password",
-so the link goes straight to that page on THIS app - not Firebase's own
-generic hosted action page - with the one-time reset code attached as
-?mode=resetPassword&oobCode=.... See frontend/src/pages/ResetPassword.jsx
-for what actually happens once someone lands there.
+does NOT use that generated link's own URL, though - it always routes
+through Firebase's generic hosted action page first
+(https://{authDomain}/__/auth/action), confirmed live, regardless of
+ActionCodeSettings. Instead, forgot_password pulls just the oobCode out of
+that link and builds its own URL pointing straight at THIS app's
+/reset-password page - see that route's own comment for the fuller story of
+why (a Console-level "custom action URL" was the documented way around
+Firebase's hosted page, and it needs a DNS-verified custom domain this
+project does not have). See frontend/src/pages/ResetPassword.jsx for what
+happens once someone lands there.
 
 THIS IS OPTIONAL, NOT REQUIRED
 Every function here degrades honestly: if RESEND_API_KEY is not set,
