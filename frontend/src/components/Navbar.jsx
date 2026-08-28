@@ -60,8 +60,12 @@ const ADMIN_LINKS = [{ to: '/admin', labelKey: 'nav.admin', icon: Shield }];
 // The public content pages, shown next to the logo for signed-out visitors
 // (the marketing site). Signed-in users get the app links instead, so the bar
 // never shows both sets at once.
+//
+// No separate "Home" entry - the logo already links to "/" (see homeTo
+// below), so a Home link right next to it was two controls doing the exact
+// same thing. Standard convention (and what was asked for): the logo IS the
+// home link, nothing else needs to be.
 const PUBLIC_LINKS = [
-  { to: '/', labelKey: 'nav.home' },
   { to: '/about', labelKey: 'nav.about' },
   { to: '/learn', labelKey: 'nav.learn' },
   { to: '/gallery', labelKey: 'nav.gallery' },
