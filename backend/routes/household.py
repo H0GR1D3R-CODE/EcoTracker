@@ -70,6 +70,19 @@ household_bp = Blueprint("household", __name__, url_prefix="/api/household")
 # not a collection scan.
 MAX_HOUSEHOLD_MEMBERS = 10
 
+# A classroom/team is the same document and the same mechanics - invite code,
+# combined stats, shared challenge, activity feed - just at a different
+# scale: a teacher's section or a workplace team, not a family. It gets its
+# own, much larger cap rather than a second collection or route file; see
+# groupType below.
+MAX_CLASSROOM_MEMBERS = 60
+
+VALID_GROUP_TYPES = ("household", "classroom")
+
+
+def _max_members(group_type):
+    return MAX_CLASSROOM_MEMBERS if group_type == "classroom" else MAX_HOUSEHOLD_MEMBERS
+
 MIN_NAME_LENGTH = 2
 MAX_NAME_LENGTH = 40
 
@@ -138,16 +151,25 @@ def _serialize_household(household_doc, uid):
     # Effort-ranked, not emission-ranked - see the module docstring for why.
     members.sort(key=lambda member: member["rewardPoints"], reverse=True)
 
+    group_type = data.get("groupType") or "household"
+
     return {
         "inHousehold": True,
         "id": household_doc.id,
         "name": data.get("name", ""),
+        "groupType": group_type,
         "inviteCode": data.get("inviteCode", ""),
         "isOwner": data.get("ownerUid") == uid,
         "memberCount": len(member_uids),
+        "maxMembers": _max_members(group_type),
         "combinedEmissionThisMonthKg": round(
             sum(member["emissionThisMonthKg"] for member in members), 2
         ),
+        # The organizer's pick for the category NEXT week's auto-generated
+        # challenge should target - see _ensure_week_household_challenge.
+        # None means "auto (whatever the group emits most)", the only
+        # behaviour a plain household ever had.
+        "preferredChallengeCategory": data.get("preferredChallengeCategory"),
         "members": members,
     }
 
@@ -191,9 +213,14 @@ def get_household():
 @household_bp.route("", methods=["POST"])
 @require_auth
 def create_household():
-    """Body: {"name": "The Green Team"}"""
+    """Body: {"name": "The Green Team", "groupType": "household" | "classroom"}
+
+    groupType defaults to "household" so every existing caller (and the
+    tests) that never send it keeps behaving exactly as before.
+    """
     body = request.get_json(silent=True) or {}
     name = str(body.get("name", "")).strip()
+    group_type = str(body.get("groupType") or "household").strip().lower()
 
     if len(name) < MIN_NAME_LENGTH or len(name) > MAX_NAME_LENGTH:
         return api_error(
@@ -201,6 +228,9 @@ def create_household():
             400,
             code="invalid_name",
         )
+
+    if group_type not in VALID_GROUP_TYPES:
+        return api_error("groupType must be 'household' or 'classroom'.", 400, code="invalid_group_type")
 
     existing_ref, _existing_doc = _get_own_household_doc(g.uid)
     if existing_ref is not None:
@@ -216,6 +246,7 @@ def create_household():
     household_ref = db.collection(Config.COLLECTION_HOUSEHOLDS).document()
     household_ref.set({
         "name": name,
+        "groupType": group_type,
         "ownerUid": g.uid,
         "memberUids": [g.uid],
         "inviteCode": invite_code,
@@ -266,11 +297,13 @@ def join_household():
 
     household_doc = matches[0]
     household_ref = household_doc.reference
-    member_uids = household_doc.to_dict().get("memberUids", [])
+    matched_data = household_doc.to_dict()
+    member_uids = matched_data.get("memberUids", [])
+    max_members = _max_members(matched_data.get("groupType") or "household")
 
-    if len(member_uids) >= MAX_HOUSEHOLD_MEMBERS:
+    if len(member_uids) >= max_members:
         return api_error(
-            f"This household already has the maximum of {MAX_HOUSEHOLD_MEMBERS} members.",
+            f"This household already has the maximum of {max_members} members.",
             400,
             code="household_full",
         )
@@ -487,12 +520,19 @@ def toggle_cheer(record_id):
 # GET /api/household/challenge     (auto-creates this week's, if needed)
 # ---------------------------------------------------------------------------
 
-def _ensure_week_household_challenge(household_id, member_uids, today):
+def _ensure_week_household_challenge(household_id, member_uids, today, preferred_category=None):
     """
     Return this week's household challenge document, creating it on first
     request of the week - the same lazy-creation pattern
     engagement.py's own _ensure_week_challenges uses for personal
     challenges, just aggregated across every member instead of one person.
+
+    preferred_category is the organizer's pick (household.preferredChallengeCategory)
+    for what THIS challenge, once it is created, should target - it only
+    has any effect the first time this is called for a given week, same as
+    every other input to this function; changing the preference mid-week
+    never rewrites a challenge already in progress; it takes effect once
+    this week's challenge is claimed or ends and the next one is created.
     """
     db = get_db()
     week_start, week_end = _week_bounds(today)
@@ -540,7 +580,15 @@ def _ensure_week_household_challenge(household_id, member_uids, today):
         })
         return challenge_ref.get()
 
-    top_category = max(category_totals, key=category_totals.get)
+    # An organizer's pick only counts if the group actually has a real
+    # baseline in it - a 0 kg baseline would make a 0 kg target, which is
+    # "complete" the instant the week ends whether or not anyone did
+    # anything, not a meaningful challenge. Falls back to the usual
+    # top-emitting category exactly as a plain household always has.
+    if preferred_category and category_totals.get(preferred_category, 0) > 0:
+        top_category = preferred_category
+    else:
+        top_category = max(category_totals, key=category_totals.get)
     weekly_baseline = round(category_totals[top_category] / 4, 2)
     target = round(weekly_baseline * HOUSEHOLD_CHALLENGE_REDUCTION_RATIO, 2)
 
@@ -612,8 +660,11 @@ def get_challenge():
     if household_ref is None:
         return api_error("You're not in a household.", 400, code="not_in_household")
 
-    member_uids = household_doc.to_dict().get("memberUids", [])
-    doc = _ensure_week_household_challenge(household_ref.id, member_uids, date.today())
+    data = household_doc.to_dict()
+    member_uids = data.get("memberUids", [])
+    doc = _ensure_week_household_challenge(
+        household_ref.id, member_uids, date.today(), preferred_category=data.get("preferredChallengeCategory")
+    )
     return api_success(_serialize_household_challenge(doc, member_uids))
 
 
@@ -651,3 +702,41 @@ def claim_household_challenge(challenge_id):
     rewards = {member_uid: award_points(member_uid, POINTS_PER_CHALLENGE_CLAIM) for member_uid in member_uids}
 
     return api_success({**serialized, "status": "claimed", "rewards": rewards})
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/household/challenge-focus     (owner-only, sets NEXT week's category)
+# ---------------------------------------------------------------------------
+
+@household_bp.route("/challenge-focus", methods=["PUT"])
+@require_auth
+def set_challenge_focus():
+    """
+    Body: {"category": "transport"} or {"category": null} to go back to auto.
+
+    This is the "assigns shared challenges" half of classroom/team mode - a
+    household never had a way to pick its own focus, only the auto-selected
+    top-emitting category. Owner-only, same authority as removing a member;
+    a classroom's organizer role and a household's owner role are the same
+    field (ownerUid), so this works for either groupType, though the
+    frontend only surfaces the control for classroom groups.
+    """
+    body = request.get_json(silent=True) or {}
+    category = body.get("category")
+
+    if category is not None and category not in Config.CATEGORIES:
+        return api_error("Not a recognised category.", 400, code="invalid_category")
+
+    household_ref, household_doc = _get_own_household_doc(g.uid)
+    if household_ref is None:
+        return api_error("You're not in a household.", 400, code="not_in_household")
+
+    if household_doc.to_dict().get("ownerUid") != g.uid:
+        return api_error("Only the organizer can set the challenge focus.", 403, code="not_owner")
+
+    household_ref.update({"preferredChallengeCategory": category})
+
+    return api_success(
+        _serialize_household(household_ref.get(), g.uid),
+        message="Focus set for next week's challenge." if category else "Back to an automatic focus.",
+    )

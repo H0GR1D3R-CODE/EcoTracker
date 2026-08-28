@@ -600,7 +600,11 @@ export const announcementsApi = {
 
 export const householdApi = {
   get: () => api.get('/api/household').then(unwrap),
-  create: (name) => api.post('/api/household', { name }).then(unwrap),
+  // groupType: 'household' (default) | 'classroom' - a classroom/team is
+  // the same document and mechanics, just a larger member cap and an
+  // organizer-assignable challenge focus. See routes/household.py.
+  create: (name, groupType = 'household') =>
+    api.post('/api/household', { name, groupType }).then(unwrap),
   join: (inviteCode) => api.post('/api/household/join', { inviteCode }).then(unwrap),
   leave: () => api.post('/api/household/leave').then(unwrap),
   removeMember: (memberUid) =>
@@ -616,6 +620,10 @@ export const householdApi = {
   getChallenge: () => api.get('/api/household/challenge').then(unwrap),
   claimChallenge: (challengeId) =>
     api.post(`/api/household/challenge/${challengeId}/claim`).then(unwrap),
+  // Owner/organizer-only: which category NEXT week's auto-generated
+  // challenge should target. category is a string, or null for "auto".
+  setChallengeFocus: (category) =>
+    api.put('/api/household/challenge-focus', { category }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

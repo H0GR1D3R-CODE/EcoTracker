@@ -35,14 +35,21 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import PageBanner from '../components/PageBanner';
 import SkeletonCard from '../components/SkeletonCard';
-import { CATEGORY_META } from '../utils/emissionHelpers';
+import SelectField from '../components/SelectField';
+import { CATEGORY_META, CATEGORY_ORDER } from '../utils/emissionHelpers';
 import { formatCategory, formatEmission, formatNumber, formatDate } from '../utils/formatters';
 
 const RANK_MEDALS = ['🥇', '🥈', '🥉'];
 
+// Copy-only mirror of routes/household.py's MAX_CLASSROOM_MEMBERS - the
+// backend is the real enforcement, this just lets the create form tell
+// people the cap before they hit it.
+const MAX_CLASSROOM_MEMBERS = 60;
+
 function CreateOrJoinPanel({ onChanged }) {
   const [mode, setMode] = useState('create');
   const [name, setName] = useState('');
+  const [groupType, setGroupType] = useState('household');
   const [inviteCode, setInviteCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -51,11 +58,11 @@ function CreateOrJoinPanel({ onChanged }) {
     if (!name.trim() || submitting) return;
     setSubmitting(true);
     try {
-      await householdApi.create(name.trim());
-      toast.success('Household created.');
+      await householdApi.create(name.trim(), groupType);
+      toast.success(groupType === 'classroom' ? 'Team created.' : 'Household created.');
       onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not create that household.'));
+      toast.error(getErrorMessage(error, 'Could not create that group.'));
     } finally {
       setSubmitting(false);
     }
@@ -67,10 +74,10 @@ function CreateOrJoinPanel({ onChanged }) {
     setSubmitting(true);
     try {
       await householdApi.join(inviteCode.trim());
-      toast.success('Joined household.');
+      toast.success('Joined.');
       onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not join that household.'));
+      toast.error(getErrorMessage(error, 'Could not join with that code.'));
     } finally {
       setSubmitting(false);
     }
@@ -103,6 +110,29 @@ function CreateOrJoinPanel({ onChanged }) {
 
       {mode === 'create' ? (
         <form onSubmit={handleCreate} noValidate>
+          <div role="radiogroup" aria-label="Group type" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={groupType === 'household'}
+              onClick={() => setGroupType('household')}
+              className={`eco-btn ${groupType === 'household' ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+              style={{ flex: 1, fontSize: '0.84rem' }}
+            >
+              Household
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={groupType === 'classroom'}
+              onClick={() => setGroupType('classroom')}
+              className={`eco-btn ${groupType === 'classroom' ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+              style={{ flex: 1, fontSize: '0.84rem' }}
+            >
+              Classroom / Team
+            </button>
+          </div>
+
           <div className="form-floating" style={{ marginBottom: '1rem' }}>
             <input
               type="text"
@@ -113,13 +143,17 @@ function CreateOrJoinPanel({ onChanged }) {
               onChange={(event) => setName(event.target.value)}
               maxLength={40}
             />
-            <label htmlFor="household-name">Household name</label>
+            <label htmlFor="household-name">
+              {groupType === 'classroom' ? 'Class or team name' : 'Household name'}
+            </label>
           </div>
           <p className="eco-text-muted" style={{ fontSize: '0.82rem', margin: '0 0 1rem' }}>
-            You'll get an invite code to share with whoever should join.
+            {groupType === 'classroom'
+              ? `You'll get an invite code to share with your class or team (up to ${MAX_CLASSROOM_MEMBERS} people), and can assign which category each week's shared challenge targets.`
+              : "You'll get an invite code to share with whoever should join."}
           </p>
           <button type="submit" className="eco-btn eco-btn-primary" disabled={submitting || !name.trim()} style={{ width: '100%' }}>
-            Create household
+            {groupType === 'classroom' ? 'Create team' : 'Create household'}
           </button>
         </form>
       ) : (
@@ -138,10 +172,10 @@ function CreateOrJoinPanel({ onChanged }) {
             <label htmlFor="household-invite-code">Invite code</label>
           </div>
           <p className="eco-text-muted" style={{ fontSize: '0.82rem', margin: '0 0 1rem' }}>
-            Ask whoever created the household for their 6-character code.
+            Ask whoever created the group for their 6-character code.
           </p>
           <button type="submit" className="eco-btn eco-btn-primary" disabled={submitting || !inviteCode.trim()} style={{ width: '100%' }}>
-            Join household
+            Join group
           </button>
         </form>
       )}
@@ -277,7 +311,69 @@ function MemberRow({ member, rank, isOwner, isSelf, onRemove }) {
   );
 }
 
-function HouseholdChallengeCard({ onClaimed }) {
+function ChallengeFocusPicker({ preferredChallengeCategory, onSaved }) {
+  const [category, setCategory] = useState(preferredChallengeCategory || '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setCategory(preferredChallengeCategory || '');
+  }, [preferredChallengeCategory]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await householdApi.setChallengeFocus(category || null);
+      toast.success(category ? "Focus set for next week's challenge." : 'Back to an automatic focus.');
+      onSaved?.();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not set that focus.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        marginTop: '1rem',
+        paddingTop: '1rem',
+        borderTop: '1px solid var(--rule)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: '0.7rem',
+        flexWrap: 'wrap',
+      }}
+    >
+      <div style={{ width: 220, flexShrink: 0 }}>
+        <SelectField
+          id="household-challenge-focus"
+          label="Organizer: next week's focus"
+          value={category}
+          onChange={setCategory}
+          placeholder="Auto (top category)"
+          options={[
+            { value: '', label: 'Auto (top category)' },
+            ...CATEGORY_ORDER.map((key) => ({
+              value: key,
+              label: CATEGORY_META[key]?.label || formatCategory(key),
+            })),
+          ]}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={saving || category === (preferredChallengeCategory || '')}
+        className="eco-btn eco-btn-outline"
+        style={{ fontSize: '0.78rem', padding: '0.55rem 0.9rem' }}
+      >
+        Save
+      </button>
+    </div>
+  );
+}
+
+function HouseholdChallengeCard({ groupType, isOwner, preferredChallengeCategory, onClaimed, onFocusSaved }) {
   const [challenge, setChallenge] = useState(null);
   const [claiming, setClaiming] = useState(false);
 
@@ -295,7 +391,11 @@ function HouseholdChallengeCard({ onClaimed }) {
     setClaiming(true);
     try {
       await householdApi.claimChallenge(challenge.id);
-      toast.success('Household challenge claimed - everyone earned points!');
+      toast.success(
+        groupType === 'classroom'
+          ? "Team challenge claimed - everyone earned points!"
+          : 'Household challenge claimed - everyone earned points!'
+      );
       load();
       onClaimed?.();
     } catch (error) {
@@ -307,20 +407,22 @@ function HouseholdChallengeCard({ onClaimed }) {
 
   if (!challenge) return null;
 
+  const groupLabel = groupType === 'classroom' ? "team's" : "household's";
+
   return (
     <div className="eco-card" style={{ marginBottom: '1.8rem' }}>
       <span className="eco-marker" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
-        <Target size={14} /> This week's household challenge
+        <Target size={14} /> This week's {groupType === 'classroom' ? 'team' : 'household'} challenge
       </span>
 
       {!challenge.available ? (
         <p className="eco-text-muted" style={{ fontSize: '0.86rem', margin: 0 }}>
-          Log a few entries as a household this week, and a shared target will appear here.
+          Log a few entries as a group this week, and a shared target will appear here.
         </p>
       ) : (
         <>
           <p style={{ fontSize: '0.9rem', margin: '0 0 0.8rem' }}>
-            Keep the household's combined{' '}
+            Keep the {groupLabel} combined{' '}
             <strong style={{ color: CATEGORY_META[challenge.category]?.color }}>
               {CATEGORY_META[challenge.category]?.label || formatCategory(challenge.category)}
             </strong>{' '}
@@ -359,6 +461,13 @@ function HouseholdChallengeCard({ onClaimed }) {
             )}
           </div>
         </>
+      )}
+
+      {/* Organizer-only, and only for classroom/team groups - a plain
+          household never had this control, and keeps its exact original
+          behaviour (always the auto top-emitting category). */}
+      {groupType === 'classroom' && isOwner && (
+        <ChallengeFocusPicker preferredChallengeCategory={preferredChallengeCategory} onSaved={onFocusSaved} />
       )}
     </div>
   );
@@ -483,12 +592,13 @@ export default function Household() {
   };
 
   const handleLeave = async () => {
+    const isClassroom = data?.groupType === 'classroom';
     try {
       await householdApi.leave();
-      toast.success('Left the household.');
+      toast.success(isClassroom ? 'Left the team.' : 'Left the household.');
       load();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not leave that household.'));
+      toast.error(getErrorMessage(error, 'Could not leave that group.'));
     }
   };
 
@@ -520,8 +630,14 @@ export default function Household() {
         icon={Users}
         eyebrow="Group mode"
         title="Your"
-        titleAccent="Household"
-        subtitle="A shared footprint and a leaderboard for the people you actually live or work with."
+        titleAccent={data.inHousehold && data.groupType === 'classroom' ? 'Team' : 'Household'}
+        subtitle={
+          data.inHousehold
+            ? data.groupType === 'classroom'
+              ? "A shared footprint and a leaderboard for your class or team."
+              : 'A shared footprint and a leaderboard for the people you actually live with.'
+            : 'A shared footprint and a leaderboard for your household — or your class, club, or team.'
+        }
         action={
           data.inHousehold ? (
             <button type="button" onClick={handleLeave} className="eco-btn eco-btn-outline" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -556,7 +672,11 @@ export default function Household() {
                     {formatEmission(data.combinedEmissionThisMonthKg)}
                   </span>
                   <span className="eco-text-muted" style={{ fontSize: '0.82rem' }}>
-                    combined this month · {data.memberCount} {data.memberCount === 1 ? 'member' : 'members'}
+                    combined this month · {data.memberCount}
+                    {data.maxMembers ? `/${data.maxMembers}` : ''} {data.memberCount === 1 ? 'member' : 'members'}
+                    {data.isOwner && (
+                      <> · <span style={{ color: 'var(--eco-primary)' }}>you're the {data.groupType === 'classroom' ? 'organizer' : 'owner'}</span></>
+                    )}
                   </span>
                 </div>
               </div>
@@ -578,7 +698,12 @@ export default function Household() {
             </div>
           </div>
 
-          <HouseholdChallengeCard />
+          <HouseholdChallengeCard
+            groupType={data.groupType}
+            isOwner={data.isOwner}
+            preferredChallengeCategory={data.preferredChallengeCategory}
+            onFocusSaved={load}
+          />
 
           <div className="eco-card" style={{ marginBottom: '1.8rem' }}>
             <span className="eco-marker" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.1rem' }}>
