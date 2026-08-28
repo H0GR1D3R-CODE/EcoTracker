@@ -333,6 +333,20 @@ export const adminApi = {
   deleteFeedback: (feedbackId) =>
     api.delete(`/api/admin/feedback/${feedbackId}`).then(unwrap),
 
+  // The site-wide banner - see backend/routes/admin.py's own announcement
+  // routes and routes/announcements.py for the signed-in-user-facing read
+  // side (announcementsApi.getActive, below).
+  getAnnouncements: () => api.get('/api/admin/announcements').then(unwrap),
+
+  createAnnouncement: (payload) =>
+    api.post('/api/admin/announcements', payload).then(unwrap),
+
+  deactivateAnnouncement: (announcementId) =>
+    api.patch(`/api/admin/announcements/${announcementId}`, { active: false }).then(unwrap),
+
+  deleteAnnouncement: (announcementId) =>
+    api.delete(`/api/admin/announcements/${announcementId}`).then(unwrap),
+
   // Verified donations only - amounts come back in paise
   getDonations: () => api.get('/api/admin/donations').then(unwrap),
 
@@ -569,6 +583,15 @@ export const remindersApi = {
   getAll: () => api.get('/api/reminders').then(unwrap),
   create: (payload) => api.post('/api/reminders', payload).then(unwrap),
   remove: (reminderId) => api.delete(`/api/reminders/${reminderId}`).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// ANNOUNCEMENTS (the site-wide banner - see routes/announcements.py)
+// ---------------------------------------------------------------------------
+
+export const announcementsApi = {
+  // {announcement: null} when nothing is currently active - not an error state
+  getActive: () => api.get('/api/announcements/active').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

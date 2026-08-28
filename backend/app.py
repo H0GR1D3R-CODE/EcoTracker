@@ -52,6 +52,7 @@ from routes.learn import learn_bp
 from routes.voice import voice_bp
 from routes.achievements import achievements_bp
 from routes.reminders import reminders_bp
+from routes.announcements import announcements_bp
 
 
 def create_app():
@@ -109,6 +110,7 @@ def create_app():
     app.register_blueprint(voice_bp)       # /api/voice/*  (speech-to-log extraction)
     app.register_blueprint(achievements_bp)  # /api/achievements  (badge unlock rollup)
     app.register_blueprint(reminders_bp)   # /api/reminders/*  (recurring log-reminder config)
+    app.register_blueprint(announcements_bp)  # /api/announcements/*  (site-wide banner)
 
     # -----------------------------------------------------------------------
     # Security headers, on every response

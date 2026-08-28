@@ -12,6 +12,7 @@ import { AlertTriangle, RotateCw } from 'lucide-react';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AnnouncementBanner from './components/AnnouncementBanner';
 import ProtectedRoute from './components/ProtectedRoute';
 import CookieConsent from './components/CookieConsent';
 import { useTheme } from './context/ThemeContext';
@@ -227,6 +228,7 @@ export default function App() {
       </a>
 
       <Navbar />
+      <AnnouncementBanner />
 
       <main id="main-content">
       <ErrorBoundary>

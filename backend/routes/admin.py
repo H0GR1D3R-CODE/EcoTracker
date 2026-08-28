@@ -46,6 +46,7 @@ from routes import (
     month_key_of,
     require_admin,
 )
+from routes.announcements import COLLECTION_ANNOUNCEMENTS
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -594,6 +595,132 @@ def delete_feedback(feedback_id):
 
     ref.delete()
     return api_success({"id": feedback_id}, message="Feedback deleted.")
+
+
+# ---------------------------------------------------------------------------
+# Announcements - the site-wide banner (see routes/announcements.py for the
+# signed-in-user-facing read side; every write lives here, admin-only)
+# ---------------------------------------------------------------------------
+
+VALID_ANNOUNCEMENT_TONES = {"good", "warning", "neutral"}
+MAX_ANNOUNCEMENT_MESSAGE_LENGTH = 240
+
+
+def _serialize_announcement(doc):
+    data = doc.to_dict()
+    created_at = data.get("createdAt")
+    return {
+        "id": doc.id,
+        "message": data.get("message", ""),
+        "tone": data.get("tone", "neutral"),
+        "link": data.get("link"),
+        "active": bool(data.get("active", False)),
+        "createdAt": created_at.isoformat() if created_at else None,
+        "createdBy": data.get("createdBy", ""),
+    }
+
+
+@admin_bp.route("/announcements", methods=["GET"])
+@require_admin
+def list_announcements():
+    """Every announcement ever created, newest first - a history to review,
+    not just whatever is live right now."""
+    db = get_db()
+    docs = list(db.collection(COLLECTION_ANNOUNCEMENTS).stream())
+    items = [_serialize_announcement(doc) for doc in docs]
+    items.sort(key=lambda item: item["createdAt"] or "", reverse=True)
+    return api_success({"announcements": items})
+
+
+@admin_bp.route("/announcements", methods=["POST"])
+@require_admin
+def create_announcement():
+    """
+    Publish a new banner - and retire whichever one was showing before it.
+
+    Body: {"message": "...", "tone": "neutral", "link": {"label": "Learn more", "to": "/learn"}}
+    tone is one of VALID_ANNOUNCEMENT_TONES (the exact same good/warning/
+    neutral vocabulary Dashboard.jsx's own insights already use). link is
+    optional - a plain-text banner with no call to action is a real, valid
+    announcement, not an incomplete one.
+    """
+    body = request.get_json(silent=True) or {}
+    message = str(body.get("message", "")).strip()
+    tone = str(body.get("tone", "neutral")).strip()
+    link = body.get("link")
+
+    if not message:
+        return api_error("A message is required.", 400, code="missing_message")
+    if len(message) > MAX_ANNOUNCEMENT_MESSAGE_LENGTH:
+        return api_error(
+            f"Message must be {MAX_ANNOUNCEMENT_MESSAGE_LENGTH} characters or fewer.",
+            400,
+            code="message_too_long",
+        )
+    if tone not in VALID_ANNOUNCEMENT_TONES:
+        return api_error("Unrecognised tone.", 400, code="invalid_tone")
+
+    if link is not None:
+        if (
+            not isinstance(link, dict)
+            or not str(link.get("label", "")).strip()
+            or not str(link.get("to", "")).strip()
+        ):
+            return api_error(
+                "A link needs both a label and a destination, or leave it out entirely.",
+                400,
+                code="invalid_link",
+            )
+        link = {"label": str(link["label"]).strip()[:40], "to": str(link["to"]).strip()}
+
+    db = get_db()
+    collection = db.collection(COLLECTION_ANNOUNCEMENTS)
+
+    # Retire the current banner (if any) before publishing the new one - see
+    # this module's own comment on why there is only ever one active
+    # announcement, never a competing pair.
+    for doc in collection.where("active", "==", True).stream():
+        doc.reference.update({"active": False})
+
+    new_ref = collection.document()
+    new_ref.set({
+        "message": message,
+        "tone": tone,
+        "link": link,
+        "active": True,
+        "createdAt": gcloud_firestore.SERVER_TIMESTAMP,
+        "createdBy": g.email or g.uid,
+    })
+
+    return api_success(_serialize_announcement(new_ref.get()), message="Announcement published.")
+
+
+@admin_bp.route("/announcements/<announcement_id>", methods=["PATCH"])
+@require_admin
+def deactivate_announcement(announcement_id):
+    """End a banner early, without deleting its record from the history list."""
+    db = get_db()
+    ref = db.collection(COLLECTION_ANNOUNCEMENTS).document(announcement_id)
+
+    if not ref.get().exists:
+        return api_error("Announcement not found.", 404, code="announcement_not_found")
+
+    ref.update({"active": False})
+    return api_success(_serialize_announcement(ref.get()), message="Announcement ended.")
+
+
+@admin_bp.route("/announcements/<announcement_id>", methods=["DELETE"])
+@require_admin
+def delete_announcement(announcement_id):
+    """Remove an announcement from the history list entirely."""
+    db = get_db()
+    ref = db.collection(COLLECTION_ANNOUNCEMENTS).document(announcement_id)
+
+    if not ref.get().exists:
+        return api_error("Announcement not found.", 404, code="announcement_not_found")
+
+    ref.delete()
+    return api_success({"id": announcement_id}, message="Announcement deleted.")
 
 
 # The collection the verified-donation writer in routes/payments.py appends to.

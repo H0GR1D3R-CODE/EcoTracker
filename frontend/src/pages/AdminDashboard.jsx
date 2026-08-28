@@ -29,7 +29,9 @@ import {
   FlaskConical,
   HeartHandshake,
   Leaf,
+  Loader2,
   MapPin,
+  Megaphone,
   MessageSquare,
   Pencil,
   Plus,
@@ -149,6 +151,18 @@ export default function AdminDashboard() {
 
   const factorCount = allFactors?.count ?? null;
 
+  // The Announcements tab - lazy-loaded the same way as System/Research/Factors.
+  const [announcements, setAnnouncements] = useState(null);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(false);
+  const [newAnnouncementMessage, setNewAnnouncementMessage] = useState('');
+  const [newAnnouncementTone, setNewAnnouncementTone] = useState('neutral');
+  const [showAnnouncementLink, setShowAnnouncementLink] = useState(false);
+  const [newAnnouncementLinkLabel, setNewAnnouncementLinkLabel] = useState('');
+  const [newAnnouncementLinkTo, setNewAnnouncementLinkTo] = useState('');
+  const [publishingAnnouncement, setPublishingAnnouncement] = useState(false);
+  const [endingAnnouncementId, setEndingAnnouncementId] = useState(null);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState(null);
+
   // The System tab's "invite an admin" form. Deliberately sends from
   // whichever real admin is signed in and clicking the button - see
   // routes/admin.py's invite_admin() docstring on why this cannot be
@@ -252,6 +266,82 @@ export default function AdminDashboard() {
     if (tab === 'factors' && !allFactors && !factorsLoading) loadFactors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const loadAnnouncements = async () => {
+    setAnnouncementsLoading(true);
+    try {
+      const data = await adminApi.getAnnouncements();
+      setAnnouncements(data.announcements || []);
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not load announcements.'));
+    } finally {
+      setAnnouncementsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'announcements' && !announcements && !announcementsLoading) loadAnnouncements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const handlePublishAnnouncement = async () => {
+    if (!newAnnouncementMessage.trim() || publishingAnnouncement) return;
+    setPublishingAnnouncement(true);
+    try {
+      const link =
+        showAnnouncementLink && newAnnouncementLinkLabel.trim() && newAnnouncementLinkTo.trim()
+          ? { label: newAnnouncementLinkLabel.trim(), to: newAnnouncementLinkTo.trim() }
+          : null;
+      const published = await adminApi.createAnnouncement({
+        message: newAnnouncementMessage.trim(),
+        tone: newAnnouncementTone,
+        link,
+      });
+      // The new one replaces whichever was active before it - reflect that
+      // locally too, rather than waiting on a full reload to show it.
+      setAnnouncements((current) => [
+        published,
+        ...(current || []).map((item) => ({ ...item, active: false })),
+      ]);
+      setNewAnnouncementMessage('');
+      setShowAnnouncementLink(false);
+      setNewAnnouncementLinkLabel('');
+      setNewAnnouncementLinkTo('');
+      toast.success('Announcement published.');
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not publish that announcement.'));
+    } finally {
+      setPublishingAnnouncement(false);
+    }
+  };
+
+  const handleEndAnnouncement = async (id) => {
+    setEndingAnnouncementId(id);
+    try {
+      await adminApi.deactivateAnnouncement(id);
+      setAnnouncements((current) =>
+        (current || []).map((item) => (item.id === id ? { ...item, active: false } : item))
+      );
+      toast.success('Announcement ended.');
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not end that announcement.'));
+    } finally {
+      setEndingAnnouncementId(null);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    setDeletingAnnouncementId(id);
+    try {
+      await adminApi.deleteAnnouncement(id);
+      setAnnouncements((current) => (current || []).filter((item) => item.id !== id));
+      toast.success('Announcement deleted.');
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not delete that announcement.'));
+    } finally {
+      setDeletingAnnouncementId(null);
+    }
+  };
 
   const handleCreateFactor = async () => {
     if (savingFactor) return;
@@ -760,6 +850,7 @@ export default function AdminDashboard() {
           { id: 'users', label: 'Users', icon: Users, count: users.length },
           { id: 'donations', label: 'Donations', icon: HeartHandshake, count: donations.length },
           { id: 'feedback', label: 'Feedback', icon: MessageSquare, count: feedback.length },
+          { id: 'announcements', label: 'Announcements', icon: Megaphone, count: null },
           { id: 'system', label: 'System', icon: Activity, count: null, dot: system?.overall },
           { id: 'research', label: 'Research', icon: FlaskConical, count: null },
           { id: 'factors', label: 'Factors', icon: Sigma, count: factorCount },
@@ -1954,6 +2045,218 @@ export default function AdminDashboard() {
                     <Trash2 size={15} />
                   )}
                 </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      </motion.div>
+      )}
+
+      {/* ============ ANNOUNCEMENTS TAB ============ */}
+      {/* The site-wide banner every signed-in user sees under the navbar -
+          see components/AnnouncementBanner.jsx (the render side) and
+          backend/routes/announcements.py's own module docstring for why
+          there is only ever one ACTIVE announcement at a time: publishing a
+          new one here automatically ends whichever was showing before it. */}
+      {tab === 'announcements' && (
+      <motion.div
+        key="tab-announcements"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+
+      <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.3rem' }}>
+          <Megaphone size={17} style={{ color: 'var(--eco-text-muted)' }} />
+          <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
+            Announcements
+          </h2>
+        </div>
+
+        {/* ---- composer ---- */}
+        <div className="eco-card" style={{ marginBottom: '1.6rem' }}>
+          <h3 className="eco-display" style={{ fontSize: '1rem', margin: '0 0 1rem' }}>
+            Publish a new banner
+          </h3>
+          <p className="eco-text-muted" style={{ fontSize: '0.85rem', margin: '0 0 1.1rem', lineHeight: 1.6 }}>
+            Shown under the navbar to every signed-in user until they dismiss it, or until you
+            publish (or end) another one. Only one banner is ever active at a time.
+          </p>
+
+          <div className="mb-3">
+            <textarea
+              className="form-control"
+              placeholder="e.g. Voice logging is here - tap the mic on the Calculator to try it."
+              value={newAnnouncementMessage}
+              onChange={(event) => setNewAnnouncementMessage(event.target.value.slice(0, 240))}
+              disabled={publishingAnnouncement}
+              rows={2}
+              style={{ resize: 'vertical' }}
+            />
+            <div className="eco-field-hint" style={{ textAlign: 'right' }}>
+              {newAnnouncementMessage.length} / 240
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.9rem', marginBottom: '1rem' }}>
+            <SelectField
+              id="announcement-tone"
+              label="Tone"
+              value={newAnnouncementTone}
+              onChange={setNewAnnouncementTone}
+              options={[
+                { value: 'neutral', label: 'Neutral' },
+                { value: 'good', label: 'Good news' },
+                { value: 'warning', label: 'Warning / notice' },
+              ]}
+            />
+          </div>
+
+          {!showAnnouncementLink ? (
+            <button
+              type="button"
+              onClick={() => setShowAnnouncementLink(true)}
+              className="eco-btn eco-btn-ghost"
+              style={{ fontSize: '0.82rem', marginBottom: '1.1rem' }}
+            >
+              <Plus size={14} /> Add a link (optional)
+            </button>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.7rem', marginBottom: '1.1rem', alignItems: 'end' }}>
+              <div>
+                <label className="eco-text-muted" style={{ fontSize: '0.72rem', fontWeight: 500, display: 'block', marginBottom: 6 }}>
+                  Link label
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Learn more"
+                  value={newAnnouncementLinkLabel}
+                  onChange={(event) => setNewAnnouncementLinkLabel(event.target.value)}
+                  maxLength={40}
+                />
+              </div>
+              <div>
+                <label className="eco-text-muted" style={{ fontSize: '0.72rem', fontWeight: 500, display: 'block', marginBottom: 6 }}>
+                  Destination (a page path like /learn, or a full URL)
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="/learn"
+                  value={newAnnouncementLinkTo}
+                  onChange={(event) => setNewAnnouncementLinkTo(event.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAnnouncementLink(false);
+                  setNewAnnouncementLinkLabel('');
+                  setNewAnnouncementLinkTo('');
+                }}
+                className="eco-btn eco-btn-ghost"
+                style={{ fontSize: '0.82rem' }}
+              >
+                <X size={14} /> Remove link
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handlePublishAnnouncement}
+            disabled={!newAnnouncementMessage.trim() || publishingAnnouncement}
+            className="eco-btn eco-btn-primary"
+          >
+            {publishingAnnouncement ? (
+              <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+            ) : (
+              <Send size={15} />
+            )}
+            Publish
+          </button>
+        </div>
+
+        {/* ---- history ---- */}
+        {announcementsLoading || announcements === null ? (
+          <SkeletonTable rows={3} />
+        ) : announcements.length === 0 ? (
+          <p className="eco-text-muted" style={{ fontSize: '0.9rem' }}>
+            No announcements published yet.
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gap: '0.8rem' }}>
+            {announcements.map((item, index) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  gap: '0.9rem',
+                  padding: '0.9rem 0',
+                  borderTop: index === 0 ? '1px solid var(--rule-strong)' : '1px solid var(--rule)',
+                  alignItems: 'flex-start',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
+                    <span
+                      className="eco-marker"
+                      style={{
+                        color: item.active ? 'var(--eco-primary)' : 'var(--eco-text-muted)',
+                      }}
+                    >
+                      {item.active ? 'Live now' : 'Ended'}
+                    </span>
+                    <span className="eco-marker" style={{ opacity: 0.7 }}>
+                      {item.tone}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.9rem', marginBottom: '0.35rem' }}>{item.message}</div>
+                  {item.link && (
+                    <div className="eco-text-muted" style={{ fontSize: '0.78rem', marginBottom: '0.3rem' }}>
+                      Links to: {item.link.label} → {item.link.to}
+                    </div>
+                  )}
+                  <div className="eco-text-muted" style={{ fontSize: '0.76rem' }}>
+                    {item.createdAt ? formatDate(item.createdAt) : ''} by {item.createdBy}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                  {item.active && (
+                    <button
+                      type="button"
+                      onClick={() => handleEndAnnouncement(item.id)}
+                      disabled={endingAnnouncementId === item.id}
+                      className="eco-btn eco-btn-outline"
+                      style={{ fontSize: '0.8rem', padding: '0.4rem 0.7rem' }}
+                    >
+                      {endingAnnouncementId === item.id ? (
+                        <Loader2 size={14} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+                      ) : (
+                        'End now'
+                      )}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteAnnouncement(item.id)}
+                    disabled={deletingAnnouncementId === item.id}
+                    aria-label="Delete announcement"
+                    style={{ background: 'transparent', border: 'none', color: 'var(--eco-text-muted)', cursor: 'pointer', padding: 8, display: 'flex' }}
+                  >
+                    {deletingAnnouncementId === item.id ? (
+                      <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+                    ) : (
+                      <Trash2 size={15} />
+                    )}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
