@@ -771,3 +771,183 @@ def send_admin_invite_email(recipient_email, invited_by_email, invited_name=None
         f"(HTTP {response.status_code}): {response.text[:300]}"
     )
     return False
+
+
+# ---------------------------------------------------------------------------
+# ACTIVITY DIGEST (weekly or monthly)
+#
+# Sent from routes/cron.py's send_digest_emails() - the same daily cron run
+# that already sends streak/goal/reminder/budget PUSH notifications, just a
+# second, independent pass over every user's own digestFrequency preference
+# (Profile > Notifications) rather than their push-token registration. No
+# animation asset like the reset/donation emails - the numbers are the whole
+# point, the same reasoning the two-factor code email's own comment gives for
+# skipping one.
+# ---------------------------------------------------------------------------
+
+
+def _digest_email_html(name, period_label, period_adjective, total_kg, top_categories, budget_kg):
+    """
+    The branded HTML body for a weekly/monthly digest email.
+
+    TWO DIFFERENT GRAMMATICAL FORMS OF THE SAME PERIOD, ON PURPOSE
+    period_label is a noun phrase for headings like "{period_label} total" -
+    "This week" or a month name like "August", both of which read correctly
+    there. period_adjective ("weekly"/"monthly") is for anywhere the
+    sentence needs an adjective instead - "Your {adjective} summary" reads
+    fine either way, but "Your {label.lower()} summary" produced "Your this
+    week summary" for the weekly case, caught rendering a real preview of
+    this exact template before ever sending one for real.
+
+    top_categories is a list of (label, kg) tuples, already sorted and
+    already capped to at most 3 by the caller - this function only renders
+    what it is given, the same "no maths in the template" rule every other
+    email here follows.
+    """
+    display_name = name.strip() if name and name.strip() else "there"
+
+    category_rows = "".join(
+        f"""
+          <tr>
+            <td style="padding:10px 0; border-top:1px solid rgba(31,42,26,0.1); font-size:14px; color:#1e2a1d;">{label}</td>
+            <td style="padding:10px 0; border-top:1px solid rgba(31,42,26,0.1); font-size:14px; text-align:right; font-family:'Courier New',Courier,monospace; color:#1e2a1d;">{kg:.1f} kg</td>
+          </tr>"""
+        for label, kg in top_categories
+    )
+
+    if budget_kg > 0:
+        percent = round((total_kg / budget_kg) * 100)
+        budget_line = (
+            f"That's <strong style=\"color:#1e2a1d;\">{percent}%</strong> of your "
+            f"{budget_kg:.0f} kg CO&#8322; budget for a 1.5&nbsp;&deg;C-aligned {period_adjective} pace."
+        )
+    else:
+        budget_line = ""
+
+    return f"""\
+<!doctype html>
+<html>
+  <body style="margin:0; padding:32px 16px; background-color:#f5f3ec; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; margin:0 auto;">
+      <tr>
+        <td style="padding-bottom:28px; text-align:center;">
+          <span style="font-size:22px; font-weight:700; color:#1f7a44; letter-spacing:-0.02em;">
+            &#127807; EcoTrack
+          </span>
+        </td>
+      </tr>
+      <tr>
+        <td style="background-color:#fdfcf8; border:1px solid rgba(31,42,26,0.12); border-radius:14px; padding:36px 32px;">
+          <p style="margin:0 0 8px; font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:#5f6b58;">
+            Your {period_adjective} summary
+          </p>
+          <h1 style="margin:0 0 20px; font-size:26px; line-height:1.2; font-weight:700; color:#1e2a1d;">
+            Hi {display_name}
+          </h1>
+
+          <p style="margin:0 0 6px; font-size:12px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:#5f6b58;">
+            {period_label} total
+          </p>
+          <p style="margin:0 0 8px; font-size:40px; line-height:1; font-weight:700; font-family:'Courier New',Courier,monospace; color:#1f7a44;">
+            {total_kg:.1f} <span style="font-size:18px; font-weight:600; color:#5f6b58;">kg CO&#8322;</span>
+          </p>
+          {f'<p style="margin:0 0 24px; font-size:14px; line-height:1.6; color:#5f6b58;">{budget_line}</p>' if budget_line else '<div style="margin-bottom:24px;"></div>'}
+
+          {f'''<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 28px;">
+            {category_rows}
+          </table>''' if category_rows else ''}
+
+          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+            <tr>
+              <td style="border-radius:10px; background-color:#1f7a44;">
+                <a href="{Config.PUBLIC_APP_URL}/reports"
+                   style="display:inline-block; padding:13px 26px; font-size:14px; font-weight:600; color:#ffffff; text-decoration:none; border-radius:10px;">
+                  View full report
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding-top:24px; text-align:center;">
+          <p style="margin:0 0 6px; font-size:12px; color:#5f6b58;">
+            EcoTrack &middot; measure your footprint, then bring it down &middot; built around UN SDG&nbsp;13
+          </p>
+          <p style="margin:0; font-size:11px; color:#8a938a;">
+            Turn this off any time in Profile &rarr; Notifications.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+
+
+def _digest_email_text(name, period_label, period_adjective, total_kg, top_categories, budget_kg):
+    display_name = name.strip() if name and name.strip() else "there"
+    lines = [
+        f"Hi {display_name},",
+        "",
+        f"Your {period_adjective} summary: {period_label} total, {total_kg:.1f} kg CO2.",
+    ]
+    if budget_kg > 0:
+        percent = round((total_kg / budget_kg) * 100)
+        lines.append(f"That's {percent}% of your {budget_kg:.0f} kg CO2 budget for a 1.5C-aligned {period_adjective} pace.")
+    if top_categories:
+        lines.append("")
+        lines.append("By category:")
+        lines.extend(f"  - {label}: {kg:.1f} kg" for label, kg in top_categories)
+    lines.append("")
+    lines.append(f"View your full report: {Config.PUBLIC_APP_URL}/reports")
+    lines.append("")
+    lines.append("Turn this off any time in Profile -> Notifications.")
+    return "\n".join(lines)
+
+
+def send_digest_email(recipient_email, recipient_name, period_label, period_adjective, total_kg, top_categories, budget_kg=0):
+    """
+    Send a weekly/monthly activity digest through Resend.
+
+    period_label is a noun phrase ("This week", or a month name like
+    "August"); period_adjective is "weekly" or "monthly" - see
+    _digest_email_html's own docstring for why both exist rather than
+    deriving one from the other with .lower().
+
+    Returns True once Resend has accepted it, False if the custom email path
+    is unavailable or the send failed for any reason - the caller
+    (routes/cron.py's send_digest_emails) treats False as "skip this user
+    this run", not an error worth surfacing anywhere; unlike a password
+    reset, there is no user actively waiting on this one, so silently
+    trying again next cycle is the right degrade, not a fallback email.
+    """
+    if not Config.RESEND_API_KEY:
+        return False
+
+    payload = {
+        "from": Config.RESEND_FROM_EMAIL,
+        "to": [recipient_email],
+        "subject": f"Your {period_adjective} EcoTrack summary",
+        "html": _digest_email_html(recipient_name, period_label, period_adjective, total_kg, top_categories, budget_kg),
+        "text": _digest_email_text(recipient_name, period_label, period_adjective, total_kg, top_categories, budget_kg),
+    }
+
+    try:
+        response = requests.post(
+            RESEND_API_URL,
+            json=payload,
+            headers={"Authorization": f"Bearer {Config.RESEND_API_KEY}"},
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException:
+        return False
+
+    if response.status_code >= 200 and response.status_code < 300:
+        return True
+
+    print(
+        f"[EcoTrack] Resend could not send the digest email "
+        f"(HTTP {response.status_code}): {response.text[:300]}"
+    )
+    return False

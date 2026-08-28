@@ -128,6 +128,11 @@ def _serialize_user(doc_id, data):
         # See update_profile's own comment on what "preset" vs "custom" mean.
         "avatarType": data.get("avatarType"),
         "avatarValue": data.get("avatarValue"),
+        # "off" (the default) / "weekly" / "monthly" - see routes/cron.py's
+        # send_digest_emails for how this actually gets delivered (the same
+        # daily cron run that already sends push notifications, just gated
+        # on this field instead of a push token).
+        "digestFrequency": data.get("digestFrequency", "off"),
     }
 
 
@@ -831,6 +836,14 @@ def update_profile():
 
     if "publicProfileOptIn" in body:
         updates["publicProfileOptIn"] = bool(body.get("publicProfileOptIn"))
+
+    if "digestFrequency" in body:
+        digest_frequency = body.get("digestFrequency")
+        if digest_frequency not in ("off", "weekly", "monthly"):
+            return api_error(
+                "digestFrequency must be off, weekly, or monthly.", 400, code="invalid_digest_frequency"
+            )
+        updates["digestFrequency"] = digest_frequency
 
     # avatarType and avatarValue are only ever meaningfully set TOGETHER -
     # checking for either key's presence (not both) is deliberate: it is what

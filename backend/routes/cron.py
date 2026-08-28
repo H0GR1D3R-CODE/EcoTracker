@@ -25,8 +25,9 @@ from flask import Blueprint, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
+from email_service import send_digest_email
 from notifications import send_push_to_user
-from routes import api_error, api_success, fetch_user_records, total_emission
+from routes import api_error, api_success, fetch_user_records, group_by_category, total_emission
 from routes.assistant import MONTHLY_BUDGET_KG
 from routes.engagement import STREAK_LOOKBACK_DAYS, _compute_streak
 from routes.goals import _serialize_goal
@@ -38,6 +39,14 @@ cron_bp = Blueprint("cron", __name__, url_prefix="/api/cron")
 # rather than redefined, since this is a plain constant with nothing
 # module-specific about it.
 ANNUAL_BUDGET_KG = MONTHLY_BUDGET_KG * 12
+# 12 months / 52 weeks - the same straight-line proration MONTHLY_BUDGET_KG
+# itself already uses (2000 kg/year / 12), just carried one step further for
+# send_digest_emails' own weekly comparison line.
+WEEKLY_BUDGET_KG = MONTHLY_BUDGET_KG * 12 / 52
+
+# How many categories a digest email shows - see send_digest_emails' own
+# comment on why more than this reads as a report, not a summary.
+DIGEST_TOP_CATEGORIES = 3
 
 # Stored on the user doc so this alert fires AT MOST ONCE PER CALENDAR
 # MONTH, not every single day someone stays over pace - unlike the other
@@ -94,6 +103,13 @@ def streak_reminders():
     Deliberately at most one push, not one for each - two unrelated
     notifications landing back to back the same day reads as spam, not two
     real reasons to open the app.
+
+    ALSO SENDS DIGEST EMAILS, AS A SEPARATE PASS
+    After the push-notification loop above, send_digest_emails() below runs
+    its own independent scan for anyone with a weekly/monthly email digest
+    turned on (Profile > Notifications) - a different channel (Resend email,
+    not a push token) with no reason to compete for the one-push-per-day
+    slot above, so it is not folded into the four tiers.
 
     A FULL users-COLLECTION SCAN, NOT AN INDEXED QUERY
     Firestore cannot query "streak >= 2" or "isAchieved" - a streak and a
@@ -223,10 +239,90 @@ def streak_reminders():
                 )
                 notified_for_budget += 1
 
+    digest_stats = send_digest_emails(db, today)
+
     return api_success({
         "usersWithTokens": users_with_tokens,
         "notifiedForGoal": notified_for_goal,
         "notifiedForStreak": notified_for_streak,
         "notifiedForReminder": notified_for_reminder,
         "notifiedForBudget": notified_for_budget,
+        **digest_stats,
     })
+
+
+def send_digest_emails(db, today):
+    """
+    The weekly/monthly activity-summary email - a second, independent pass
+    over every user in the SAME daily cron run above, not folded into its
+    one-push-per-day priority tiers: this is a different channel entirely
+    (email via Resend, not a push token), so it has no reason to compete for
+    the same single notification slot, and it is gated on a user's own
+    digestFrequency preference (Profile > Notifications), not on whether
+    they have push notifications turned on at all.
+
+    ONLY ACTUALLY SENDS ON THE RIGHT DAY
+    "Weekly" and "monthly" are both delivered through this one daily cron
+    run - see reminders.py's own module docstring for why this backend
+    cannot promise a chosen day or time beyond "once a day, whenever this
+    job fires". A weekly digest goes out when today is Monday; a monthly one
+    when today is the 1st of the month, covering the month that JUST ended
+    (today.month - 1), not the one barely begun.
+
+    SKIPS A USER WITH NOTHING LOGGED
+    An empty "you logged 0.0 kg this week" email is not a summary worth
+    sending - it reads as EcoTrack failing to notice their activity, not as
+    a genuine report of "you did nothing", which for most people most weeks
+    is simply not newsworthy.
+    """
+    is_monday = today.weekday() == 0
+    is_first_of_month = today.day == 1
+
+    if not is_monday and not is_first_of_month:
+        return {"digestsSent": 0}
+
+    sent = 0
+
+    for user_doc in db.collection(Config.COLLECTION_USERS).stream():
+        data = user_doc.to_dict() or {}
+        frequency = data.get("digestFrequency", "off")
+        email = data.get("email")
+        if not email:
+            continue
+
+        if frequency == "weekly" and is_monday:
+            period_start = today - timedelta(days=7)
+            period_end = today - timedelta(days=1)
+            period_label = "This week"
+            period_adjective = "weekly"
+            budget_kg = WEEKLY_BUDGET_KG
+        elif frequency == "monthly" and is_first_of_month:
+            # The month that just ended, not the one barely begun - today
+            # is the 1st, so "this month" would be almost entirely empty.
+            last_day_of_previous_month = today - timedelta(days=1)
+            period_start = last_day_of_previous_month.replace(day=1)
+            period_end = last_day_of_previous_month
+            period_label = period_start.strftime("%B")
+            period_adjective = "monthly"
+            budget_kg = MONTHLY_BUDGET_KG
+        else:
+            continue
+
+        records = fetch_user_records(
+            user_doc.id, start_date=period_start.isoformat(), end_date=period_end.isoformat()
+        )
+        total_kg = total_emission(records)
+        if total_kg <= 0:
+            continue
+
+        breakdown = group_by_category(records)
+        top_categories = sorted(
+            ((category.capitalize(), kg) for category, kg in breakdown.items() if kg > 0),
+            key=lambda item: item[1],
+            reverse=True,
+        )[:DIGEST_TOP_CATEGORIES]
+
+        if send_digest_email(email, data.get("name", ""), period_label, period_adjective, total_kg, top_categories, budget_kg):
+            sent += 1
+
+    return {"digestsSent": sent}

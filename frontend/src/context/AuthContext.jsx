@@ -515,15 +515,31 @@ export function AuthProvider({ children }) {
 
   /**
    * Save changes to the user's name, region, any of the privacy preferences
-   * (leaderboard opt-in/alias, public journey page opt-in), or their avatar
+   * (leaderboard opt-in/alias, public journey page opt-in), their avatar
    * (a preset, or null/null to clear it back to plain initials - a custom
    * uploaded photo is set only by uploadAvatar below, never through here,
    * matching backend/routes/auth.py's own update_profile/upload_avatar
-   * split). Only the fields actually passed are sent - see that route,
-   * which only touches whatever keys are present in the request body.
+   * split), or their email digest cadence. Only the fields actually passed
+   * are sent - see that route, which only touches whatever keys are
+   * present in the request body. EVERY field this function can save has to
+   * be listed in BOTH the destructured params below AND its own `body.x =`
+   * line - a field present in one but not the other is silently dropped
+   * (confirmed live: this is exactly what happened to digestFrequency when
+   * it was added to the backend and the JSX but missed here - the request
+   * went out with an empty body, and the backend correctly 400'd it as
+   * "nothing to update").
    */
   const updateProfile = useCallback(
-    async ({ name, region, leaderboardOptIn, leaderboardAlias, publicProfileOptIn, avatarType, avatarValue }) => {
+    async ({
+      name,
+      region,
+      leaderboardOptIn,
+      leaderboardAlias,
+      publicProfileOptIn,
+      avatarType,
+      avatarValue,
+      digestFrequency,
+    }) => {
       try {
         const body = {};
         if (name !== undefined) body.name = name;
@@ -533,6 +549,7 @@ export function AuthProvider({ children }) {
         if (publicProfileOptIn !== undefined) body.publicProfileOptIn = publicProfileOptIn;
         if (avatarType !== undefined) body.avatarType = avatarType;
         if (avatarValue !== undefined) body.avatarValue = avatarValue;
+        if (digestFrequency !== undefined) body.digestFrequency = digestFrequency;
 
         const data = await authApi.updateProfile(body);
         setProfile(data);

@@ -369,6 +369,26 @@ export default function Profile() {
     }
   };
 
+  // --- email digest ---
+  const [savingDigest, setSavingDigest] = useState(false);
+
+  const handleDigestChange = async (frequency) => {
+    if (savingDigest || frequency === (profile?.digestFrequency || 'off')) return;
+    setSavingDigest(true);
+    try {
+      await updateProfile({ digestFrequency: frequency });
+      toast.success(
+        frequency === 'off'
+          ? 'Email digest turned off.'
+          : `You'll get a ${frequency} summary by email.`
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setSavingDigest(false);
+    }
+  };
+
   // The at-a-glance figures shown above the edit form. Pulled from the same
   // dashboard summary the Dashboard page uses, so the two never disagree.
   const [stats, setStats] = useState(null);
@@ -1236,6 +1256,55 @@ export default function Profile() {
           </div>
         </motion.div>
       )}
+
+      {/* ---------- Email digest ---------- */}
+      {/* A different channel from the push notification above (email via
+          Resend, delivered through the same daily cron job - see
+          backend/routes/cron.py's send_digest_emails), so this shows
+          regardless of whether push notifications are configured on this
+          deployment at all. */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.07 }}
+        className="eco-card"
+        style={{ marginTop: '1.3rem' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.7rem', marginBottom: '1.1rem' }}>
+          <Mail size={17} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.4rem' }}>
+              Email digest
+            </h3>
+            <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.6, maxWidth: '48ch' }}>
+              A summary of your footprint - total, and your top categories - sent to{' '}
+              {profile?.email || 'your inbox'}, on whichever cadence you pick below.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {[
+            { value: 'off', label: 'Off' },
+            { value: 'weekly', label: 'Weekly' },
+            { value: 'monthly', label: 'Monthly' },
+          ].map((option) => {
+            const active = (profile?.digestFrequency || 'off') === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => handleDigestChange(option.value)}
+                disabled={savingDigest}
+                className={`eco-btn ${active ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+                style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem' }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </motion.div>
 
       </>
       )}
