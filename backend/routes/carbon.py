@@ -16,6 +16,8 @@ factor when a new DEFRA or IPCC report is published without any code change.
 Mounted at /api/carbon
 """
 
+import csv
+import io
 from datetime import date, timedelta
 
 from flask import Blueprint, g, request
@@ -536,3 +538,112 @@ def delete_record(record_id):
 
     record_ref.delete()
     return api_success({"id": record_id}, message="Record deleted successfully.")
+
+
+# ---------------------------------------------------------------------------
+# POST /api/carbon/import      (bulk CSV import)
+# ---------------------------------------------------------------------------
+
+MAX_IMPORT_ROWS = 500
+
+# The exact header names Reports.jsx's own CSV export already writes
+# (downloadReportCsv in frontend/src/pages/Reports.jsx) - accepting these
+# means a report exported from this backend is directly re-importable into
+# it, not just a one-way trip. "Emissions (kg CO2)", if present, is read and
+# silently ignored: every row is recalculated from the published factor via
+# save_calculated_record below, the same as every other way of logging an
+# entry (the Calculator, the bill scanner, voice logging) already works -
+# an imported file never gets to assert its own emission number.
+COLUMN_ALIASES = {
+    "date": "recordedDate",
+    "recordeddate": "recordedDate",
+    "category": "category",
+    "sub-type": "subType",
+    "subtype": "subType",
+    "quantity": "quantity",
+    "unit": "unit",
+}
+
+
+def _normalise_row(raw_row):
+    """Map a CSV row's (possibly differently-cased/spaced) headers onto the
+    fixed field names save_calculated_record expects, dropping anything
+    unrecognised (an Emissions column, a stray blank trailing column)."""
+    normalised = {}
+    for key, value in raw_row.items():
+        if key is None:
+            continue
+        field = COLUMN_ALIASES.get(key.strip().lower())
+        if field:
+            normalised[field] = (value or "").strip()
+    return normalised
+
+
+@carbon_bp.route("/import", methods=["POST"])
+@require_auth
+def import_records():
+    """
+    Bulk-log activities from a CSV, for backfilling history from a
+    spreadsheet or a previous tracker - the missing other half of Reports.jsx's
+    own CSV export.
+
+    Body: {"csv": "Date,Category,Sub-type,Quantity,Unit\n2026-01-15,transport,petrol_car,12,km\n..."}
+
+    EVERY ROW GOES THROUGH THE SAME VALIDATION AND FORMULA AS A MANUAL ENTRY
+    This calls save_calculated_record - the exact function POST /calculate
+    above uses - once per row, so an imported entry is indistinguishable
+    from one typed into the Calculator by hand: same factor lookup, same
+    category/date/quantity limits, same recalculated emission. A row that
+    fails validation is skipped and reported, not silently dropped or
+    allowed to corrupt the rest of the import - the response lists exactly
+    which rows failed and why, so the user can fix and re-upload just those.
+    """
+    body = request.get_json(silent=True) or {}
+    csv_text = body.get("csv")
+
+    if not isinstance(csv_text, str) or not csv_text.strip():
+        return api_error("csv is required.", 400, code="missing_csv")
+
+    try:
+        reader = csv.DictReader(io.StringIO(csv_text))
+        rows = list(reader)
+    except csv.Error:
+        return api_error("Could not parse that as CSV.", 400, code="invalid_csv")
+
+    if not rows:
+        return api_error("That CSV has no data rows.", 400, code="empty_csv")
+    if len(rows) > MAX_IMPORT_ROWS:
+        return api_error(
+            f"A single import is capped at {MAX_IMPORT_ROWS} rows - split larger files into batches.",
+            400,
+            code="too_many_rows",
+        )
+
+    imported = []
+    errors = []
+
+    for index, raw_row in enumerate(rows, start=2):  # start=2: row 1 is the header line
+        fields = _normalise_row(raw_row)
+        result, error = save_calculated_record(
+            g.uid,
+            fields.get("category"),
+            fields.get("subType"),
+            fields.get("quantity"),
+            fields.get("unit"),
+            fields.get("recordedDate"),
+        )
+        if error:
+            # error is the (Response, status) tuple api_error() returns -
+            # .get_json() reads the message back out of it for this row's report.
+            message = error[0].get_json().get("error", "Invalid row")
+            errors.append({"row": index, "message": message})
+        else:
+            imported.append(result["record"])
+
+    return api_success({
+        "importedCount": len(imported),
+        "errorCount": len(errors),
+        # Capped so one wildly malformed file does not return an enormous
+        # response - the count above already tells the user how many failed.
+        "errors": errors[:20],
+    }, message=f"Imported {len(imported)} of {len(rows)} rows.")

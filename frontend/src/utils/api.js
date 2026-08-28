@@ -255,6 +255,11 @@ export const carbonApi = {
 
   deleteRecord: (recordId) =>
     api.delete(`/api/carbon/records/${recordId}`).then(unwrap),
+
+  // csv is the raw file text, read client-side via FileReader - see
+  // ActivityLog.jsx's ImportModal. The backend re-validates and
+  // recalculates every row exactly as a manual entry would.
+  importRecords: (csv) => api.post('/api/carbon/import', { csv }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

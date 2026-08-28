@@ -5,17 +5,20 @@
 // already existed. See backend/routes/carbon.py's list_all_records and
 // update_record for why pagination happens in Python rather than Firestore.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   AlertCircle,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   Loader2,
   Pencil,
   Trash2,
+  Undo2,
+  Upload,
   X,
 } from 'lucide-react';
 
@@ -184,6 +187,148 @@ function EditModal({ record, subTypeOptions, onClose, onSaved }) {
   );
 }
 
+function ImportModal({ onClose, onImported }) {
+  const { prefersReducedMotion } = useTheme();
+  const [fileName, setFileName] = useState('');
+  const [csvText, setCsvText] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setResult(null);
+
+    const reader = new FileReader();
+    reader.onload = () => setCsvText(String(reader.result || ''));
+    reader.onerror = () => toast.error('Could not read that file.');
+    reader.readAsText(file);
+  };
+
+  const handleImport = async () => {
+    if (!csvText || importing) return;
+    setImporting(true);
+    try {
+      const data = await carbonApi.importRecords(csvText);
+      setResult(data);
+      if (data.importedCount > 0) onImported();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not import that file.'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1050,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1.5rem',
+        background: 'rgba(0, 0, 0, 0.5)',
+        backdropFilter: 'blur(4px)',
+      }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+        className="eco-card"
+        style={{ width: '100%', maxWidth: 480 }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.1rem' }}>
+          <h3 className="eco-display" style={{ fontSize: '1.1rem', margin: 0 }}>Import from CSV</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{ background: 'transparent', border: 'none', color: 'var(--eco-text-muted)', cursor: 'pointer', padding: 6 }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {!result && (
+          <>
+            <p className="eco-text-muted" style={{ fontSize: '0.86rem', lineHeight: 1.6, marginBottom: '1.2rem' }}>
+              Columns: <code style={{ fontFamily: 'var(--font-mono)' }}>Date, Category, Sub-type, Quantity, Unit</code> - the
+              same format this page's own CSV export uses, so a previous export is a ready-made template. Every row is
+              recalculated from the published factor, same as a manual entry - nothing here is trusted as-is.
+            </p>
+
+            <label
+              className="eco-btn eco-btn-outline"
+              style={{ width: '100%', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <Upload size={15} />
+              {fileName || 'Choose a CSV file'}
+              <input type="file" accept=".csv,text/csv" onChange={handleFileChange} style={{ display: 'none' }} />
+            </label>
+
+            <div style={{ display: 'flex', gap: '0.7rem', marginTop: '1.4rem' }}>
+              <button type="button" onClick={onClose} className="eco-btn eco-btn-ghost" style={{ flex: 1 }}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={!csvText || importing}
+                className="eco-btn eco-btn-primary"
+                style={{ flex: 1 }}
+              >
+                {importing ? <Loader2 size={16} style={{ animation: 'eco-spin 0.8s linear infinite' }} /> : 'Import'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {result && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1rem' }}>
+              <CheckCircle2 size={18} style={{ color: 'var(--eco-primary)', flexShrink: 0 }} />
+              <p style={{ margin: 0, fontSize: '0.92rem' }}>
+                Imported <strong>{result.importedCount}</strong> {result.importedCount === 1 ? 'entry' : 'entries'}
+                {result.errorCount > 0 && `, ${result.errorCount} row${result.errorCount === 1 ? '' : 's'} skipped`}.
+              </p>
+            </div>
+
+            {result.errors?.length > 0 && (
+              <div
+                style={{
+                  maxHeight: 180,
+                  overflowY: 'auto',
+                  background: 'var(--eco-bg-alt)',
+                  border: '1px solid var(--eco-border)',
+                  borderRadius: 'var(--eco-radius-sm)',
+                  padding: '0.8rem 1rem',
+                  marginBottom: '1.2rem',
+                }}
+              >
+                {result.errors.map((err) => (
+                  <div key={err.row} className="eco-text-muted" style={{ fontSize: '0.8rem', marginBottom: '0.4rem' }}>
+                    Row {err.row}: {err.message}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button type="button" onClick={onClose} className="eco-btn eco-btn-primary" style={{ width: '100%' }}>
+              Done
+            </button>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
 export default function ActivityLog() {
   const { prefersReducedMotion } = useTheme();
 
@@ -198,7 +343,13 @@ export default function ActivityLog() {
 
   const [factors, setFactors] = useState(null);
   const [editingRecord, setEditingRecord] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  // Keyed by record id - a pending delete's real DELETE call, delayed by
+  // UNDO_WINDOW_MS, so the toast's "Undo" button can cancel it before it
+  // ever reaches the server. A ref rather than state: a timer id is not
+  // something a re-render should ever reset or duplicate.
+  const pendingDeletesRef = useRef({});
 
   useEffect(() => {
     factorsApi.getAll().then(setFactors).catch(() => {});
@@ -229,17 +380,66 @@ export default function ActivityLog() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category, startDate, endDate]);
 
-  const handleDelete = async (recordId) => {
-    setDeletingId(recordId);
-    try {
-      await carbonApi.deleteRecord(recordId);
-      toast.success('Entry deleted.');
-      load();
-    } catch (err) {
-      toast.error(getErrorMessage(err, 'Could not delete this entry.'));
-    } finally {
-      setDeletingId(null);
-    }
+  const UNDO_WINDOW_MS = 5000;
+
+  const handleDelete = (record) => {
+    // Optimistic: gone from the list the instant you click, not after a
+    // network round trip - the same "feels instant" reasoning
+    // Calculator.jsx's own delete button already uses. The record is not
+    // actually gone server-side yet - the real DELETE call is what the
+    // timer below fires, unless "Undo" cancels it first.
+    setData((current) =>
+      current && {
+        ...current,
+        records: current.records.filter((r) => r.id !== record.id),
+        totalCount: Math.max(0, current.totalCount - 1),
+      }
+    );
+
+    const timeoutId = setTimeout(async () => {
+      delete pendingDeletesRef.current[record.id];
+      try {
+        await carbonApi.deleteRecord(record.id);
+      } catch (err) {
+        toast.error(getErrorMessage(err, 'Could not delete this entry.'));
+        load(); // the optimistic removal above turned out to be wrong - resync with the server
+      }
+    }, UNDO_WINDOW_MS);
+
+    pendingDeletesRef.current[record.id] = timeoutId;
+
+    toast(
+      (t) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
+          <span>Entry deleted.</span>
+          <button
+            type="button"
+            onClick={() => {
+              clearTimeout(pendingDeletesRef.current[record.id]);
+              delete pendingDeletesRef.current[record.id];
+              toast.dismiss(t.id);
+              load(); // never actually deleted server-side - reload brings it straight back
+            }}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--eco-primary)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: 0,
+              fontSize: 'inherit',
+              flexShrink: 0,
+            }}
+          >
+            <Undo2 size={14} /> Undo
+          </button>
+        </div>
+      ),
+      { duration: UNDO_WINDOW_MS }
+    );
   };
 
   const handleSaved = () => {
@@ -267,6 +467,16 @@ export default function ActivityLog() {
         title="Activity"
         titleAccent="Log"
         subtitle="Every entry you've ever logged, searchable and editable - not just the most recent ones."
+        action={
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="eco-btn eco-btn-outline"
+          >
+            <Upload size={15} />
+            Import CSV
+          </button>
+        }
       />
 
       {/* --- filters --- */}
@@ -377,8 +587,7 @@ export default function ActivityLog() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete(record.id)}
-                              disabled={deletingId === record.id}
+                              onClick={() => handleDelete(record)}
                               aria-label="Delete entry"
                               style={{
                                 background: 'transparent',
@@ -389,11 +598,7 @@ export default function ActivityLog() {
                                 display: 'flex',
                               }}
                             >
-                              {deletingId === record.id ? (
-                                <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
-                              ) : (
-                                <Trash2 size={15} />
-                              )}
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         </td>
@@ -439,6 +644,13 @@ export default function ActivityLog() {
           subTypeOptions={subTypeOptionsFor(editingRecord.category)}
           onClose={() => setEditingRecord(null)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportModal
+          onClose={() => setShowImportModal(false)}
+          onImported={load}
         />
       )}
     </div>
