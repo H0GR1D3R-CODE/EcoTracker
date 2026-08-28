@@ -35,6 +35,7 @@ import {
   MessageSquare,
   Pencil,
   Plus,
+  Printer,
   RefreshCw,
   Search,
   Send,
@@ -854,6 +855,7 @@ export default function AdminDashboard() {
           { id: 'system', label: 'System', icon: Activity, count: null, dot: system?.overall },
           { id: 'research', label: 'Research', icon: FlaskConical, count: null },
           { id: 'factors', label: 'Factors', icon: Sigma, count: factorCount },
+          { id: 'report', label: 'Report', icon: Printer, count: null },
           { id: 'api', label: 'API', icon: Code2, count: null },
         ].map((item) => {
           const Icon = item.icon;
@@ -3430,6 +3432,188 @@ export default function AdminDashboard() {
             )}
           </motion.div>
         </div>
+      )}
+
+      {/* ============ REPORT ============ */}
+      {/* A presentation-ready, printable summary of the whole platform - the
+          same "Print / Save as PDF" pattern Reports.jsx uses for one user's
+          own report, aimed here at the platform-wide numbers instead. It
+          computes nothing new: every figure comes from stats/donations/users,
+          already loaded for the Overview and Insights tabs above, and the
+          category/region breakdowns reuse categoryChart and insights - the
+          same useMemo values those tabs already render as charts. */}
+      {tab === 'report' && (
+      <motion.div
+        key="tab-report"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+        <div
+          id="eco-admin-report-printable"
+          className="eco-card"
+          style={{ marginTop: '1.05rem' }}
+        >
+          {/* --- header --- */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
+            <div>
+              <h2 className="eco-display" style={{ fontSize: '1.5rem', margin: '0 0 0.4rem' }}>
+                EcoTrack — Platform report
+              </h2>
+              <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.88rem' }}>
+                Prepared by {profile?.name || 'an administrator'} · generated{' '}
+                {formatDate(new Date().toISOString())}
+              </p>
+            </div>
+
+            <div className="eco-no-print">
+              <button type="button" className="eco-btn eco-btn-ghost" onClick={() => window.print()}>
+                <Printer size={16} />
+                Print / Save as PDF
+              </button>
+            </div>
+          </div>
+
+          {/* --- headline figures --- */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '1.4rem',
+              marginTop: '1.8rem',
+              paddingTop: '1.4rem',
+              borderTop: '1px solid var(--rule-strong)',
+            }}
+          >
+            {[
+              { label: 'Total users', value: formatNumber(stats?.totalUsers ?? 0, 0) },
+              { label: 'New this month', value: formatNumber(stats?.newUsersThisMonth ?? 0, 0) },
+              { label: 'Entries logged', value: formatNumber(stats?.totalRecords ?? 0, 0) },
+              { label: 'Total emissions tracked', value: formatEmission(stats?.totalEmission ?? 0) },
+              { label: 'Logged this month', value: formatEmission(stats?.emissionThisMonth ?? 0) },
+              { label: 'Avg. per user', value: formatEmission(stats?.averageEmissionPerUser ?? 0) },
+              { label: 'Goals set', value: formatNumber(stats?.totalGoals ?? 0, 0) },
+              { label: 'Goals achieved', value: formatNumber(stats?.achievedGoals ?? 0, 0) },
+              { label: 'Goal success rate', value: `${stats?.goalSuccessRate ?? 0}%` },
+              { label: 'Donations received', value: formatNumber(donations.length, 0) },
+              { label: 'Total raised', value: `₹${(totalPaise / 100).toLocaleString('en-IN')}` },
+              { label: 'Reports generated', value: formatNumber(stats?.totalReports ?? 0, 0) },
+            ].map((item) => (
+              <div key={item.label}>
+                <span className="eco-marker" style={{ display: 'block' }}>
+                  {item.label}
+                </span>
+                <span
+                  className="eco-readout"
+                  style={{ fontSize: '1.15rem', fontWeight: 500, display: 'block', marginTop: '0.35rem' }}
+                >
+                  {item.value}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* --- emissions by category --- */}
+          <div style={{ marginTop: '1.8rem', paddingTop: '1.4rem', borderTop: '1px solid var(--rule-strong)' }}>
+            <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 1.3rem' }}>
+              Emissions by category
+            </h3>
+            {categoryChart.labels.length === 0 ? (
+              <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+                Nothing logged on the platform yet.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.8rem' }}>
+                {categoryChart.labels.map((label, index) => {
+                  const value = categoryChart.data[index];
+                  const share = stats?.totalEmission ? (value / stats.totalEmission) * 100 : 0;
+                  return (
+                    <div key={label}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '0.82rem',
+                          marginBottom: '0.3rem',
+                        }}
+                      >
+                        <span>{label}</span>
+                        <span className="eco-readout" style={{ fontSize: '0.82rem', fontWeight: 500 }}>
+                          {formatEmission(value)} · {Math.round(share)}%
+                        </span>
+                      </div>
+                      <div style={{ height: 6, background: 'var(--rule)', overflow: 'hidden' }}>
+                        <div
+                          style={{ height: '100%', width: `${share}%`, background: categoryChart.colors[index] }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* --- users by region --- */}
+          <div style={{ marginTop: '1.8rem', paddingTop: '1.4rem', borderTop: '1px solid var(--rule-strong)' }}>
+            <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 1.3rem' }}>
+              Users by region
+            </h3>
+            {insights.regions.length === 0 ? (
+              <p className="eco-text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
+                No users yet.
+              </p>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.8rem' }}>
+                {insights.regions.map(([region, count]) => {
+                  const share = users.length ? (count / users.length) * 100 : 0;
+                  return (
+                    <div key={region}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '0.82rem',
+                          marginBottom: '0.3rem',
+                        }}
+                      >
+                        <span>{region}</span>
+                        <span className="eco-readout" style={{ fontSize: '0.82rem', fontWeight: 500 }}>
+                          {count} · {Math.round(share)}%
+                        </span>
+                      </div>
+                      <div style={{ height: 6, background: 'var(--rule)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${share}%`, background: 'var(--eco-primary)' }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <p
+            className="eco-no-print eco-text-muted"
+            style={{
+              marginTop: '1.8rem',
+              paddingTop: '1.4rem',
+              borderTop: '1px solid var(--rule)',
+              fontSize: '0.8rem',
+            }}
+          >
+            This report reflects live platform totals at the moment it was generated — reload the
+            dashboard for the latest numbers before printing again.
+          </p>
+        </div>
+      </motion.div>
       )}
 
       {/* ============ API ============ */}
