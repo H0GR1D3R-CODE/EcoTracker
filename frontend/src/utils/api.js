@@ -201,6 +201,11 @@ export const authApi = {
 
   updateProfile: (payload) => api.put('/api/auth/profile', payload).then(unwrap),
 
+  // { imageBase64, mimeType: "image/jpeg" } - see backend/routes/auth.py's
+  // upload_avatar for why mimeType must always be image/jpeg here
+  // (AvatarPicker.jsx re-encodes to JPEG client-side before ever calling this).
+  uploadAvatar: (payload) => api.post('/api/auth/avatar', payload).then(unwrap),
+
   // Public route - tries to send EcoTrack's own branded reset email.
   // Resolves to {sent: false} rather than throwing when that path is simply
   // unavailable (no RESEND_API_KEY on the server); AuthContext.resetPassword()

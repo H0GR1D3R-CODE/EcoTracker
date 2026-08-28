@@ -38,9 +38,11 @@ import {
   Mail,
   MapPin,
   Moon,
+  Pencil,
   Plus,
   Save,
   Shield,
+  ShieldCheck,
   Sparkles,
   Sun,
   Target,
@@ -54,7 +56,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { authApi, dashboardApi, factorsApi, getErrorMessage, remindersApi } from '../utils/api';
+import { dashboardApi, factorsApi, authApi, getErrorMessage, remindersApi } from '../utils/api';
 import { CATEGORY_ORDER } from '../utils/emissionHelpers';
 import {
   disablePushNotifications,
@@ -65,8 +67,25 @@ import {
 } from '../utils/pushNotifications';
 import SelectField from '../components/SelectField';
 import PageBanner from '../components/PageBanner';
-import { formatCategory, formatDate, formatEmission, formatNumber, getInitials } from '../utils/formatters';
+import Avatar from '../components/Avatar';
+import AvatarPicker from '../components/AvatarPicker';
+import { formatCategory, formatDate, formatEmission, formatNumber } from '../utils/formatters';
 import { NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
+
+// One tab per real question a visit to this page usually answers - "how do
+// I change X" now means "which tab is X in", not "where in this long page
+// is X". labelKey-free (this page mixes t() and plain English already,
+// same as Login/Register do for anything added after the initial i18n
+// pass), but kept as a flat array so the tab bar below and its content
+// switch both read off the same one list.
+const PROFILE_TABS = [
+  { id: 'account', label: 'Account', icon: User },
+  { id: 'security', label: 'Security', icon: ShieldCheck },
+  { id: 'privacy', label: 'Privacy', icon: Trophy },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'preferences', label: 'Preferences', icon: Sparkles },
+  { id: 'data', label: 'Data & account', icon: AlertTriangle },
+];
 
 // A password this page will accept as "new" - the same floor Firebase itself
 // enforces, so the field never rejects something the server would allow, or
@@ -116,6 +135,11 @@ export default function Profile() {
     dyslexiaFont,
     setDyslexiaFontPreference,
   } = useTheme();
+
+  // Which settings group is showing below the identity block - see
+  // PROFILE_TABS above for the full list and what each one groups together.
+  const [activeTab, setActiveTab] = useState('account');
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const [form, setForm] = useState({ name: '', region: 'India' });
   const [touched, setTouched] = useState({});
@@ -489,8 +513,8 @@ export default function Profile() {
   return (
     <div className="container" style={{ paddingTop: '2.5rem', paddingBottom: '3.5rem', maxWidth: 780 }}>
       <PageBanner
-        photo="profileCompass"
-        alt="A compass, close up, in the dark"
+        photo="profilePath"
+        alt="A snow-covered path winding through a dark forest"
         color="var(--eco-primary)"
         icon={User}
         eyebrow="Your account"
@@ -507,28 +531,45 @@ export default function Profile() {
         style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)', marginBottom: '2rem' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.1rem', flexWrap: 'wrap' }}>
-          {/* The avatar keeps the gradient disc - it is the one place on the
-              site a person's identity is represented, not a measurement, so it
-              is exempt from the "never gradient-fill a figure" rule that
-              applies to numbers. */}
-          <div
+          {/* Click to open AvatarPicker - a custom photo, a preset mark, or
+              plain initials, in that priority (Avatar.jsx decides which).
+              The pencil badge is what tells a first-time visitor this
+              circle is a button at all, not just a static identity mark. */}
+          <button
+            type="button"
+            onClick={() => setShowAvatarPicker(true)}
+            aria-label="Change your avatar"
             style={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              background: 'var(--eco-primary)',
-              color: 'var(--eco-bg)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 600,
-              fontSize: '1.3rem',
-              fontFamily: 'var(--font-display)',
+              position: 'relative',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
               flexShrink: 0,
+              borderRadius: '50%',
             }}
           >
-            {getInitials(profile?.name)}
-          </div>
+            <Avatar profile={profile} size={60} />
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                bottom: -2,
+                right: -2,
+                width: 22,
+                height: 22,
+                borderRadius: '50%',
+                background: 'var(--eco-card)',
+                border: '1px solid var(--eco-border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--eco-text-muted)',
+              }}
+            >
+              <Pencil size={11} />
+            </span>
+          </button>
 
           <div style={{ minWidth: 0, flex: 1 }}>
             <h2 className="eco-display" style={{ fontSize: '1.4rem', margin: '0 0 0.3rem' }}>
@@ -577,6 +618,69 @@ export default function Profile() {
         </div>
       </motion.div>
 
+      {/* ---------- Tab bar ---------- */}
+      {/* Same pill-tab pattern Calculator.jsx's category tabs already use -
+          a sliding layoutId highlight, category-shaped but here just plain
+          eco-primary since a settings tab is not "about" a category. */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.4rem',
+          marginBottom: '1.8rem',
+          overflowX: 'auto',
+          paddingBottom: '0.4rem',
+        }}
+      >
+        {PROFILE_TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = tab.id === activeTab;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.6rem 1rem',
+                borderRadius: 'var(--eco-radius-sm)',
+                border: '1px solid',
+                borderColor: isActive ? 'color-mix(in srgb, var(--eco-primary) 33%, transparent)' : 'var(--eco-border)',
+                background: 'transparent',
+                color: isActive ? 'var(--eco-primary)' : 'var(--eco-text-muted)',
+                fontWeight: isActive ? 600 : 500,
+                fontSize: '0.86rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'color 0.25s ease, border-color 0.25s ease',
+              }}
+            >
+              {isActive && !prefersReducedMotion && (
+                <motion.span
+                  layoutId="profile-tab-highlight"
+                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: 'var(--eco-radius-sm)',
+                    background: 'color-mix(in srgb, var(--eco-primary) 9%, transparent)',
+                    zIndex: 0,
+                  }}
+                />
+              )}
+              <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <Icon size={16} />
+                {tab.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {activeTab === 'account' && (
+      <>
       {/* ---------- Stats summary ---------- */}
       {stats && !statsError && (
         <motion.div
@@ -778,6 +882,11 @@ export default function Profile() {
         </form>
       </motion.div>
 
+      </>
+      )}
+
+      {activeTab === 'preferences' && (
+      <>
       {/* ---------- Preferences ---------- */}
       {/* A channel, not a card - these are settings about how the app behaves
           for this person, not a form that submits anything to the server.
@@ -942,6 +1051,11 @@ export default function Profile() {
         </div>
       </div>
 
+      </>
+      )}
+
+      {activeTab === 'privacy' && (
+      <>
       {/* ---------- Public leaderboard opt-in ---------- */}
       {/* Off by default. See routes/community.py's get_leaderboard: opting
           in publishes only a points total and either a chosen alias or a
@@ -1077,6 +1191,11 @@ export default function Profile() {
         )}
       </motion.div>
 
+      </>
+      )}
+
+      {activeTab === 'notifications' && (
+      <>
       {/* ---------- Push notifications ---------- */}
       {/* Only rendered once this deployment actually has a VAPID key - see
           utils/pushNotifications.js. Not shown at all rather than shown
@@ -1118,6 +1237,11 @@ export default function Profile() {
         </motion.div>
       )}
 
+      </>
+      )}
+
+      {activeTab === 'security' && (
+      <>
       {/* ---------- Security: two-step verification ---------- */}
       {/* Unlike Change password below, this applies to every account type -
           Google sign-in included - since it is a second check on top of
@@ -1298,6 +1422,11 @@ export default function Profile() {
         </motion.div>
       )}
 
+      </>
+      )}
+
+      {activeTab === 'notifications' && (
+      <>
       {/* ---------- Recurring activity reminders ---------- */}
       {/* A push notification, never an auto-logged record - see
           backend/routes/reminders.py's own module docstring for why. Scoped
@@ -1463,6 +1592,11 @@ export default function Profile() {
         )}
       </motion.div>
 
+      </>
+      )}
+
+      {activeTab === 'data' && (
+      <>
       {/* ---------- Danger zone ---------- */}
       <motion.div
         initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
@@ -1558,6 +1692,10 @@ export default function Profile() {
           </div>
         )}
       </motion.div>
+      </>
+      )}
+
+      {showAvatarPicker && <AvatarPicker onClose={() => setShowAvatarPicker(false)} />}
     </div>
   );
 }

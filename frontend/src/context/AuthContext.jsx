@@ -514,26 +514,52 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Save changes to the user's name, region, or any of the privacy
-   * preferences (leaderboard opt-in/alias, public journey page opt-in).
-   * Only the fields actually passed are sent - see backend/routes/auth.py's
-   * update_profile, which only touches whatever keys are present in the
-   * request body.
+   * Save changes to the user's name, region, any of the privacy preferences
+   * (leaderboard opt-in/alias, public journey page opt-in), or their avatar
+   * (a preset, or null/null to clear it back to plain initials - a custom
+   * uploaded photo is set only by uploadAvatar below, never through here,
+   * matching backend/routes/auth.py's own update_profile/upload_avatar
+   * split). Only the fields actually passed are sent - see that route,
+   * which only touches whatever keys are present in the request body.
    */
-  const updateProfile = useCallback(async ({ name, region, leaderboardOptIn, leaderboardAlias, publicProfileOptIn }) => {
-    try {
-      const body = {};
-      if (name !== undefined) body.name = name;
-      if (region !== undefined) body.region = region;
-      if (leaderboardOptIn !== undefined) body.leaderboardOptIn = leaderboardOptIn;
-      if (leaderboardAlias !== undefined) body.leaderboardAlias = leaderboardAlias;
-      if (publicProfileOptIn !== undefined) body.publicProfileOptIn = publicProfileOptIn;
+  const updateProfile = useCallback(
+    async ({ name, region, leaderboardOptIn, leaderboardAlias, publicProfileOptIn, avatarType, avatarValue }) => {
+      try {
+        const body = {};
+        if (name !== undefined) body.name = name;
+        if (region !== undefined) body.region = region;
+        if (leaderboardOptIn !== undefined) body.leaderboardOptIn = leaderboardOptIn;
+        if (leaderboardAlias !== undefined) body.leaderboardAlias = leaderboardAlias;
+        if (publicProfileOptIn !== undefined) body.publicProfileOptIn = publicProfileOptIn;
+        if (avatarType !== undefined) body.avatarType = avatarType;
+        if (avatarValue !== undefined) body.avatarValue = avatarValue;
 
-      const data = await authApi.updateProfile(body);
+        const data = await authApi.updateProfile(body);
+        setProfile(data);
+        return data;
+      } catch (error) {
+        throw new Error(getErrorMessage(error, 'Could not update your profile.'));
+      }
+    },
+    []
+  );
+
+  /**
+   * Upload a custom avatar photo - the one profile mutation that is not a
+   * plain field update, so it gets its own function rather than overloading
+   * updateProfile with a base64 payload. See backend/routes/auth.py's
+   * upload_avatar for the whole round trip (Storage upload + Firestore
+   * write, done together server-side); this just forwards the already
+   * downscaled-and-cropped image AvatarPicker.jsx built and syncs the
+   * profile this app already holds in memory with what came back.
+   */
+  const uploadAvatar = useCallback(async (imageBase64, mimeType) => {
+    try {
+      const data = await authApi.uploadAvatar({ imageBase64, mimeType });
       setProfile(data);
       return data;
     } catch (error) {
-      throw new Error(getErrorMessage(error, 'Could not update your profile.'));
+      throw new Error(getErrorMessage(error, 'Could not upload that photo.'));
     }
   }, []);
 
@@ -556,6 +582,7 @@ export function AuthProvider({ children }) {
       loginWithGoogle,
       logout,
       updateProfile,
+      uploadAvatar,
       refreshProfile,
       resetPassword,
       changePassword,
@@ -576,6 +603,7 @@ export function AuthProvider({ children }) {
       loginWithGoogle,
       logout,
       updateProfile,
+      uploadAvatar,
       refreshProfile,
       resetPassword,
       verifyTwoFactorCode,

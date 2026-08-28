@@ -26,16 +26,18 @@ handles password hashing, storage and reset emails.
 All routes are mounted under /api/auth
 """
 
+import base64
+import binascii
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 from flask import Blueprint, g, request
 from firebase_admin import auth as firebase_auth
 from google.cloud import firestore as gcloud_firestore  # installed with firebase-admin
 
-from config import Config, get_db
+from config import Config, get_db, get_storage_bucket
 from email_service import send_password_reset_email, send_two_factor_code_email
 from routes import (
     EMAIL_ERROR,
@@ -121,6 +123,11 @@ def _serialize_user(doc_id, data):
         # should strangers call me" and there is no reason for that answer
         # to differ between the two surfaces.
         "publicProfileOptIn": bool(data.get("publicProfileOptIn", False)),
+        # null/null (the default for every account before this existed) means
+        # "no avatar chosen yet" - Avatar.jsx falls back to plain initials.
+        # See update_profile's own comment on what "preset" vs "custom" mean.
+        "avatarType": data.get("avatarType"),
+        "avatarValue": data.get("avatarValue"),
     }
 
 
@@ -741,6 +748,15 @@ def get_profile():
     return api_success(profile)
 
 
+# The exact preset set frontend/src/components/Avatar.jsx and AvatarPicker.jsx
+# render - kept here too, as a whitelist, because avatarValue for a "preset"
+# avatar is otherwise just a client-supplied string with no server-side check
+# at all. Every entry here MUST have a matching entry in that frontend list;
+# neither file imports the other (one is Python, one is JS), so keep them in
+# sync by hand if this set ever changes.
+AVATAR_PRESET_IDS = {"leaf", "sprout", "sun", "droplets", "mountain", "flower", "tree", "bird"}
+
+
 # ---------------------------------------------------------------------------
 # PUT /api/auth/profile
 # ---------------------------------------------------------------------------
@@ -749,15 +765,24 @@ def get_profile():
 @require_auth
 def update_profile():
     """
-    Update the editable parts of the profile (name, region, and the two
-    leaderboard-privacy fields).
+    Update the editable parts of the profile (name, region, the two
+    leaderboard-privacy fields, and the avatar).
 
     Email is deliberately NOT editable here - changing an email address has to
     go through Firebase Auth itself, otherwise the Auth account and the Firestore
     profile would disagree about who the user is.
 
     Body: {"name": "Aadi S", "region": "Karnataka", "leaderboardOptIn": true,
-           "leaderboardAlias": "EcoWarrior"}
+           "leaderboardAlias": "EcoWarrior", "avatarType": "preset",
+           "avatarValue": "leaf"}
+
+    avatarType here is only ever null (clear it, back to plain initials) or
+    "preset" (avatarValue must be one of AVATAR_PRESET_IDS). A "custom"
+    (uploaded-photo) avatar is deliberately NOT settable through this route
+    at all - see POST /api/auth/avatar below, which is the only place
+    avatarType ever becomes "custom", using a URL this backend just built
+    from its own Storage upload, never one a client could hand it directly.
+    An UPDATE here to a "custom" avatarType is rejected for the same reason.
     """
     body = request.get_json(silent=True) or {}
 
@@ -807,6 +832,30 @@ def update_profile():
     if "publicProfileOptIn" in body:
         updates["publicProfileOptIn"] = bool(body.get("publicProfileOptIn"))
 
+    # avatarType and avatarValue are only ever meaningfully set TOGETHER -
+    # checking for either key's presence (not both) is deliberate: it is what
+    # lets AvatarPicker.jsx's "Remove" action send just
+    # {"avatarType": null, "avatarValue": null} and have both actually clear.
+    if "avatarType" in body or "avatarValue" in body:
+        avatar_type = body.get("avatarType")
+        avatar_value = body.get("avatarValue")
+
+        if avatar_type is None:
+            updates["avatarType"] = None
+            updates["avatarValue"] = None
+        elif avatar_type == "preset":
+            if avatar_value not in AVATAR_PRESET_IDS:
+                return api_error(
+                    "That is not a real avatar option.", 400, code="invalid_avatar_preset"
+                )
+            updates["avatarType"] = "preset"
+            updates["avatarValue"] = avatar_value
+        else:
+            # Covers "custom" (see this route's own docstring on why that is
+            # only ever set by POST /api/auth/avatar, never here) and any
+            # other unrecognised value.
+            return api_error("Unrecognised avatar type.", 400, code="invalid_avatar_type")
+
     if not updates:
         return api_error("Nothing to update. Send a name, region, or leaderboard preference.", 400, code="empty_update")
 
@@ -817,6 +866,120 @@ def update_profile():
     profile["isAdmin"] = is_admin(g.uid, g.email)
 
     return api_success(profile, message="Profile updated successfully.")
+
+
+# ---------------------------------------------------------------------------
+# POST /api/auth/avatar
+# ---------------------------------------------------------------------------
+
+# Matches storage.rules' own 2MB cap - a backstop, not the primary size
+# control. AvatarPicker.jsx always downscales+re-encodes to a small square
+# JPEG client-side before ever sending it here (the same canvas-based resize
+# BillScanner.jsx already does for a bill photo), so a real upload is
+# typically well under this; this exists for a request that skips that step.
+MAX_AVATAR_BYTES = 2 * 1024 * 1024
+
+# A photo is a slower, heavier ask than a plain profile edit, so it gets its
+# own, tighter rate-limit bucket rather than sharing update_profile's.
+AVATAR_RATE_LIMIT_MAX = 10
+AVATAR_RATE_LIMIT_WINDOW_SECONDS = 3600
+
+
+@auth_bp.route("/avatar", methods=["POST"])
+@require_auth
+def upload_avatar():
+    """
+    Upload a custom avatar photo.
+
+    Body: {"imageBase64": "<base64, no data: prefix>", "mimeType": "image/jpeg"}
+
+    The ONLY route that ever sets avatarType to "custom" - see
+    update_profile's own docstring on why that matters (a client can never
+    hand this backend an arbitrary external image URL and have it accepted
+    as someone's avatar). Uploads to Firebase Storage at a FIXED,
+    uid-named path (avatars/{uid}.jpg - AvatarPicker.jsx always re-encodes
+    to JPEG before sending, precisely so this path never varies), so a
+    second upload always overwrites the first rather than accumulating
+    orphaned files. The resulting URL is written straight into the
+    Firestore profile in this same request - no separate PUT
+    /api/auth/profile call needed afterward.
+    """
+    if not check_rate_limit("avatar-upload", g.uid, AVATAR_RATE_LIMIT_MAX, AVATAR_RATE_LIMIT_WINDOW_SECONDS):
+        return api_error(
+            "Too many avatar uploads for now. Try again in a while.",
+            429,
+            code="avatar_rate_limited",
+        )
+
+    body = request.get_json(silent=True) or {}
+    mime_type = str(body.get("mimeType", "")).strip().lower()
+    image_base64 = body.get("imageBase64")
+
+    # image/jpeg only - see this route's own docstring on why a fixed
+    # extension matters. Rejecting anything else here catches a caller that
+    # skipped AvatarPicker.jsx's own re-encode step, rather than silently
+    # creating a second file at a different path.
+    if mime_type != "image/jpeg":
+        return api_error("mimeType must be image/jpeg.", 400, code="invalid_mime_type")
+    if not image_base64 or not isinstance(image_base64, str):
+        return api_error("imageBase64 is required.", 400, code="missing_image")
+
+    try:
+        # validate=True rejects anything that is not clean base64 outright,
+        # rather than silently dropping bad characters
+        image_bytes = base64.b64decode(image_base64, validate=True)
+    except (binascii.Error, ValueError):
+        return api_error("imageBase64 is not valid base64.", 400, code="invalid_base64")
+
+    if len(image_bytes) > MAX_AVATAR_BYTES:
+        return api_error(
+            f"That image is too large ({len(image_bytes) // 1024} KB). "
+            f"Please use one under {MAX_AVATAR_BYTES // (1024 * 1024)} MB.",
+            413,
+            code="image_too_large",
+        )
+    if len(image_bytes) == 0:
+        return api_error("That image appears to be empty.", 400, code="empty_image")
+
+    db = get_db()
+    user_ref = db.collection(Config.COLLECTION_USERS).document(g.uid)
+    if not user_ref.get().exists:
+        return api_error("No profile found for this account.", 404, code="profile_not_found")
+
+    blob_path = f"avatars/{g.uid}.jpg"
+
+    try:
+        bucket = get_storage_bucket()
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(image_bytes, content_type="image/jpeg")
+    except Exception as error:
+        return api_error(f"Could not upload that image: {error}", 502, code="avatar_upload_failed")
+    finally:
+        # Explicit, even though Python's own garbage collector would get to
+        # it anyway - the same statement ingest.py's bill-photo route makes:
+        # the bytes are not kept around a moment longer than needed.
+        del image_bytes
+
+    # The Firebase Storage REST download URL - governed by storage.rules
+    # (allow read: if true for this exact path), not by the underlying GCS
+    # bucket's own ACLs, which is why this is built by hand rather than via
+    # Blob.public_url (a different, rules-independent access path that a
+    # uniform-bucket-level-access bucket like this project's may not even
+    # honour). No download token needed: a token is Firebase's bypass for
+    # when rules do NOT already allow public read - this path's rule already
+    # does, so an anonymous request needs nothing else.
+    download_url = (
+        f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/"
+        f"{quote(blob_path, safe='')}?alt=media"
+    )
+
+    user_ref.update({"avatarType": "custom", "avatarValue": download_url})
+
+    refreshed = user_ref.get()
+    profile = _serialize_user(g.uid, refreshed.to_dict())
+    profile["isAdmin"] = is_admin(g.uid, g.email)
+
+    return api_success(profile, message="Avatar updated.")
 
 
 # ---------------------------------------------------------------------------

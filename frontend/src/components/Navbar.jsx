@@ -34,7 +34,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import ThemeToggle from './ThemeToggle';
 import LanguageToggle from './LanguageToggle';
-import { getInitials } from '../utils/formatters';
+import Avatar from './Avatar';
 
 // How far the user scrolls before the navbar turns opaque
 const SCROLL_THRESHOLD = 80;
@@ -282,23 +282,7 @@ export default function Navbar() {
                   style={{ alignItems: 'center', gap: '0.55rem' }}
                   title={t('nav.yourProfile')}
                 >
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: '50%',
-                      background: 'var(--eco-primary)',
-                      color: 'var(--eco-bg)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontSize: '0.82rem',
-                      fontFamily: 'var(--font-display)',
-                    }}
-                  >
-                    {getInitials(profile?.name)}
-                  </div>
+                  <Avatar profile={profile} size={36} />
                 </Link>
 
                 {/* Icon-only at the lg breakpoint, same treatment as the
@@ -442,22 +426,7 @@ export default function Navbar() {
                     marginBottom: '0.75rem',
                   }}
                 >
-                  <div
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: '50%',
-                      background: 'var(--eco-primary)',
-                      color: 'var(--eco-bg)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontFamily: 'var(--font-display)',
-                    }}
-                  >
-                    {getInitials(profile?.name)}
-                  </div>
+                  <Avatar profile={profile} size={42} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600 }}>{profile?.name || 'EcoTrack user'}</div>
                     <div

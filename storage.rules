@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// EcoTrack/storage.rules
+// Firebase Storage security rules. The only thing stored here right now is
+// a user's own uploaded avatar photo, at avatars/{uid} - nothing else uses
+// Storage in this app (bill photos and voice transcripts are sent straight
+// to Groq and never persisted anywhere - see backend/routes/ingest.py's own
+// module docstring on why).
+//
+// WHY READ IS PUBLIC BUT WRITE IS NOT
+// An avatar is shown to OTHER users (Navbar, the admin console's user list,
+// anywhere Avatar.jsx renders someone other than the signed-in visitor), so
+// it has to be readable without a token the way a profile photo on any real
+// site is. Writing is the opposite: only the account itself may ever
+// replace its own file, at its own uid-named path - nobody can upload to,
+// or overwrite, anyone else's avatar. The backend adds a second, independent
+// check on top of this (backend/routes/auth.py's _expected_avatar_url_prefix)
+// before ever recording a URL as someone's actual avatar - these rules stop
+// the file write itself; that check stops a crafted PUT request from
+// pointing avatarValue at a URL these rules never actually let anyone write.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /avatars/{uid} {
+      allow read: if true;
+
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   // 2MB - generous for a downscaled square JPEG (see
+                   // AvatarPicker.jsx's own MAX_DIMENSION/JPEG_QUALITY,
+                   // the same client-side resize BillScanner.jsx already
+                   // uses for a bill photo), tight enough that this can
+                   // never become a way to park an arbitrary large file.
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

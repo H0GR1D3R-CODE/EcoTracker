@@ -66,7 +66,10 @@ export const PHOTOS = {
   calcNature: '1621872111378-4f8340e9cb90', // green forest        (Calculator banner)
   goalsVista: '1515344905723-babc01aac23d', // wind farm on grass   (Goals banner)
   reportsPath: '1559770968-53924e9b32de', // road through a forest  (Reports banner)
-  profileCompass: '1641291773855-ef1d83c41d93', // a compass close up in the dark (Profile banner)
+  // A compass read as "navigation", not "you" - replaced with a single
+  // footprint-marked path through snow, which is what a profile page is
+  // actually about: a personal trail, not an instrument for finding one.
+  profilePath: '1767518782545-17fa47a602e2', // a snow-covered boardwalk path through a dark forest (Profile banner)
   foggyForecast: '1485236715568-ddc5ee6ca227', // narrow road through thick morning fog (Insights banner)
   summitDawn: '1758644083602-15a9645a92a7', // misty mountain peaks at dawn (Achievements banner)
 

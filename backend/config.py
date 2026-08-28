@@ -15,7 +15,7 @@ import json
 import os
 
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, storage
 from dotenv import load_dotenv
 
 # Absolute path to the folder this file lives in (EcoTrack/backend).
@@ -276,7 +276,16 @@ def init_firebase():
     if not firebase_admin._apps:  # _apps is empty until an app is initialised
         firebase_admin.initialize_app(
             _build_credentials(),
-            {"projectId": Config.FIREBASE_PROJECT_ID},
+            {
+                "projectId": Config.FIREBASE_PROJECT_ID,
+                # Needed for storage.bucket() (routes/auth.py's avatar
+                # upload) to work with no arguments - without this, every
+                # call would have to pass the bucket name by hand. New
+                # Firebase projects are provisioned with this exact
+                # {project-id}.firebasestorage.app bucket name; matches
+                # VITE_FIREBASE_STORAGE_BUCKET in frontend/.env.
+                "storageBucket": f"{Config.FIREBASE_PROJECT_ID}.firebasestorage.app",
+            },
         )
     return firebase_admin.get_app()
 
@@ -290,3 +299,21 @@ def get_db():
     """
     init_firebase()  # safe to call repeatedly - it returns early if already started
     return firestore.client()
+
+
+def get_storage_bucket():
+    """
+    Return the default Firebase Storage bucket.
+
+    Only used by the avatar upload route (routes/auth.py) - every other
+    piece of user-submitted media in this app (a bill photo, a voice
+    transcript) is sent straight to Groq and never persisted anywhere, which
+    is why this did not exist until an avatar was the first thing that
+    genuinely needed to be stored and served back. See storage.rules for the
+    actual access control - this Admin SDK client bypasses those rules
+    entirely (it authenticates as the service account, not as the end user),
+    so every check on WHO may set WHOSE avatar has to happen in this route's
+    own Python code, not by relying on rules the Admin SDK never consults.
+    """
+    init_firebase()
+    return storage.bucket()
