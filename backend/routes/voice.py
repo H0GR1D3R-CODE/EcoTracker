@@ -8,14 +8,14 @@ The browser does the speech-to-text itself (the Web Speech API, no audio
 ever leaves the device for that step - see components/VoiceLogger.jsx);
 this route only ever receives the resulting TEXT transcript and parses it,
 the same division of labour ingest.py already has for a photographed bill
-(Gemini reads it; the frontend shows the result for confirmation).
+(the model reads it; the frontend shows the result for confirmation).
 
 SAME TWO-STEP RULE AS INGEST.PY
 This route NEVER saves a carbonRecords entry itself. It only proposes one.
 The frontend shows the extraction for the user to confirm, and only then
 calls the ordinary POST /api/carbon/calculate route - a misheard "drove ten
-kilometers" that Gemini mis-extracts should never be able to silently enter
-someone's real emissions history.
+kilometers" that the model mis-extracts should never be able to silently
+enter someone's real emissions history.
 
 Mounted at /api/voice
 """
@@ -26,16 +26,17 @@ from flask import Blueprint, g, request
 
 from config import Config
 from routes import api_error, api_success, check_rate_limit, require_auth
-from routes.assistant import _call_gemini
-
-try:
-    from google import genai
-    from google.genai import errors as genai_errors
-    from google.genai import types as genai_types
-
-    GENAI_AVAILABLE = True
-except ImportError:
-    GENAI_AVAILABLE = False
+from routes.assistant import (
+    GROQ_AVAILABLE,
+    GroqAPIConnectionError,
+    GroqAPIError,
+    GroqAPIStatusError,
+    GroqInternalServerError,
+    GroqAPITimeoutError,
+    GroqRateLimitError,
+    _call_groq,
+    _get_client,
+)
 
 voice_bp = Blueprint("voice", __name__, url_prefix="/api/voice")
 
@@ -83,35 +84,25 @@ A speech transcript can be casual or slightly garbled - "I drove like ten
 kay ems to work" still means transport/petrol_car, 10, km, unless a
 different vehicle is named. Use judgement on phrasing, never on numbers.
 
-Respond with exactly this JSON shape:
-{{
-  "category": "<one of the valid categories, or null if you cannot tell>",
-  "subType": "<a subType from the list above that fits, or null>",
-  "quantity": <number, or null>,
-  "unit": "<the unit of that quantity, e.g. km, kWh, meal, or null>",
-  "confidence": <your confidence in this whole extraction, 0.0 to 1.0>
-}}
+Never invent a number the speaker did not say."""
 
-If you cannot confidently extract a category, subType and quantity, set all
-three (and unit) to null and confidence to 0, but still return valid JSON
-in this exact shape. Never invent a number the speaker did not say."""
-
-
-def _get_client():
-    if not GENAI_AVAILABLE:
-        return None, api_error(
-            "Voice logging is not installed on this server. "
-            "Run: pip install -r requirements.txt",
-            503,
-            code="voice_unavailable",
-        )
-    if not Config.GEMINI_API_KEY:
-        return None, api_error(
-            "Voice logging is not configured. Add GEMINI_API_KEY to backend/.env.",
-            503,
-            code="voice_not_configured",
-        )
-    return genai.Client(api_key=Config.GEMINI_API_KEY), None
+# Strict structured output (see assistant.py's /plan route for the same
+# pattern) - every property is required, and the optional ones are typed as
+# a union with null rather than omitted, which is what Groq's strict mode
+# demands in exchange for guaranteeing the response actually matches this
+# shape.
+VOICE_EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "category": {"type": ["string", "null"], "enum": list(Config.CATEGORIES) + [None]},
+        "subType": {"type": ["string", "null"]},
+        "quantity": {"type": ["number", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "confidence": {"type": "number"},
+    },
+    "required": ["category", "subType", "quantity", "unit", "confidence"],
+    "additionalProperties": False,
+}
 
 
 @voice_bp.route("/status", methods=["GET"])
@@ -120,7 +111,7 @@ def status():
     """Same shape as GET /api/assistant/status - the frontend hides the
     voice-log button entirely rather than showing a control that errors the
     moment it's tapped."""
-    return api_success({"available": bool(GENAI_AVAILABLE and Config.GEMINI_API_KEY)})
+    return api_success({"available": bool(GROQ_AVAILABLE and Config.GROQ_API_KEY)})
 
 
 @voice_bp.route("/parse", methods=["POST"])
@@ -157,46 +148,48 @@ def parse_voice_log():
         )
 
     try:
-        response = _call_gemini(
+        response = _call_groq(
             client,
             model=Config.ASSISTANT_MODEL,
-            contents=[
-                genai_types.Content(
-                    role="user",
-                    parts=[genai_types.Part.from_text(text=transcript)],
-                )
+            messages=[
+                {"role": "system", "content": VOICE_LOG_INSTRUCTION},
+                {"role": "user", "content": transcript},
             ],
-            config=genai_types.GenerateContentConfig(
-                system_instruction=[VOICE_LOG_INSTRUCTION],
-                max_output_tokens=MAX_OUTPUT_TOKENS,
-                temperature=0.1,  # extraction, not conversation
-                response_mime_type="application/json",
-                thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
-            ),
+            max_completion_tokens=MAX_OUTPUT_TOKENS,
+            temperature=0.1,  # extraction, not conversation
+            reasoning_effort="low",
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "voice_extraction",
+                    "strict": True,
+                    "schema": VOICE_EXTRACTION_SCHEMA,
+                },
+            },
         )
-    except genai_errors.ClientError as client_error:
-        status_code = getattr(client_error, "code", 400)
-        if status_code == 429:
-            return api_error(
-                "The assistant has hit its free-tier rate limit. Wait a minute and try again.",
-                429,
-                code="voice_rate_limited_upstream",
-            )
+    except GroqRateLimitError:
         return api_error(
-            "The extraction request was rejected. Check GEMINI_API_KEY and ASSISTANT_MODEL.",
+            "The assistant has hit its free-tier rate limit. Wait a minute and try again.",
+            429,
+            code="voice_rate_limited_upstream",
+        )
+    except GroqAPIStatusError:
+        return api_error(
+            "The extraction request was rejected. Check GROQ_API_KEY and ASSISTANT_MODEL.",
             503,
             code="voice_config_error",
         )
-    except genai_errors.ServerError:
+    except (GroqInternalServerError, GroqAPITimeoutError):
         return api_error(
             "The extraction service is having problems. Please try again shortly.",
             502,
             code="voice_error",
         )
-    except genai_errors.APIError:
+    except (GroqAPIConnectionError, GroqAPIError):
         return api_error("Could not reach the extraction service.", 503, code="voice_unreachable")
 
-    raw_text = (response.text or "").strip()
+    choice = response.choices[0] if response.choices else None
+    raw_text = (choice.message.content or "").strip() if choice else ""
     try:
         extracted = json.loads(raw_text)
     except (ValueError, TypeError):

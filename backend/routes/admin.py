@@ -772,7 +772,7 @@ def system_health():
         })
 
     # --- Assistant ---
-    if Config.GEMINI_API_KEY:
+    if Config.GROQ_API_KEY:
         checks.append({
             "id": "assistant",
             "label": "AI assistant",
@@ -784,7 +784,7 @@ def system_health():
             "id": "assistant",
             "label": "AI assistant",
             "status": "warn",
-            "detail": "Assistant off — no GEMINI_API_KEY",
+            "detail": "Assistant off — no GROQ_API_KEY",
         })
 
     # --- Admin access model ---

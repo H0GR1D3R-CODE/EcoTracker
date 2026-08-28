@@ -1,27 +1,31 @@
 # EcoTrack/backend/routes/assistant.py
 """
-The EcoTrack Assistant - an AI guide and report writer, powered by Google Gemini.
+The EcoTrack Assistant - an AI guide and report writer, powered by Groq.
 
-WHY GEMINI
-Google AI Studio offers a genuinely free API tier with no card required, which
-is what makes this feature possible on a student budget. The provider is the
-only thing that is specific to Google: the routes, the grounding logic, and the
-entire React chat panel are provider-agnostic. Swapping to a different model
-service later means rewriting only _get_client() and _call_gemini() below -
-every route calls through those two, not the SDK directly.
+WHY GROQ (moved from Google Gemini in August 2026)
+This app ran on Gemini's free tier first - genuinely free, no card needed,
+which is what made the feature possible on a student budget in the first
+place. It moved after a real, CONFIRMED Gemini outage: a direct request to
+generativelanguage.googleapis.com, bypassing this backend entirely, took
+194.8 seconds to succeed, and Vercel's own function logs showed Google's own
+servers returning 503/504 - a genuine upstream outage, not a bug anywhere in
+this code. Groq is not a model, it is an inference provider running
+open-weight models on hardware built specifically for low latency, which is
+also why the assistant is now noticeably faster than it ever was on Gemini.
+See config.py's GROQ_API_KEY comment for the model choices.
 
 HOW THIS IS WIRED, AND WHY IT MATTERS FOR SECURITY
 ---------------------------------------------------
-The React app NEVER talks to Google directly. Every request goes:
+The React app NEVER talks to Groq directly. Every request goes:
 
     browser  ->  Flask (verifies the Firebase token)
-             ->  Gemini  (using the server's secret API key)
+             ->  Groq  (using the server's secret API key)
              ->  Flask
              ->  browser
 
 If the API key were in the frontend, anyone could open DevTools and copy it.
 Keeping it server-side is the whole reason this file exists rather than the
-React app calling Gemini itself.
+React app calling Groq itself.
 
 GROUNDING - the reason the assistant does not invent numbers
 ------------------------------------------------------------
@@ -64,14 +68,19 @@ from routes.insights import _load_factor_lookup, _user_region
 # Imported defensively so a missing dependency degrades to "assistant
 # unavailable" instead of stopping the whole server from booting.
 try:
-    import httpx
-    from google import genai
-    from google.genai import errors as genai_errors
-    from google.genai import types as genai_types
+    from groq import Groq
+    from groq import (
+        APIConnectionError as GroqAPIConnectionError,
+        APIError as GroqAPIError,
+        APIStatusError as GroqAPIStatusError,
+        APITimeoutError as GroqAPITimeoutError,
+        InternalServerError as GroqInternalServerError,
+        RateLimitError as GroqRateLimitError,
+    )
 
-    GENAI_AVAILABLE = True
+    GROQ_AVAILABLE = True
 except ImportError:
-    GENAI_AVAILABLE = False
+    GROQ_AVAILABLE = False
 
 assistant_bp = Blueprint("assistant", __name__, url_prefix="/api/assistant")
 
@@ -87,47 +96,32 @@ MAX_SUMMARY_TOKENS = 1400
 # with the length of the chat.
 MAX_HISTORY_MESSAGES = 10
 
-# Newer Gemini models spend part of max_output_tokens on an invisible internal
-# "thinking" pass before writing the answer, and that spend is NOT capped
-# separately - it comes out of the same budget as the visible reply. Tested
-# directly against the live API: with a short system prompt and a small
-# max_output_tokens, thinking alone was consuming the entire budget and the
-# reply cut off after a handful of words with finish_reason MAX_TOKENS, before
-# a single full sentence. This app's system prompt is long enough in practice
-# that the failure did not reproduce end-to-end in testing, but there is no
-# reason to leave a whole request's worth of budget one bad turn away from
-# the same failure - this is grounded QA over figures already handed to the
-# model in the prompt, not a task that benefits from deep reasoning, so a
-# small fixed budget is a deliberate choice, not a compromise. 0 disables
-# thinking entirely on some models but was rejected outright (400
-# INVALID_ARGUMENT) by the model this app is currently configured to use -
-# 128 was the smallest value that worked across every test question.
-ASSISTANT_THINKING_BUDGET = 128
+# openai/gpt-oss-120b's own reasoning-depth control (see config.py's
+# ASSISTANT_MODEL comment) - "low" is the fastest of the three supported
+# levels. This is grounded QA over figures already handed to the model in
+# the prompt, not a task that benefits from deep reasoning, so the fastest
+# setting is also the right one, not just the cheapest.
+ASSISTANT_REASONING_EFFORT = "low"
 
 MAX_MESSAGE_LENGTH = 2000
 
 # The personal carbon budget consistent with 1.5 C of warming
 MONTHLY_BUDGET_KG = 2000 / 12
 
-# Gemini finish reasons that mean "there is no usable answer in this response".
-# response.text is None or empty in these cases, so they must be checked before
-# reading it.
-BLOCKED_FINISH_REASONS = {
-    "SAFETY",
-    "PROHIBITED_CONTENT",
-    "BLOCKLIST",
-    "SPII",
-    "RECITATION",
-}
+# The OpenAI-compatible finish_reason string that means "a content filter
+# stopped this response" - the Groq equivalent of Gemini's SAFETY /
+# PROHIBITED_CONTENT / BLOCKLIST family. message.content is empty in this
+# case and must be checked before reading it.
+BLOCKED_FINISH_REASON = "content_filter"
 
 
 def _get_client():
     """
-    Build the Gemini client, or return an error response if it cannot be.
+    Build the Groq client, or return an error response if it cannot be.
 
     Returns (client, None) on success, or (None, error_response).
     """
-    if not GENAI_AVAILABLE:
+    if not GROQ_AVAILABLE:
         return None, api_error(
             "The assistant is not installed on this server. "
             "Run: pip install -r requirements.txt",
@@ -135,71 +129,77 @@ def _get_client():
             code="assistant_unavailable",
         )
 
-    if not Config.GEMINI_API_KEY:
+    if not Config.GROQ_API_KEY:
         return None, api_error(
-            "The assistant is not configured. Add GEMINI_API_KEY to backend/.env.",
+            "The assistant is not configured. Add GROQ_API_KEY to backend/.env.",
             503,
             code="assistant_not_configured",
         )
 
-    # Passing the key explicitly rather than relying on the ambient environment
-    # keeps this behaving the same way locally and on Render
-    return genai.Client(api_key=Config.GEMINI_API_KEY), None
+    # Passing the key explicitly rather than relying on the ambient
+    # environment keeps this behaving the same way locally and on Vercel.
+    # timeout matches GROQ_CALL_TIMEOUT_SECONDS below - set once here rather
+    # than per-call, since every route in this file uses the same client.
+    return Groq(api_key=Config.GROQ_API_KEY, timeout=GROQ_CALL_TIMEOUT_SECONDS), None
 
 
-# One retry, after a short pause, and only for a ServerError - reproduced
-# directly against the live API while chasing a user report of "the
-# assistant service is having problems": the exact same request, byte for
-# byte, succeeded on one attempt and failed with 503 UNAVAILABLE ("This
-# model is currently experiencing high demand") on the next. That is a
-# genuine, transient capacity limit on Gemini's free tier, not a bug in the
-# prompt or the admin-context data - retrying is the correct response, not
-# a fix to code that was never broken. Not retried for ClientError (a bad
-# key or bad request will fail identically every time) or a second
-# ServerError (Vercel's own 60s function budget means a request already
-# waiting on Gemini cannot afford to wait through more than one retry).
-GEMINI_RETRY_DELAY_SECONDS = 1.5
+# One retry, after a short pause, for a genuine server-side or timeout
+# failure only - not for a 4xx (a bad key or bad request fails identically
+# on a second try). Groq is dramatically faster than Gemini ever was in
+# practice, but the same "an upstream provider can still have a bad moment"
+# reasoning that justified this retry originally still applies to any
+# hosted API.
+GROQ_RETRY_DELAY_SECONDS = 1.5
 
-# A bound on top of the retry-once policy above, not instead of it.
-# Reproduced live: during a genuine Gemini "high demand" spell, a single
-# attempt did not fail fast with a 503 - it just hung, silently, for over
-# 60 seconds. Two such attempts blew straight through both this app's own
-# 45s frontend axios timeout and Vercel's 60s function budget, and the
-# browser saw a raw "Failed to fetch" instead of the clean "having
-# problems, try again" message this app already has ready for exactly this
-# situation. 18s x 2 attempts + the retry delay stays comfortably inside
-# both budgets, so a slow spell now fails the same honest way a fast
-# ServerError already does, rather than however Vercel's own hard kill
-# happens to look to the browser.
-GEMINI_CALL_TIMEOUT_MS = 18000
+# Generous for a provider whose whole premise is sub-second responses - this
+# is a ceiling for a genuinely bad moment, not the expected latency. Still
+# comfortably inside Vercel's 60s function budget even after one retry.
+GROQ_CALL_TIMEOUT_SECONDS = 18
 
 
-def _call_gemini(client, **generate_content_kwargs):
+def _call_groq(client, **completion_kwargs):
     """
-    client.models.generate_content(...), transparently retried once on a
-    transient server error OR a per-attempt timeout (see
-    GEMINI_CALL_TIMEOUT_MS above - a slow, non-erroring hang is exactly as
-    unacceptable as a fast 503 here). A timeout on the retry itself is
-    turned into a synthetic ServerError so every caller's existing
-    `except genai_errors.ServerError` block - already mapping to the same
-    "having problems, try again" message - handles it with no changes of
-    its own needed.
+    client.chat.completions.create(...), transparently retried once on a
+    transient server error or a timeout - the direct Groq equivalent of
+    this file's old _call_gemini, kept as the one function every route
+    calls through rather than reaching the SDK directly (see this file's
+    own module docstring on why that matters for ever swapping providers
+    again).
     """
-    config = generate_content_kwargs.get("config")
-    if config is not None and getattr(config, "http_options", None) is None:
-        config.http_options = genai_types.HttpOptions(timeout=GEMINI_CALL_TIMEOUT_MS)
-
     try:
-        return client.models.generate_content(**generate_content_kwargs)
-    except (genai_errors.ServerError, httpx.TimeoutException):
-        time.sleep(GEMINI_RETRY_DELAY_SECONDS)
-        try:
-            return client.models.generate_content(**generate_content_kwargs)
-        except httpx.TimeoutException as timeout_error:
-            raise genai_errors.ServerError(
-                504,
-                {"error": {"message": "Gemini request timed out twice in a row."}},
-            ) from timeout_error
+        return client.chat.completions.create(**completion_kwargs)
+    except (GroqInternalServerError, GroqAPITimeoutError):
+        time.sleep(GROQ_RETRY_DELAY_SECONDS)
+        return client.chat.completions.create(**completion_kwargs)
+
+
+def _history_to_messages(history):
+    """
+    Turn the frontend's [{"role": "user"|"assistant", "content": "..."}]
+    history into the same shape Groq's chat.completions API already
+    expects - unlike Gemini, which called the AI turn "model" and needed a
+    translation step, the OpenAI-compatible wire format uses "assistant"
+    natively, so this is a straight validate-and-trim rather than a role
+    rename.
+    """
+    messages = []
+    if not isinstance(history, list):
+        return messages
+
+    for entry in history[-MAX_HISTORY_MESSAGES:]:
+        if not isinstance(entry, dict):
+            continue
+        role = entry.get("role")
+        text = str(entry.get("content", "")).strip()
+        if role not in ("user", "assistant") or not text:
+            continue
+        messages.append({"role": role, "content": text[:MAX_MESSAGE_LENGTH]})
+
+    # The conversation has to begin with a user turn
+    while messages and messages[0]["role"] != "user":
+        messages.pop(0)
+
+    return messages
 
 
 def _build_admin_context():
@@ -514,7 +514,7 @@ RULES - these matter more than being agreeable
 # own structure is simply absent from what the model was ever given.
 ADMIN_CONSOLE_GUIDE = """
 === THE ADMIN CONSOLE (this user is an ADMIN, on top of everything above) ===
-You may also help this admin navigate /admin, using the platform data block below. The console has seven tabs:
+You may also help this admin navigate /admin, using the platform data block below. The console has ten tabs:
   - Overview: platform-wide stat cards (total users, records, emissions, goal success rate) and the category split across every user combined
   - Insights: month-by-month sign-up growth, which regions users are in, and the five most active users by entries logged
   - Activity: one combined timeline of every sign-up, donation and feedback message across the whole platform, newest first
@@ -522,39 +522,40 @@ You may also help this admin navigate /admin, using the platform data block belo
   - Feedback: every message sent through the public Feedback page, with its star rating if one was given
   - Donations: every verified Razorpay donation, with the running total raised
   - System: a live health check of Firestore, Razorpay, the AI assistant itself, the admin access configuration, and the API's own environment. You do not have a live reading of it - if asked whether the system is healthy right now, say to check that tab and press its Refresh button, rather than guessing
+  - Research: adoption-rate figures for AI-suggested swaps and other recommendations
+  - Factors: create, edit or delete the published emission factors every calculation in the app is built on
+  - API: reference documentation for the two public, unauthenticated GET endpoints (aggregate impact figures and the opt-in leaderboard) other tools or research can pull from
 Deleting a user, a feedback message, or a donation record is only possible from inside the console itself, by a person clicking delete and confirming - you cannot perform or trigger any of those actions."""
 
 
 def _extract_reply(response):
     """
-    Pull the text out of a Gemini response, or return None if it was blocked.
+    Pull the text out of a Groq chat completion, or return None if it was
+    blocked by a content filter.
 
-    Gemini returns HTTP 200 even when a safety filter stops the answer, so
-    finish_reason has to be checked before reading .text - which is None in
-    that case and would otherwise look like an empty reply.
+    A response can also stop mid-sentence if it hits the output token cap
+    (finish_reason == "length") - proven reachable in testing on the
+    original Gemini integration when thinking/reasoning tokens ate the
+    whole budget before any visible text, which is exactly why
+    ASSISTANT_REASONING_EFFORT above is set to the fastest, lowest-token
+    setting rather than left at the model default. Returning a truncated
+    answer with no indication it was cut off would be worse than the
+    honest, if less complete, alternative - someone reading a chat panel
+    has no way to tell a real full stop from a chopped-off one.
     """
-    candidates = response.candidates or []
-    reason_name = ""
-    if candidates:
-        finish_reason = getattr(candidates[0], "finish_reason", None)
-        # finish_reason is an enum; .name gives the string form
-        reason_name = getattr(finish_reason, "name", str(finish_reason or ""))
-        if reason_name in BLOCKED_FINISH_REASONS:
-            return None
+    choice = response.choices[0] if response.choices else None
+    if choice is None:
+        return None
 
-    text = response.text
+    if choice.finish_reason == BLOCKED_FINISH_REASON:
+        return None
+
+    text = choice.message.content
     if not text:
         return None
     text = text.strip()
 
-    # A response can stop mid-sentence if it hits max_output_tokens - proven
-    # reachable in testing when thinking tokens ate the whole budget before
-    # any visible text, and ASSISTANT_THINKING_BUDGET above is what keeps that
-    # from happening in practice, not a guarantee for every possible prompt.
-    # Returning a truncated answer with no indication it was cut off would be
-    # worse than the honest, if less complete, alternative - someone reading
-    # a chat panel has no way to tell a real full stop from a chopped-off one.
-    if reason_name == "MAX_TOKENS":
+    if choice.finish_reason == "length":
         text += " [Reply cut short - try asking again, or split it into a shorter question.]"
 
     return text
@@ -562,13 +563,13 @@ def _extract_reply(response):
 
 def _usage_of(response):
     """Token counts, returned so cost and quota use are visible rather than hidden."""
-    usage = response.usage_metadata
+    usage = response.usage
     if not usage:
         return None
     return {
-        "inputTokens": usage.prompt_token_count,
-        "outputTokens": usage.candidates_token_count,
-        "totalTokens": usage.total_token_count,
+        "inputTokens": usage.prompt_tokens,
+        "outputTokens": usage.completion_tokens,
+        "totalTokens": usage.total_tokens,
     }
 
 
@@ -603,96 +604,62 @@ def chat():
             code="message_too_long",
         )
 
-    # --- rebuild the conversation ---
-    # The API is stateless: it has no memory of previous requests, so the whole
-    # conversation is re-sent every time. The frontend holds it and passes it back.
-    history = body.get("history") or []
-    contents = []
-
-    if isinstance(history, list):
-        for entry in history[-MAX_HISTORY_MESSAGES:]:
-            if not isinstance(entry, dict):
-                continue
-            role = entry.get("role")
-            text = str(entry.get("content", "")).strip()
-            if role not in ("user", "assistant") or not text:
-                continue
-
-            # Gemini calls the AI turn "model", not "assistant". The frontend
-            # speaks the common chat vocabulary, so the translation happens here.
-            contents.append(
-                genai_types.Content(
-                    role="model" if role == "assistant" else "user",
-                    parts=[genai_types.Part.from_text(text=text[:MAX_MESSAGE_LENGTH])],
-                )
-            )
-
-    # The conversation has to begin with a user turn
-    while contents and contents[0].role != "user":
-        contents.pop(0)
-
-    contents.append(
-        genai_types.Content(role="user", parts=[genai_types.Part.from_text(text=message)])
-    )
-
     # Checked once and reused - it is the same verified-token check either way,
     # and calling it twice would mean two lookups for one request.
     user_is_admin = is_admin(g.uid, g.email)
 
-    # --- call Gemini ---
+    system_text = "\n\n".join(
+        block
+        for block in [
+            ASSISTANT_INSTRUCTIONS,
+            _build_user_context(g.uid),
+            _build_admin_context() if user_is_admin else None,
+            ADMIN_CONSOLE_GUIDE if user_is_admin else None,
+        ]
+        if block
+    )
+
+    # The API is stateless: it has no memory of previous requests, so the
+    # whole conversation is re-sent every time. The frontend holds it and
+    # passes it back.
+    messages = [{"role": "system", "content": system_text}]
+    messages.extend(_history_to_messages(body.get("history")))
+    messages.append({"role": "user", "content": message})
+
     try:
-        response = _call_gemini(
+        response = _call_groq(
             client,
             model=Config.ASSISTANT_MODEL,
-            contents=contents,
-            config=genai_types.GenerateContentConfig(
-                # Fixed instructions, then this user's live data, then - for
-                # admins only - the platform data block AND the console
-                # navigation guide. The admin check runs on the server against
-                # the verified token, so a normal user cannot talk their way
-                # into it: the text simply is not in the prompt to extract.
-                system_instruction=[
-                    block
-                    for block in [
-                        ASSISTANT_INSTRUCTIONS,
-                        _build_user_context(g.uid),
-                        _build_admin_context() if user_is_admin else None,
-                        ADMIN_CONSOLE_GUIDE if user_is_admin else None,
-                    ]
-                    if block
-                ],
-                max_output_tokens=MAX_REPLY_TOKENS,
-                # Low temperature because this is grounded question answering
-                # over the user's own figures - creativity is not wanted here
-                temperature=0.3,
-                thinking_config=genai_types.ThinkingConfig(
-                    thinking_budget=ASSISTANT_THINKING_BUDGET
-                ),
-            ),
+            messages=messages,
+            max_completion_tokens=MAX_REPLY_TOKENS,
+            # Low temperature because this is grounded question answering
+            # over the user's own figures - creativity is not wanted here
+            temperature=0.3,
+            reasoning_effort=ASSISTANT_REASONING_EFFORT,
         )
-    except genai_errors.ClientError as client_error:
-        # 4xx - almost always a bad key, an unknown model name, or quota
-        status = getattr(client_error, "code", 400)
-        if status == 429:
-            return api_error(
-                "The assistant has hit its free-tier rate limit. "
-                "Wait a minute and try again.",
-                429,
-                code="assistant_rate_limited",
-            )
+    except GroqRateLimitError:
         return api_error(
-            "The assistant rejected the request. Check GEMINI_API_KEY and "
+            "The assistant has hit its free-tier rate limit. "
+            "Wait a minute and try again.",
+            429,
+            code="assistant_rate_limited",
+        )
+    except GroqAPIStatusError:
+        # Any other non-2xx from Groq - almost always a bad key, an unknown
+        # model name, or a malformed request.
+        return api_error(
+            "The assistant rejected the request. Check GROQ_API_KEY and "
             "ASSISTANT_MODEL in backend/.env.",
             503,
             code="assistant_config_error",
         )
-    except genai_errors.ServerError:
+    except (GroqInternalServerError, GroqAPITimeoutError):
         return api_error(
             "The assistant service is having problems. Please try again shortly.",
             502,
             code="assistant_error",
         )
-    except genai_errors.APIError:
+    except (GroqAPIConnectionError, GroqAPIError):
         return api_error(
             "Could not reach the assistant service.", 503, code="assistant_unreachable"
         )
@@ -701,9 +668,9 @@ def chat():
 
     if reply is None:
         # By this point topic scope is not why anything gets refused (see
-        # ASSISTANT_INSTRUCTIONS) - a None reply here means Gemini's own
-        # safety filter stopped it (BLOCKED_FINISH_REASONS), not that the
-        # question was out of bounds for this app.
+        # ASSISTANT_INSTRUCTIONS) - a None reply here means a content filter
+        # stopped it (BLOCKED_FINISH_REASON), not that the question was out
+        # of bounds for this app.
         return api_success({
             "reply": "I can't help with that one. Try rephrasing it, or ask "
                      "something else.",
@@ -793,50 +760,44 @@ Biggest contributors:
 {chr(10).join(f"  - {k.split('/')[1].replace('_', ' ')} ({k.split('/')[0]}): {v['emission']:.2f} kg across {v['count']} entries" for k, v in top_activities)}"""
 
     try:
-        response = _call_gemini(
+        response = _call_groq(
             client,
             model=Config.ASSISTANT_MODEL,
-            contents=[
-                genai_types.Content(
-                    role="user", parts=[genai_types.Part.from_text(text=facts)]
-                )
-            ],
-            config=genai_types.GenerateContentConfig(
-                system_instruction=[
-                    ASSISTANT_INSTRUCTIONS,
-                    "For this request, write a report summary in three short "
+            messages=[
+                {
+                    "role": "system",
+                    "content": ASSISTANT_INSTRUCTIONS
+                    + "\n\nFor this request, write a report summary in three short "
                     "paragraphs: what the period looked like, what stood out, "
                     "and the single change that would help most. Plain prose, "
                     "no headings or bullets. Use only the figures given.",
-                ],
-                max_output_tokens=MAX_SUMMARY_TOKENS,
-                temperature=0.4,
-                thinking_config=genai_types.ThinkingConfig(
-                    thinking_budget=ASSISTANT_THINKING_BUDGET
-                ),
-            ),
+                },
+                {"role": "user", "content": facts},
+            ],
+            max_completion_tokens=MAX_SUMMARY_TOKENS,
+            temperature=0.4,
+            reasoning_effort=ASSISTANT_REASONING_EFFORT,
         )
-    except genai_errors.ClientError as client_error:
-        status = getattr(client_error, "code", 400)
-        if status == 429:
-            return api_error(
-                "The assistant has hit its free-tier rate limit. "
-                "Wait a minute and try again.",
-                429,
-                code="assistant_rate_limited",
-            )
+    except GroqRateLimitError:
+        return api_error(
+            "The assistant has hit its free-tier rate limit. "
+            "Wait a minute and try again.",
+            429,
+            code="assistant_rate_limited",
+        )
+    except GroqAPIStatusError:
         return api_error(
             "The assistant rejected the request. Check your backend/.env settings.",
             503,
             code="assistant_config_error",
         )
-    except genai_errors.ServerError:
+    except (GroqInternalServerError, GroqAPITimeoutError):
         return api_error(
             "The assistant service is having problems. Please try again shortly.",
             502,
             code="assistant_error",
         )
-    except genai_errors.APIError:
+    except (GroqAPIConnectionError, GroqAPIError):
         return api_error(
             "Could not reach the assistant service.", 503, code="assistant_unreachable"
         )
@@ -910,9 +871,9 @@ def _plan_candidates(uid):
     Every figure here - this month's baseline, the achievable saving, the
     resulting target - comes from real logged records and the same
     swap-savings maths insights_engine.generate_swaps already uses for GET
-    /api/insights/swaps. Gemini never sees this function; it only sees the
-    numbers it already computed, so there is no path by which the model can
-    invent a figure that ends up in a goal.
+    /api/insights/swaps. The model never sees this function; it only sees
+    the numbers it already computed, so there is no path by which the model
+    can invent a figure that ends up in a goal.
     """
     today = date.today()
     start, end = month_bounds(today.year, today.month)
@@ -946,8 +907,8 @@ def _plan_candidates(uid):
             "targetEmission": target_emission,
         })
 
-    # Biggest real opportunity first - both for the no-Gemini fallback pick
-    # below and so the strongest candidates lead the facts block Gemini sees.
+    # Biggest real opportunity first - both for the no-response fallback pick
+    # below and so the strongest candidates lead the facts block the model sees.
     candidates.sort(key=lambda item: item["achievableSavingKg"], reverse=True)
     return candidates
 
@@ -960,8 +921,8 @@ def plan():
 
     Every number in the response - baseline, target percent, target
     emission, target date - is computed server-side in _plan_candidates
-    above, never by Gemini. Gemini's only job (via a JSON response schema,
-    not free text) is to pick which of the real candidates is worth
+    above, never by the model. The model's only job (via a strict JSON
+    schema, not free text) is to pick which of the real candidates is worth
     focusing on and write a short, human rationale.
 
     The response is shaped to map directly onto POST /api/goals
@@ -994,72 +955,83 @@ def plan():
     facts = "\n".join(facts_lines)
 
     eligible_categories = [candidate["category"] for candidate in candidates]
-    schema = genai_types.Schema(
-        type=genai_types.Type.OBJECT,
-        properties={
-            "category": genai_types.Schema(type=genai_types.Type.STRING, enum=eligible_categories),
-            "rationale": genai_types.Schema(type=genai_types.Type.STRING),
+    # Strict structured output (Groq's own json_schema mode - see
+    # GROQ_REASONING quick reference in this file's imports): every property
+    # must be listed as required, and additionalProperties must be false, in
+    # exchange for a guarantee the response actually validates against this
+    # exact shape rather than needing the try/except fallback below to work
+    # as hard as it used to.
+    plan_schema = {
+        "type": "object",
+        "properties": {
+            "category": {"type": "string", "enum": eligible_categories},
+            "rationale": {"type": "string"},
         },
-        required=["category", "rationale"],
-    )
+        "required": ["category", "rationale"],
+        "additionalProperties": False,
+    }
 
     try:
-        response = _call_gemini(
+        response = _call_groq(
             client,
             model=Config.ASSISTANT_MODEL,
-            contents=[genai_types.Content(role="user", parts=[genai_types.Part.from_text(text=facts)])],
-            config=genai_types.GenerateContentConfig(
-                system_instruction=[
-                    "You are choosing ONE category for this user's next reduction goal, "
-                    "from the real candidates given. Pick whichever has the best mix of a "
-                    "large achievable saving and being realistic to actually change soon. "
-                    "Write a short one or two sentence rationale, in second person, that "
-                    "names the real saving figure already given for that category. Do not "
-                    "invent or restate any number that was not given to you.",
-                ],
-                max_output_tokens=PLAN_MAX_OUTPUT_TOKENS,
-                temperature=0.4,
-                thinking_config=genai_types.ThinkingConfig(thinking_budget=ASSISTANT_THINKING_BUDGET),
-                response_mime_type="application/json",
-                response_schema=schema,
-            ),
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are choosing ONE category for this user's next reduction goal, "
+                        "from the real candidates given. Pick whichever has the best mix of a "
+                        "large achievable saving and being realistic to actually change soon. "
+                        "Write a short one or two sentence rationale, in second person, that "
+                        "names the real saving figure already given for that category. Do not "
+                        "invent or restate any number that was not given to you."
+                    ),
+                },
+                {"role": "user", "content": facts},
+            ],
+            max_completion_tokens=PLAN_MAX_OUTPUT_TOKENS,
+            temperature=0.4,
+            reasoning_effort=ASSISTANT_REASONING_EFFORT,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "reduction_plan", "strict": True, "schema": plan_schema},
+            },
         )
-    except genai_errors.ClientError as client_error:
-        status_code = getattr(client_error, "code", 400)
-        if status_code == 429:
-            return api_error(
-                "The assistant has hit its free-tier rate limit. Wait a minute and try again.",
-                429,
-                code="assistant_rate_limited",
-            )
+    except GroqRateLimitError:
+        return api_error(
+            "The assistant has hit its free-tier rate limit. Wait a minute and try again.",
+            429,
+            code="assistant_rate_limited",
+        )
+    except GroqAPIStatusError:
         return api_error(
             "The assistant rejected the request. Check your backend/.env settings.",
             503,
             code="assistant_config_error",
         )
-    except genai_errors.ServerError:
+    except (GroqInternalServerError, GroqAPITimeoutError):
         return api_error(
             "The assistant service is having problems. Please try again shortly.",
             502,
             code="assistant_error",
         )
-    except genai_errors.APIError:
+    except (GroqAPIConnectionError, GroqAPIError):
         return api_error(
             "Could not reach the assistant service.", 503, code="assistant_unreachable"
         )
 
-    # Any failure to parse a usable choice out of Gemini's reply - a safety
-    # block, malformed JSON, or a category outside the list it was given -
+    # Any failure to parse a usable choice out of the response - a content
+    # filter, malformed JSON, or a category outside the list it was given -
     # falls back to the biggest real opportunity computed above, rather than
     # dead-ending the whole feature over one bad model response.
     chosen = None
     rationale = ""
     try:
-        parsed = json.loads(response.text)
+        parsed = json.loads(response.choices[0].message.content)
         chosen_category = parsed.get("category")
         rationale = str(parsed.get("rationale", "")).strip()
         chosen = next((c for c in candidates if c["category"] == chosen_category), None)
-    except (ValueError, TypeError, AttributeError):
+    except (ValueError, TypeError, AttributeError, IndexError):
         chosen = None
 
     if chosen is None or not rationale:
@@ -1092,9 +1064,9 @@ def status():
     rather than showing a feature that errors the moment it is clicked.
     """
     return api_success({
-        "available": bool(GENAI_AVAILABLE and Config.GEMINI_API_KEY),
-        "sdkInstalled": GENAI_AVAILABLE,
-        "keyConfigured": bool(Config.GEMINI_API_KEY),
+        "available": bool(GROQ_AVAILABLE and Config.GROQ_API_KEY),
+        "sdkInstalled": GROQ_AVAILABLE,
+        "keyConfigured": bool(Config.GROQ_API_KEY),
         "model": Config.ASSISTANT_MODEL,
     })
 
@@ -1116,8 +1088,8 @@ def status():
 # fix applies: a tight rate limit plus, when RECAPTCHA_SECRET_KEY is set, a
 # score check. Deliberately tighter than the signed-in assistant's effectively
 # unlimited use, because there is no account here to hold accountable and
-# every message still costs a real Gemini API call against this project's
-# shared free-tier quota.
+# every message still costs a real API call against this project's shared
+# free-tier quota.
 # ---------------------------------------------------------------------------
 
 PUBLIC_MAX_REPLY_TOKENS = 1536
@@ -1127,9 +1099,9 @@ PUBLIC_MAX_REPLY_TOKENS = 1536
 def public_status():
     """The signed-out counterpart to /status - same shape, no token required."""
     return api_success({
-        "available": bool(GENAI_AVAILABLE and Config.GEMINI_API_KEY),
-        "sdkInstalled": GENAI_AVAILABLE,
-        "keyConfigured": bool(Config.GEMINI_API_KEY),
+        "available": bool(GROQ_AVAILABLE and Config.GROQ_API_KEY),
+        "sdkInstalled": GROQ_AVAILABLE,
+        "keyConfigured": bool(Config.GROQ_API_KEY),
         "model": Config.ASSISTANT_MODEL,
     })
 
@@ -1163,7 +1135,7 @@ def public_chat():
     # Two limits for two different abuse shapes, same reasoning as
     # forgot_password(): one connection hammering this endpoint, or the same
     # message flooding in from a rotating-IP source - checked before anything
-    # else runs, so a rate-limited request never reaches Gemini at all.
+    # else runs, so a rate-limited request never reaches Groq at all.
     ip = client_ip()
     if not check_rate_limit("public-assistant-ip", ip, max_attempts=20, window_seconds=3600):
         return api_error(
@@ -1180,69 +1152,42 @@ def public_chat():
             code="recaptcha_failed",
         )
 
-    history = body.get("history") or []
-    contents = []
-
-    if isinstance(history, list):
-        for entry in history[-MAX_HISTORY_MESSAGES:]:
-            if not isinstance(entry, dict):
-                continue
-            role = entry.get("role")
-            text = str(entry.get("content", "")).strip()
-            if role not in ("user", "assistant") or not text:
-                continue
-            contents.append(
-                genai_types.Content(
-                    role="model" if role == "assistant" else "user",
-                    parts=[genai_types.Part.from_text(text=text[:MAX_MESSAGE_LENGTH])],
-                )
-            )
-
-    while contents and contents[0].role != "user":
-        contents.pop(0)
-
-    contents.append(
-        genai_types.Content(role="user", parts=[genai_types.Part.from_text(text=message)])
-    )
+    # No user/admin data blocks - there is nothing signed in to read.
+    # PUBLIC_ASSISTANT_INSTRUCTIONS is a complete, separate system
+    # instruction, not this one with something appended.
+    messages = [{"role": "system", "content": PUBLIC_ASSISTANT_INSTRUCTIONS}]
+    messages.extend(_history_to_messages(body.get("history")))
+    messages.append({"role": "user", "content": message})
 
     try:
-        response = _call_gemini(
+        response = _call_groq(
             client,
             model=Config.ASSISTANT_MODEL,
-            contents=contents,
-            config=genai_types.GenerateContentConfig(
-                # No user/admin data blocks - there is nothing signed in to
-                # read. PUBLIC_ASSISTANT_INSTRUCTIONS is a complete, separate
-                # system instruction, not this one with something appended.
-                system_instruction=[PUBLIC_ASSISTANT_INSTRUCTIONS],
-                max_output_tokens=PUBLIC_MAX_REPLY_TOKENS,
-                temperature=0.3,
-                thinking_config=genai_types.ThinkingConfig(
-                    thinking_budget=ASSISTANT_THINKING_BUDGET
-                ),
-            ),
+            messages=messages,
+            max_completion_tokens=PUBLIC_MAX_REPLY_TOKENS,
+            temperature=0.3,
+            reasoning_effort=ASSISTANT_REASONING_EFFORT,
         )
-    except genai_errors.ClientError as client_error:
-        status_code = getattr(client_error, "code", 400)
-        if status_code == 429:
-            return api_error(
-                "The assistant has hit its free-tier rate limit. "
-                "Wait a minute and try again.",
-                429,
-                code="assistant_rate_limited",
-            )
+    except GroqRateLimitError:
+        return api_error(
+            "The assistant has hit its free-tier rate limit. "
+            "Wait a minute and try again.",
+            429,
+            code="assistant_rate_limited",
+        )
+    except GroqAPIStatusError:
         return api_error(
             "The assistant rejected the request. Please try again.",
             503,
             code="assistant_config_error",
         )
-    except genai_errors.ServerError:
+    except (GroqInternalServerError, GroqAPITimeoutError):
         return api_error(
             "The assistant service is having problems. Please try again shortly.",
             502,
             code="assistant_error",
         )
-    except genai_errors.APIError:
+    except (GroqAPIConnectionError, GroqAPIError):
         return api_error(
             "Could not reach the assistant service.", 503, code="assistant_unreachable"
         )

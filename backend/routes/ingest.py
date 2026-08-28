@@ -1,7 +1,6 @@
 # EcoTrack/backend/routes/ingest.py
 """
-Bill/receipt ingestion - a photo OR a PDF - powered by Google Gemini's
-multimodal input.
+Bill/receipt ingestion - a photo, read by Groq's vision model.
 
 WHAT THIS ROUTE DOES AND DOES NOT DO
 -------------------------------------
@@ -14,25 +13,27 @@ use) once the user has actually reviewed the numbers. Keeping "extract" and
 "save" as two separate, user-gated steps is what stops a misread bill from
 silently entering the user's real emissions history.
 
-A PHOTO OR A PDF - GEMINI READS BOTH NATIVELY
------------------------------------------------
-A photo is OCR'd by the model; a PDF is read via its own text layer, which
-Gemini's API accepts directly (Part.from_bytes with mime_type
-"application/pdf") without this backend rasterising anything itself - and is
-MORE accurate than a photo, since there is no printed-text-to-recognise step
-at all for a bill someone downloaded as a PDF rather than photographed. See
-ALLOWED_MIME_TYPES below.
+PHOTOS ONLY - PDF SUPPORT WAS DROPPED IN THE GROQ MIGRATION
+-------------------------------------------------------------
+This route used to also accept a PDF, which Gemini could read via its own
+text layer. Groq's vision-capable models (see config.py's VISION_MODEL)
+only accept image formats - JPEG, PNG, WEBP - over their image_url input, not
+PDF. Rather than silently degrade PDF uploads into a confusing failure, PDF
+was deliberately removed from ALLOWED_MIME_TYPES below and a clear rejection
+message is returned if one is still sent, with the same guidance the
+frontend now gives before it happens: photograph the bill, or open the PDF
+and screenshot it.
 
 THE FILE IS NEVER PERSISTED
 ------------------------------
 The uploaded bytes exist only for the duration of this request: decoded from
-the request body, handed to the Gemini API call, and then this function
+the request body, handed to the Groq API call, and then this function
 returns. Nothing is written to Firestore, disk, or any log. This is a real
 privacy property of this route, not a side effect - state it as one.
 
 Follows the same defensive-import and error-handling pattern as
-routes/assistant.py, so a missing google-genai dependency degrades to
-"unavailable" instead of stopping the whole server from booting.
+routes/assistant.py, so a missing groq dependency degrades to "unavailable"
+instead of stopping the whole server from booting.
 
 Mounted at /api/ingest
 """
@@ -45,16 +46,21 @@ from flask import Blueprint, g, request
 
 from config import Config
 from routes import api_error, api_success, check_rate_limit, require_auth
-from routes.assistant import _call_gemini
+from routes.assistant import (
+    GROQ_AVAILABLE,
+    GroqAPIConnectionError,
+    GroqAPIError,
+    GroqAPIStatusError,
+    GroqInternalServerError,
+    GroqAPITimeoutError,
+    GroqRateLimitError,
+    _call_groq,
+)
 
 try:
-    from google import genai
-    from google.genai import errors as genai_errors
-    from google.genai import types as genai_types
-
-    GENAI_AVAILABLE = True
+    from groq import Groq
 except ImportError:
-    GENAI_AVAILABLE = False
+    Groq = None
 
 ingest_bp = Blueprint("ingest", __name__, url_prefix="/api/ingest")
 
@@ -63,17 +69,11 @@ ingest_bp = Blueprint("ingest", __name__, url_prefix="/api/ingest")
 # wire - a request just under this still crosses a bundled Vercel function,
 # which is exactly why the frontend downscales photos to ~2000px/JPEG q0.85
 # before ever sending them (see BillScanner.jsx) rather than relying on this
-# cap alone. A PDF is sent through unresized - a 1-2 page bill is typically
-# well under this on its own, and there is no client-side way to "downscale"
-# a PDF the way a photo can be re-encoded smaller.
+# cap alone. Also comfortably under Groq vision's own 20MB-per-image limit.
 MAX_FILE_BYTES = 4 * 1024 * 1024
 
-# PDF alongside the three image types: Gemini reads a PDF's own text layer
-# directly rather than OCR-ing a rasterised page, which is MORE accurate
-# than a photo for anyone who downloads their bill as a PDF rather than
-# photographing a printed copy - confirmed live against the real API before
-# this was wired in (a synthetic PDF's "245 kWh" round-tripped correctly).
-ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
+# Images only - see this file's module docstring on why PDF was dropped here.
+ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 # A photo is a slower, heavier ask than a chat message, so it gets its own,
 # tighter bucket rather than sharing one with routes/assistant.py.
@@ -126,22 +126,42 @@ set category, subType, quantity and unit to null and confidence to 0, but still 
 return valid JSON in this exact shape. Never invent a number that is not visibly \
 printed on the document."""
 
+# Best-effort (non-strict) structured output, deliberately - unlike voice.py's
+# fixed schema, rawFields is a dynamic, document-defined set of keys (whatever
+# labels are actually printed on this particular bill), which cannot be
+# expressed as a fixed strict schema with additionalProperties: false. The
+# rest of this route already re-validates every field it actually uses
+# (category/quantity/confidence/rawFields) after parsing, the same as it did
+# under Gemini, so best-effort mode here does not weaken those checks.
+BILL_EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "category": {"type": ["string", "null"]},
+        "subType": {"type": ["string", "null"]},
+        "quantity": {"type": ["number", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "confidence": {"type": "number"},
+        "rawFields": {"type": "object"},
+    },
+    "required": ["category", "subType", "quantity", "unit", "confidence", "rawFields"],
+}
+
 
 def _get_client():
-    if not GENAI_AVAILABLE:
+    if not GROQ_AVAILABLE:
         return None, api_error(
             "Bill scanning is not installed on this server. "
             "Run: pip install -r requirements.txt",
             503,
             code="ingest_unavailable",
         )
-    if not Config.GEMINI_API_KEY:
+    if not Config.GROQ_API_KEY:
         return None, api_error(
-            "Bill scanning is not configured. Add GEMINI_API_KEY to backend/.env.",
+            "Bill scanning is not configured. Add GROQ_API_KEY to backend/.env.",
             503,
             code="ingest_not_configured",
         )
-    return genai.Client(api_key=Config.GEMINI_API_KEY), None
+    return Groq(api_key=Config.GROQ_API_KEY, timeout=18), None
 
 
 @ingest_bp.route("/bill", methods=["POST"])
@@ -149,7 +169,7 @@ def _get_client():
 def ingest_bill():
     """
     Body: {"imageBase64": "<base64, no data: prefix>", "mimeType": "image/jpeg"}
-    mimeType is any of ALLOWED_MIME_TYPES - a photo (jpeg/png/webp) or a PDF.
+    mimeType is any of ALLOWED_MIME_TYPES - a photo (jpeg/png/webp).
 
     Returns the proposed extraction. Saves nothing.
     """
@@ -169,6 +189,13 @@ def ingest_bill():
     mime_type = str(body.get("mimeType", "")).strip().lower()
     image_base64 = body.get("imageBase64")
 
+    if mime_type == "application/pdf":
+        return api_error(
+            "PDF bills are no longer supported. Please take a photo of the "
+            "bill instead, or open the PDF and screenshot it.",
+            400,
+            code="pdf_not_supported",
+        )
     if mime_type not in ALLOWED_MIME_TYPES:
         return api_error(
             f"mimeType must be one of: {', '.join(sorted(ALLOWED_MIME_TYPES))}.",
@@ -196,46 +223,54 @@ def ingest_bill():
         return api_error("That file appears to be empty.", 400, code="empty_image")
 
     try:
-        response = _call_gemini(
+        # Groq vision models take an image the same way any OpenAI-compatible
+        # vision API does: a data: URI inline in the message content, not a
+        # separate "part" object the way Gemini's Part.from_bytes worked.
+        data_uri = f"data:{mime_type};base64,{image_base64}"
+        response = _call_groq(
             client,
-            model=Config.ASSISTANT_MODEL,
-            contents=[
-                genai_types.Content(
-                    role="user",
-                    parts=[
-                        genai_types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                        genai_types.Part.from_text(text="Extract the activity from this bill/receipt."),
+            model=Config.VISION_MODEL,
+            messages=[
+                {"role": "system", "content": BILL_EXTRACTION_INSTRUCTION},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Extract the activity from this bill/receipt."},
+                        {"type": "image_url", "image_url": {"url": data_uri}},
                     ],
-                )
+                },
             ],
-            config=genai_types.GenerateContentConfig(
-                system_instruction=[BILL_EXTRACTION_INSTRUCTION],
-                max_output_tokens=MAX_OUTPUT_TOKENS,
-                temperature=0.1,  # this is extraction, not conversation - minimise creativity
-                response_mime_type="application/json",
-                thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
-            ),
+            max_completion_tokens=MAX_OUTPUT_TOKENS,
+            temperature=0.1,  # this is extraction, not conversation - minimise creativity
+            reasoning_effort="none",
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "bill_extraction",
+                    "strict": False,
+                    "schema": BILL_EXTRACTION_SCHEMA,
+                },
+            },
         )
-    except genai_errors.ClientError as client_error:
-        status = getattr(client_error, "code", 400)
-        if status == 429:
-            return api_error(
-                "The assistant has hit its free-tier rate limit. Wait a minute and try again.",
-                429,
-                code="ingest_rate_limited_upstream",
-            )
+    except GroqRateLimitError:
         return api_error(
-            "The extraction request was rejected. Check GEMINI_API_KEY and ASSISTANT_MODEL.",
+            "The assistant has hit its free-tier rate limit. Wait a minute and try again.",
+            429,
+            code="ingest_rate_limited_upstream",
+        )
+    except GroqAPIStatusError:
+        return api_error(
+            "The extraction request was rejected. Check GROQ_API_KEY and VISION_MODEL.",
             503,
             code="ingest_config_error",
         )
-    except genai_errors.ServerError:
+    except (GroqInternalServerError, GroqAPITimeoutError):
         return api_error(
             "The extraction service is having problems. Please try again shortly.",
             502,
             code="ingest_error",
         )
-    except genai_errors.APIError:
+    except (GroqAPIConnectionError, GroqAPIError):
         return api_error("Could not reach the extraction service.", 503, code="ingest_unreachable")
     finally:
         # Explicit, even though Python's own garbage collector would get to
@@ -243,7 +278,8 @@ def ingest_bill():
         # around a moment longer than the call above needed them for.
         del image_bytes
 
-    raw_text = (response.text or "").strip()
+    choice = response.choices[0] if response.choices else None
+    raw_text = (choice.message.content or "").strip() if choice else ""
     try:
         extracted = json.loads(raw_text)
     except (ValueError, TypeError):

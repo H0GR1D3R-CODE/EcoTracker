@@ -99,7 +99,7 @@ def create_app():
     app.register_blueprint(insights_bp)    # /api/insights/*  (forecast, swaps, simulate, cohort)
     app.register_blueprint(templates_bp)   # /api/templates/*  (quick-log)
     app.register_blueprint(engagement_bp)  # /api/engagement/*  (interventions, streak, challenges)
-    app.register_blueprint(ingest_bp)      # /api/ingest/bill  (Gemini photo extraction)
+    app.register_blueprint(ingest_bp)      # /api/ingest/bill  (Groq photo extraction)
     app.register_blueprint(notifications_bp)  # /api/notifications/*  (FCM token register/unregister)
     app.register_blueprint(cron_bp)        # /api/cron/*  (Vercel Cron only - see routes/cron.py)
     app.register_blueprint(wrapped_bp)     # /api/wrapped  (Carbon Wrapped recap)

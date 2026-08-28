@@ -42,8 +42,9 @@ Past that, the `/insights` page closes the loop from measurement to action:
   driftable streak state.
 - **Cohort comparison** — your percentile against others in your region,
   k-anonymised below 10 people, with a boomerang-effect-aware framing.
-- **Bill/receipt scanning** — photograph an electricity bill and Gemini
-  extracts the quantity for you to confirm before it ever saves anything.
+- **Bill/receipt scanning** — photograph an electricity bill and Groq's
+  vision model extracts the quantity for you to confirm before it ever
+  saves anything.
 
 Every recommendation shown anywhere in the app is logged to Firestore's
 `interventions` collection (never with an email or name attached) - the
@@ -172,7 +173,7 @@ published emission factors, send feedback, and donate without an account.
 | POST | `/api/engagement/challenges/:id/claim` | Claim a completed challenge |
 | POST | `/api/engagement/interventions` | Log a client-rendered recommendation as shown |
 | PATCH | `/api/engagement/interventions/:id` | Record accept/dismiss on a shown recommendation |
-| POST | `/api/ingest/bill` | Gemini-vision extraction from a bill/receipt photo (saves nothing) |
+| POST | `/api/ingest/bill` | Groq vision-model extraction from a bill/receipt photo (saves nothing) |
 | POST | `/api/assistant/chat` | Ask the AI assistant a question, grounded in your data |
 | POST | `/api/assistant/summary` | AI-written summary of a report's period |
 | GET | `/api/assistant/status` | Whether the assistant is configured |

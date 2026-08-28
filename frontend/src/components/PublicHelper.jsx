@@ -3,7 +3,7 @@
 // The "EcoTrack Guide" shown to SIGNED-OUT visitors on the public pages.
 //
 // Used to be pure keyword matching against a fixed topic list - no login, no
-// API key, no per-request cost. Now calls the same Gemini model the signed-in
+// API key, no per-request cost. Now calls the same Groq model the signed-in
 // Assistant does, through a separate PUBLIC route (POST /api/assistant/
 // public-chat) that needs no token, since there is no account here to hold
 // one - see that route's own comment in backend/routes/assistant.py for how

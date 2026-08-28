@@ -71,17 +71,40 @@ class Config:
         if e.strip()
     }
 
-    # --- EcoTrack Assistant (Google Gemini) ---
+    # --- EcoTrack Assistant (Groq) ---
     # This key is a REAL secret. It lives only on the server: the React app
-    # never sees it and never talks to Google directly. Every assistant request
+    # never sees it and never talks to Groq directly. Every assistant request
     # goes through Flask, which checks the user's Firebase token first.
-    # Get one free (no card needed) at https://aistudio.google.com
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    # Get one free (no card needed) at https://console.groq.com
+    #
+    # WHY GROQ, NOT GEMINI (as of August 2026)
+    # This app ran on Google Gemini's free tier first - genuinely free, no
+    # card needed, which is what made the feature possible on a student
+    # budget in the first place. It moved to Groq after a real, confirmed
+    # Gemini outage (generativelanguage.googleapis.com itself returning
+    # 503/504 - verified directly against Google's API, bypassing this
+    # backend entirely, before deciding it was not a bug in this code) made
+    # the case for a faster, more reliable free tier. Groq is not a model -
+    # it is an inference provider running open-weight models on hardware
+    # built specifically for low-latency inference, which is also why
+    # responses are now noticeably faster than Gemini's ever were.
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
-    # Which Gemini model the assistant uses. "gemini-flash-latest" is an alias
-    # Google keeps pointed at a current fast model, so it survives the retirement
-    # of any specific version. Override in .env if you want to pin a version.
-    ASSISTANT_MODEL = os.getenv("ASSISTANT_MODEL", "gemini-flash-latest")
+    # Text chat, JSON extraction (voice logging, the AI reduction plan), and
+    # report summaries all use this one model - openai/gpt-oss-120b supports
+    # strict JSON-schema structured output (see routes/assistant.py's
+    # _call_groq) alongside ordinary conversation, so one model covers every
+    # text-only surface without switching per route.
+    ASSISTANT_MODEL = os.getenv("ASSISTANT_MODEL", "openai/gpt-oss-120b")
+
+    # The bill scanner (routes/ingest.py) needs a model that can actually
+    # read an image, which ASSISTANT_MODEL above cannot - qwen/qwen3.8-27b is
+    # the one Groq-hosted model that supports both vision input AND JSON-
+    # schema structured output at once, which the extraction needs together.
+    # UNLIKE GEMINI, THIS MODEL DOES NOT READ PDFS - only image formats
+    # (JPEG/PNG/WEBP). See ingest.py's own ALLOWED_MIME_TYPES for where PDF
+    # support was deliberately dropped rather than silently degraded.
+    VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 
     # --- Razorpay (donations / "Support EcoTrack") ---
     # These power the public donation flow (routes/payments.py). They are
@@ -101,7 +124,7 @@ class Config:
     DONATION_MAX_PAISE = 10_000_000   # ₹1,00,000
 
     # --- Password reset email (Resend) ---
-    # Optional, same pattern as GEMINI_API_KEY above: "forgot password" works
+    # Optional, same pattern as GROQ_API_KEY above: "forgot password" works
     # completely without this - routes/auth.py's /forgot-password route simply
     # reports the custom email as unavailable, and AuthContext.resetPassword()
     # on the frontend falls back to Firebase's own built-in reset email, exactly
@@ -121,7 +144,7 @@ class Config:
     PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "https://ecotrk.web.app")
 
     # --- Bot protection (Google reCAPTCHA v3) ---
-    # Same optional pattern as GEMINI_API_KEY and RESEND_API_KEY above: every
+    # Same optional pattern as GROQ_API_KEY and RESEND_API_KEY above: every
     # route that checks this works completely without it configured - it just
     # skips verification rather than blocking real users, because a half-set-up
     # bot check that locks everyone out is worse than no bot check at all.

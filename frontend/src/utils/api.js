@@ -362,7 +362,7 @@ export const adminApi = {
 // ---------------------------------------------------------------------------
 // ASSISTANT
 //
-// The Gemini API key lives only on the Flask server. The browser never holds
+// The Groq API key lives only on the Flask server. The browser never holds
 // it and never calls Google directly - every request below goes to our own
 // backend, which verifies the Firebase token before spending anything.
 // ---------------------------------------------------------------------------
@@ -372,10 +372,10 @@ export const assistantApi = {
   // server has no API key configured
   getStatus: () => api.get('/api/assistant/status').then(unwrap),
 
-  // skipErrorToast on all three Gemini-backed calls below: Assistant.jsx,
+  // skipErrorToast on all three Groq-backed calls below: Assistant.jsx,
   // PublicHelper.jsx and Reports.jsx each already show the specific reason
-  // inline (rate-limited, Gemini's own server error, unreachable) - without
-  // this, a 5xx from Gemini shows that specific message AND the interceptor's
+  // inline (rate-limited, Groq's own server error, unreachable) - without
+  // this, a 5xx from Groq shows that specific message AND the interceptor's
   // generic "Server error" toast stacked on top for the same one failure.
 
   // history is [{role: 'user'|'assistant', content: string}]
@@ -591,7 +591,7 @@ export const householdApi = {
 };
 
 // ---------------------------------------------------------------------------
-// INGEST (Gemini bill/receipt photo extraction - see routes/ingest.py)
+// INGEST (Groq bill/receipt photo extraction - see routes/ingest.py)
 //
 // Nothing here saves a record. The response is a proposed extraction only;
 // the caller confirms it and then calls carbonApi.calculate() itself, same

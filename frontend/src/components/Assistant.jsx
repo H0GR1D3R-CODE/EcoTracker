@@ -10,19 +10,19 @@
 // WHERE THE INTELLIGENCE LIVES
 // Not here. This component is a chat UI and nothing more: it collects a
 // question, posts it to POST /api/assistant/chat, and renders the reply. The
-// Gemini API key is held only by the Flask server (backend/routes/assistant.py),
+// Groq API key is held only by the Flask server (backend/routes/assistant.py),
 // which reads the signed-in user's real Firestore data - and, only when the
 // verified token belongs to an admin, the platform-wide data and a guide to
-// the admin console - and puts it in the prompt before calling Gemini.
+// the admin console - and puts it in the prompt before calling Groq.
 //
-// That split is deliberate. If the browser called Gemini directly, the API
+// That split is deliberate. If the browser called Groq directly, the API
 // key would be sitting in the JavaScript bundle for anyone to take. The
 // admin split is the same idea applied to authorisation: the server decides
 // who is an admin from the verified token, so there is no client-side flag a
 // regular user could flip to see platform data that was never in the prompt.
 //
 // The conversation lives in this component's state and is passed back to the
-// server on each turn, because the Gemini API is stateless - it has no memory
+// server on each turn, because the Groq API is stateless - it has no memory
 // of previous requests.
 
 import { useEffect, useRef, useState } from 'react';

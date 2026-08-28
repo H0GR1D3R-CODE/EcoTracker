@@ -266,7 +266,7 @@ export default function Reports() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [busyId, setBusyId] = useState(null);
 
-  // --- AI summary (optional, only if the Gemini assistant is configured) ---
+  // --- AI summary (optional, only if the Groq assistant is configured) ---
   // The rule-based summary below always shows. This is an extra, on-demand
   // written summary from the assistant, keyed to the currently open report.
   const [assistantOn, setAssistantOn] = useState(false);
@@ -715,7 +715,7 @@ export default function Reports() {
               {/* --- optional AI-written summary ---
                   The rule-based paragraphs above always show and are what the
                   report is built on. This is an extra: a written summary from
-                  the Gemini assistant, generated only when asked and only when
+                  the Groq assistant, generated only when asked and only when
                   the assistant is actually configured on the server. */}
               {assistantOn && (
                 <div

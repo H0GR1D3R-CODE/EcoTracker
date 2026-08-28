@@ -27,8 +27,8 @@ services:
       # The WHOLE serviceAccountKey.json file, pasted as one value.
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
-      # Your Gemini key (optional; blank just hides the assistant).
-      - key: GEMINI_API_KEY
+      # Your Groq key (optional; blank just hides the assistant).
+      - key: GROQ_API_KEY
         sync: false
       # Comma-separated admin emails (e.g. nebinstanly12@gmail.com).
       - key: ADMIN_EMAILS

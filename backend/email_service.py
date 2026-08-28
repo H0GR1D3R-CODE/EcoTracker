@@ -28,7 +28,7 @@ Every function here degrades honestly: if RESEND_API_KEY is not set,
 send_password_reset_email() returns False immediately and touches the network
 not at all. The caller (routes/auth.py) is expected to treat False as "the
 custom email path is unavailable right now", not as an error - the same shape
-as how routes/assistant.py treats a missing GEMINI_API_KEY.
+as how routes/assistant.py treats a missing GROQ_API_KEY.
 """
 
 import re
@@ -289,7 +289,7 @@ def send_two_factor_code_email(recipient_email, code):
     sign-in on a code nobody can receive" and lets the sign-in through instead.
     A half-delivered security feature that permanently locks someone out of
     their own account is worse than the feature not applying that one time -
-    the same reasoning RECAPTCHA_SECRET_KEY and GEMINI_API_KEY already use
+    the same reasoning RECAPTCHA_SECRET_KEY and GROQ_API_KEY already use
     elsewhere in this backend.
     """
     if not Config.RESEND_API_KEY:

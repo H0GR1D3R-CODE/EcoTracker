@@ -11,7 +11,7 @@
 // matching backend check (verify_recaptcha in backend/routes/__init__.py)
 // treats a missing token as "not configured yet" and lets the request
 // through - so a form works identically whether or not this feature has
-// been turned on, exactly like the AI assistant degrades when GEMINI_API_KEY
+// been turned on, exactly like the AI assistant degrades when GROQ_API_KEY
 // is absent.
 
 const SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';

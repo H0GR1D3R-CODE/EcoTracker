@@ -438,7 +438,7 @@ export default function Calculator() {
       {/* Same onExtracted shape as BillScanner above - both only ever
           pre-fill the form below; "Log it" is still the one thing that
           actually saves anything. Renders nothing at all when the browser
-          has no speech recognition or the server has no Gemini key - see
+          has no speech recognition or the server has no Groq key - see
           VoiceLogger.jsx's own guard. */}
       <VoiceLogger
         onExtracted={({ category: extractedCategory, subType: extractedSubType, quantity: extractedQuantity }) => {

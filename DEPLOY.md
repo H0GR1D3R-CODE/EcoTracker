@@ -42,7 +42,7 @@ you'll paste it into Render in the next step. (Never commit this file.)
    | Key | Value |
    |---|---|
    | `FIREBASE_SERVICE_ACCOUNT_JSON` | the whole JSON from step 2 |
-   | `GEMINI_API_KEY` | your Gemini key (or leave blank to hide the assistant) |
+   | `GROQ_API_KEY` | your Groq key (or leave blank to hide the assistant) |
    | `ADMIN_EMAILS` | `nebinstanly12@gmail.com` |
    | `CORS_ORIGINS` | `https://ecotrack-carbon-tracker-4f2a1.web.app` |
 4. Deploy. When it's live, copy the service URL — something like

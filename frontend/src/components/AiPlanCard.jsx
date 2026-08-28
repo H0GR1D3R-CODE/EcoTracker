@@ -2,14 +2,14 @@
 // An AI-suggested reduction goal - see backend/routes/assistant.py's
 // POST /api/assistant/plan. Every number shown here (baseline, target
 // percent, target emission, deadline) is computed server-side from real
-// logged data; Gemini only picks which category to focus on and writes the
+// logged data; Groq only picks which category to focus on and writes the
 // one-line rationale. "Add this goal" below is a real goalsApi.create()
 // call with those exact server-computed numbers - there is no separate "AI
 // goal" system, just a different way of arriving at the same POST
 // /api/goals payload every other goal on this page goes through.
 //
 // Hidden entirely (like the AI summary button on Reports.jsx) when the
-// server has no GEMINI_API_KEY configured, via the same assistantApi.
+// server has no GROQ_API_KEY configured, via the same assistantApi.
 // getStatus() gate.
 
 import { useEffect, useState } from 'react';

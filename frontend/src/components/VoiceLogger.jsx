@@ -2,14 +2,14 @@
 // Say an activity instead of typing it in - "I drove ten kilometers to
 // work" becomes a pre-filled Calculator entry. The browser's own Web
 // Speech API turns speech into text locally (no audio ever leaves the
-// device); that transcript is then sent to Gemini for extraction - see
+// device); that transcript is then sent to Groq for extraction - see
 // backend/routes/voice.py for the parsing route and why it never saves a
 // record itself, only proposes one, the exact same two-step rule
 // BillScanner.jsx already follows for a photographed bill.
 //
 // Hidden entirely (not shown half-working) when either the browser has no
 // SpeechRecognition support (Firefox, some browsers) or the server has no
-// GEMINI_API_KEY configured - the same "hide, don't half-work" rule the
+// GROQ_API_KEY configured - the same "hide, don't half-work" rule the
 // AI plan card and the AI report summary button already follow.
 
 import { useEffect, useRef, useState } from 'react';

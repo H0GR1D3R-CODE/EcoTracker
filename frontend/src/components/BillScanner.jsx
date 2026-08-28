@@ -1,15 +1,20 @@
 // EcoTrack/frontend/src/components/BillScanner.jsx
-// Photograph a bill or receipt - or attach the PDF you already downloaded
-// for one - and let Gemini read the quantity off it, instead of typing it
-// in by hand. See backend/routes/ingest.py for the extraction route (and
-// its BILL_EXTRACTION_INSTRUCTION for the full list of what it recognises)
-// - it saves nothing itself; this component only ever PRE-FILLS the
+// Photograph a bill or receipt and let Groq's vision model read the
+// quantity off it, instead of typing it in by hand. See
+// backend/routes/ingest.py for the extraction route (and its
+// BILL_EXTRACTION_INSTRUCTION for the full list of what it recognises) -
+// it saves nothing itself; this component only ever PRE-FILLS the
 // Calculator's own form fields via onExtracted, and the ordinary "Log it"
 // submit is still what actually creates a record. A photo is downscaled
 // here, client-side, before it ever leaves the browser (both to keep the
 // request small on a bundled serverless function and because the backend
-// never stores the file either way - see that route's docstring); a PDF is
-// sent through unresized, since Gemini reads its own text layer directly.
+// never stores the file either way - see that route's docstring).
+//
+// PHOTOS ONLY - a PDF upload used to be accepted too (Gemini could read a
+// PDF's own text layer directly), but Groq's vision models (this app's
+// replacement - see config.py's VISION_MODEL) only accept image formats.
+// Rather than silently fail a PDF against the backend's rejection, the file
+// picker below no longer offers PDF at all.
 //
 // Mounted once at the top of Calculator.jsx, not per-category - see that
 // file for why (it identifies its own category from whatever it reads, so
@@ -18,7 +23,7 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { AlertCircle, Camera, Check, FileText, Loader2, ScanLine, Sparkles, X } from 'lucide-react';
+import { AlertCircle, Camera, Check, Loader2, ScanLine, Sparkles, X } from 'lucide-react';
 
 import { ingestApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
@@ -33,31 +38,10 @@ import { formatCategory, formatSubType } from '../utils/formatters';
 const MAX_DIMENSION = 2000;
 const JPEG_QUALITY = 0.85;
 
-// A PDF cannot be "downscaled" the way a photo can be re-encoded smaller -
-// checked against the exact same 4MB backend/routes/ingest.py enforces, so
-// an oversized PDF is caught here with a clear message instead of a request
-// that only fails once it reaches the server.
-const MAX_PDF_BYTES = 4 * 1024 * 1024;
-
 function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function isPdfFile(file) {
-  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-}
-
-/** Read a File as base64 with no re-encoding - used for PDFs, which a
- * canvas cannot rasterise the way downscaleImage() does for a photo. */
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Could not read that file.'));
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.readAsDataURL(file);
-  });
 }
 
 /**
@@ -142,28 +126,11 @@ export default function BillScanner({ onExtracted }) {
     setScanning(true);
 
     try {
-      let base64;
-      let mimeType;
+      const dataUrl = await downscaleImage(file);
+      setPreviewUrl(dataUrl);
+      const base64 = dataUrl.split(',')[1];
 
-      if (isPdfFile(file)) {
-        if (file.size > MAX_PDF_BYTES) {
-          throw new Error(
-            `That PDF is ${formatFileSize(file.size)} - please use one under ${formatFileSize(MAX_PDF_BYTES)}.`
-          );
-        }
-        // No image preview for a PDF - previewUrl stays null, and the
-        // scanning/result UI below already has a no-preview state for
-        // exactly this (see "scanning && !previewUrl" further down).
-        base64 = await readFileAsBase64(file);
-        mimeType = 'application/pdf';
-      } else {
-        const dataUrl = await downscaleImage(file);
-        setPreviewUrl(dataUrl);
-        base64 = dataUrl.split(',')[1];
-        mimeType = 'image/jpeg';
-      }
-
-      const data = await ingestApi.scanBill({ imageBase64: base64, mimeType });
+      const data = await ingestApi.scanBill({ imageBase64: base64, mimeType: 'image/jpeg' });
       setResult(data);
       if (data.parseError || !data.category || !data.quantity) {
         setError("Couldn't read a clear value from that file - try a clearer photo, a different page, or enter it manually.");
@@ -198,20 +165,18 @@ export default function BillScanner({ onExtracted }) {
         background: 'color-mix(in srgb, var(--eco-primary) 5%, var(--eco-card))',
       }}
     >
-      {/* "image/*,application/pdf" - the browser's own file picker then
-          offers every image format the OS has, including ones
-          downscaleImage() above can still turn into a clean JPEG (gif, bmp,
-          tiff, HEIC on Safari), plus a PDF, which is sent through untouched
-          for Gemini to read its own text layer directly (see handleFile
-          and backend/routes/ingest.py's module docstring). Narrowing the
-          image half to just jpeg/png/webp would hide legitimately readable
-          photos from ever being selectable at all, for no benefit - the
-          format check that actually matters happens where the browser
-          tries to decode the file, not here. */}
+      {/* "image/*" - the browser's own file picker then offers every image
+          format the OS has, including ones downscaleImage() above can still
+          turn into a clean JPEG (gif, bmp, tiff, HEIC on Safari). Narrowing
+          this to just jpeg/png/webp would hide legitimately readable photos
+          from ever being selectable at all, for no benefit - the format
+          check that actually matters happens where the browser tries to
+          decode the file, not here. No PDF option - see this file's module
+          docstring on why that was dropped. */}
       <input
         ref={inputRef}
         type="file"
-        accept="image/*,application/pdf"
+        accept="image/*"
         capture="environment"
         onChange={handleFile}
         style={{ display: 'none' }}
@@ -246,9 +211,9 @@ export default function BillScanner({ onExtracted }) {
             Scan a bill instead of typing it in
           </h2>
           <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.5 }}>
-            A photo or a PDF - an electricity bill, fuel receipt, water bill
-            or shopping invoice. We'll read the category, type and quantity
-            off it for you.
+            A photo of an electricity bill, fuel receipt, water bill or
+            shopping invoice. We'll read the category, type and quantity off
+            it for you.
           </p>
         </div>
 
@@ -312,11 +277,7 @@ export default function BillScanner({ onExtracted }) {
                   }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', overflow: 'hidden', minWidth: 0 }}>
-                    {isPdfFile(attachedFile) ? (
-                      <FileText size={15} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
-                    ) : (
-                      <Camera size={15} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
-                    )}
+                    <Camera size={15} style={{ color: 'var(--eco-text-muted)', flexShrink: 0 }} />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{attachedFile.name}</span>
                     <span className="eco-text-muted" style={{ flexShrink: 0 }}>({formatFileSize(attachedFile.size)})</span>
                   </span>
