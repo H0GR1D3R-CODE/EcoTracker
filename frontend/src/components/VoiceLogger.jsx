@@ -1,11 +1,33 @@
 // EcoTrack/frontend/src/components/VoiceLogger.jsx
 // Say an activity instead of typing it in - "I drove ten kilometers to
 // work" becomes a pre-filled Calculator entry. The browser's own Web
-// Speech API turns speech into text locally (no audio ever leaves the
-// device); that transcript is then sent to Groq for extraction - see
+// Speech API turns speech into text - see the note on WHERE THAT TEXT
+// ACTUALLY COMES FROM below, this is NOT purely on-device in most
+// browsers - and that transcript is then sent to Groq for extraction; see
 // backend/routes/voice.py for the parsing route and why it never saves a
 // record itself, only proposes one, the exact same two-step rule
 // BillScanner.jsx already follows for a photographed bill.
+//
+// WHERE THAT TEXT ACTUALLY COMES FROM
+// Chrome/Edge's webkitSpeechRecognition (the only implementation most
+// visitors have - Firefox and Safari ship no usable equivalent, hence the
+// SpeechRecognitionCtor gate below) is NOT a local model: it streams the
+// microphone audio to Google's own speech-recognition servers and gets text
+// back over the network. That matters for two real, user-facing reasons:
+// it needs a working internet connection to work AT ALL (a slow/blocked one
+// is a genuine, common cause of "stuck on Listening... forever", handled
+// below via LISTEN_TIMEOUT_MS and the 'network' error case), and it is not
+// an on-device privacy property this app can honestly claim - unlike the
+// BillScanner photo, which really does stay local until the user submits it.
+//
+// WHY interimResults IS ON
+// Without it, nothing appears on screen until Chrome is confident it has a
+// FINAL result - if that confidence never arrives (background noise, an
+// accent the model struggles with, a flaky connection to Google's service),
+// the whole panel just sits on "Listening..." with no sign anything was
+// ever heard, which reads as broken even when the mic is working perfectly.
+// Interim results show a live, updating guess as the words come in, so
+// there is always visible proof the microphone is doing something.
 //
 // Hidden entirely (not shown half-working) when either the browser has no
 // SpeechRecognition support (Firefox, some browsers) or the server has no
@@ -24,6 +46,13 @@ import { formatCategory, formatSubType } from '../utils/formatters';
 const SpeechRecognitionCtor =
   typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 
+// A real, hard ceiling on "Listening…" - without this, a hung connection to
+// the browser's speech-recognition backend (see the module docstring on why
+// that is a network call, not a local one) can leave the panel spinning
+// forever with no error and nothing to click but Cancel. 12s is generous for
+// one sentence but short enough that a genuine hang is caught quickly.
+const LISTEN_TIMEOUT_MS = 12000;
+
 export default function VoiceLogger({ onExtracted }) {
   const { prefersReducedMotion } = useTheme();
   const [available, setAvailable] = useState(false);
@@ -34,6 +63,28 @@ export default function VoiceLogger({ onExtracted }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const recognitionRef = useRef(null);
+  const timeoutRef = useRef(null);
+  // Mirrors `transcript` state for the timeout callback below, which closes
+  // over whatever `transcript` was AT THE MOMENT startListening ran (always
+  // '') rather than its live value - a ref is what actually stays current.
+  const transcriptRef = useRef('');
+
+  const clearListenTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  // Stop listening on unmount too - navigating away mid-listen should not
+  // leave the browser's mic indicator on or a stray timeout firing later
+  // against a component that is no longer there to update.
+  useEffect(() => {
+    return () => {
+      clearListenTimeout();
+      recognitionRef.current?.stop();
+    };
+  }, []);
 
   useEffect(() => {
     if (!SpeechRecognitionCtor) return;
@@ -44,9 +95,11 @@ export default function VoiceLogger({ onExtracted }) {
   }, []);
 
   const closePanel = () => {
+    clearListenTimeout();
     setPanelOpen(false);
     setListening(false);
     setTranscript('');
+    transcriptRef.current = '';
     setParsing(false);
     setResult(null);
     setError(null);
@@ -74,31 +127,70 @@ export default function VoiceLogger({ onExtracted }) {
 
     const recognition = new SpeechRecognitionCtor();
     recognition.lang = 'en-IN';
-    recognition.interimResults = false;
+    // Live partial guesses as speech comes in - see the module docstring on
+    // why this is what actually fixes "nothing shows up while I'm talking".
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
 
     recognition.onresult = (event) => {
-      const text = event.results[0][0].transcript;
+      // event.results is every result seen so far this session, each with
+      // its own .isFinal - for a single-utterance capture (continuous is
+      // left at its default false) there is normally one, but reading the
+      // LAST entry rather than assuming index 0 is what actually matches
+      // what Chrome does when it revises an earlier interim guess.
+      const last = event.results[event.results.length - 1];
+      const text = last[0].transcript;
+      transcriptRef.current = text;
       setTranscript(text);
-      runExtraction(text);
+
+      if (last.isFinal) {
+        clearListenTimeout();
+        runExtraction(text);
+      }
     };
 
     recognition.onerror = (event) => {
+      clearListenTimeout();
       setListening(false);
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setError('Microphone access was denied. Allow it in your browser settings to use voice logging.');
       } else if (event.error === 'no-speech') {
         setError("Didn't catch anything - try again and speak right after tapping the mic.");
+      } else if (event.error === 'network') {
+        // The real, common cause behind "stuck on Listening... with no
+        // error" that this whole change targets - see the module docstring
+        // on why recognition needs a live connection to Google's own speech
+        // service at all. Chrome does not always surface this promptly, or
+        // at all, which is exactly what LISTEN_TIMEOUT_MS below is a
+        // backstop for.
+        setError('Could not reach the speech recognition service. Check your internet connection and try again.');
       } else {
         setError('Could not use the microphone. Please try again or enter it manually.');
       }
     };
 
-    recognition.onend = () => setListening(false);
+    recognition.onend = () => {
+      clearListenTimeout();
+      setListening(false);
+    };
 
     recognitionRef.current = recognition;
     setListening(true);
     recognition.start();
+
+    // The backstop for a hang that fires neither onresult nor onerror nor
+    // onend in any reasonable time - a real, observed failure mode for a
+    // network-backed API, not a hypothetical one. Forcing stop() here is
+    // what turns an indefinite spinner into an honest, actionable message.
+    timeoutRef.current = setTimeout(() => {
+      recognition.stop();
+      setListening(false);
+      setError(
+        transcriptRef.current
+          ? "Didn't finish making that out - try again, a little slower."
+          : "Didn't hear anything usable - check your internet connection, or enter it manually."
+      );
+    }, LISTEN_TIMEOUT_MS);
   };
 
   const handleUse = () => {
@@ -183,22 +275,37 @@ export default function VoiceLogger({ onExtracted }) {
             }}
           >
             {listening && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.7rem', padding: '1.6rem 0' }}>
-                <motion.div
-                  animate={prefersReducedMotion ? {} : { scale: [1, 1.25, 1] }}
-                  transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
-                  style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--eco-danger)' }}
-                />
-                <span style={{ fontSize: '0.9rem' }}>Listening…</span>
-                <button
-                  type="button"
-                  onClick={() => recognitionRef.current?.stop()}
-                  className="eco-btn eco-btn-ghost"
-                  style={{ padding: '0.3rem 0.6rem' }}
-                  aria-label="Stop listening"
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.7rem', padding: '1.4rem 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                  <motion.div
+                    animate={prefersReducedMotion ? {} : { scale: [1, 1.25, 1] }}
+                    transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--eco-danger)' }}
+                  />
+                  <span style={{ fontSize: '0.9rem' }}>Listening…</span>
+                  <button
+                    type="button"
+                    onClick={() => recognitionRef.current?.stop()}
+                    className="eco-btn eco-btn-ghost"
+                    style={{ padding: '0.3rem 0.6rem' }}
+                    aria-label="Stop listening"
+                  >
+                    <Square size={13} />
+                  </button>
+                </div>
+
+                {/* The live, still-updating guess as words come in - see the
+                    module docstring on interimResults: this is what proves
+                    the microphone is actually being heard, instead of an
+                    unexplained wait until a final result (or nothing) shows
+                    up. Kept visually distinct (no quote marks yet) from the
+                    settled transcript below, since it can still change. */}
+                <span
+                  className="eco-text-muted"
+                  style={{ fontSize: '0.85rem', fontStyle: 'italic', minHeight: '1.2em', textAlign: 'center' }}
                 >
-                  <Square size={13} />
-                </button>
+                  {transcript || 'Say something…'}
+                </span>
               </div>
             )}
 
