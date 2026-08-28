@@ -135,6 +135,12 @@ export function ThemeProvider({ children }) {
     link.id = 'eco-dyslexia-font-link';
     link.rel = 'stylesheet';
     link.href = 'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap';
+    // Same reasoning as index.html's Inter link: without this, any script
+    // that reads document.styleSheets[n].cssRules (html-to-image, used by
+    // WrappedCard.jsx/Journey.jsx's "download as image" buttons) throws a
+    // SecurityError on this sheet specifically, since Google Fonts serves
+    // it with full CORS support this app just was not asking for.
+    link.crossOrigin = 'anonymous';
     document.head.appendChild(link);
   }, [dyslexiaFont]);
 
