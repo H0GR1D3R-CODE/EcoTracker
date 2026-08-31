@@ -40,3 +40,10 @@ gunicorn==23.0.0
 # module - no razorpay SDK needed. requests already ships as a firebase-admin
 # dependency; pinning it here makes that explicit since we import it directly.
 requests>=2.31.0
+
+# Builds the branded donation-receipt PDF (email_service.py's
+# build_donation_receipt_pdf) - attached to the thank-you email and served by
+# GET /api/donation-receipt/<payment_id>. Pure Python, no system libraries
+# (unlike e.g. WeasyPrint's Cairo/Pango), so it installs cleanly on Vercel's
+# serverless build same as everything else here.
+reportlab==5.0.1

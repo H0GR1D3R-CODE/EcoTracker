@@ -93,6 +93,9 @@ export const PHOTOS = {
   // donate thank-you — the payoff, kept separate from the images on the form
   ancientTree: '1518495973542-4542c06a5843', // sun bursting through an ancient fig's canopy (thank-you hero)
   seedlings: '1466692476868-aef1dfb1e735', // seedlings sprouting in a soil tray (thank-you: what it becomes)
+
+  // FAQ page — a place to go and get an answer, lit rather than sterile
+  libraryStacks: '1481627834876-b7833e8f5570', // dark library corridor, shelves lit by hanging bulbs (FAQ banner)
 };
 
 /**

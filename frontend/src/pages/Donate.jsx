@@ -161,6 +161,11 @@ export default function Donate() {
   // The verified donation, once one has gone through.
   const [done, setDone] = useState(null);
 
+  // Whether the branded PDF receipt is currently being fetched - the
+  // button shows a spinner instead of accepting a second click while a
+  // download is already in flight.
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+
   // The amount counts up on the thank-you screen. Declared here, unconditionally,
   // because the thank-you screen returns early - a hook called inside that branch
   // would run on some renders and not others, which React forbids.
@@ -265,6 +270,47 @@ export default function Donate() {
       );
     } finally {
       setStage(null);
+    }
+  };
+
+  // -------------------------------------------------------------------------
+  // The branded PDF receipt - the same document the thank-you email attaches,
+  // fetched fresh and saved as a file. Built server-side from the STORED
+  // donation record (see routes/payments.py's download_donation_receipt),
+  // not from anything sent here, so this is a plain GET with no body.
+  // -------------------------------------------------------------------------
+  const handleDownloadReceipt = async () => {
+    if (!done?.paymentId || downloadingReceipt) return;
+    setDownloadingReceipt(true);
+    try {
+      const response = await paymentsApi.downloadReceipt(done.paymentId);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `EcoTrack-Receipt-${receiptNumber(done.paymentId, done.at)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      // responseType 'blob' means even a JSON error body arrives as a Blob,
+      // not parsed - getErrorMessage would just see an opaque Blob object
+      // and fall back to its generic message, so this reads the real one
+      // out of it first when the server actually sent one.
+      let message = 'Could not download the receipt. Please try again.';
+      const errorBlob = error?.response?.data;
+      if (errorBlob instanceof Blob && errorBlob.type.includes('json')) {
+        try {
+          const parsed = JSON.parse(await errorBlob.text());
+          message = parsed?.error || message;
+        } catch {
+          // Fall through to the generic message below.
+        }
+      }
+      toast.error(message);
+    } finally {
+      setDownloadingReceipt(false);
     }
   };
 
@@ -504,9 +550,18 @@ export default function Donate() {
           className="eco-no-print"
           style={{ display: 'flex', gap: '0.7rem', flexWrap: 'wrap', justifyContent: 'center', marginTop: '1.5rem' }}
         >
-          <button type="button" className="eco-btn eco-btn-primary" onClick={() => window.print()}>
-            <Download size={17} />
-            Download receipt
+          <button
+            type="button"
+            className="eco-btn eco-btn-primary"
+            onClick={handleDownloadReceipt}
+            disabled={downloadingReceipt}
+          >
+            {downloadingReceipt ? (
+              <Loader2 size={17} style={{ animation: 'eco-spin 0.9s linear infinite' }} />
+            ) : (
+              <Download size={17} />
+            )}
+            {downloadingReceipt ? 'Preparing PDF…' : 'Download receipt'}
           </button>
           <button
             type="button"

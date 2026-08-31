@@ -36,13 +36,14 @@ Mounted at /api (so the paths are /api/create-order and /api/verify-payment).
 import hashlib
 import hmac
 import time
+from datetime import datetime
 
 import requests
-from flask import Blueprint, request
+from flask import Blueprint, Response, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
-from email_service import send_donation_thank_you_email
+from email_service import _receipt_number, build_donation_receipt_pdf, send_donation_thank_you_email
 from routes import (
     api_error,
     api_success,
@@ -275,7 +276,7 @@ def verify_payment():
     # turn a verified payment into an error response for them.
     if email:
         try:
-            send_donation_thank_you_email(email, name, amount, currency, payment_id)
+            send_donation_thank_you_email(email, name, amount, currency, payment_id, order_id, datetime.now())
         except Exception:
             pass
 
@@ -283,4 +284,60 @@ def verify_payment():
         {"orderId": order_id, "paymentId": payment_id},
         message="Payment verified. Thank you for supporting EcoTrack!",
         status=200,
+    )
+
+
+@payments_bp.route("/donation-receipt/<payment_id>", methods=["GET"])
+def download_donation_receipt(payment_id):
+    """
+    The same branded PDF the thank-you email attaches, for the "Download
+    receipt" button on Donate.jsx's thank-you screen - public, like the two
+    routes above, since a donation needs no account.
+
+    Built from the STORED donation record, never from anything the browser
+    sends - the query string carries only the payment id, so nobody can
+    request a receipt for an amount or name they did not actually pay by
+    editing a request. A payment id is a long, Razorpay-generated token
+    (not a guessable sequence), and the rate limit below caps how many
+    guesses a connection could even try.
+    """
+    if not check_rate_limit("donation-receipt", client_ip(), max_attempts=20, window_seconds=600):
+        return api_error(
+            "Too many requests from this connection. Please wait a few minutes and try again.",
+            429,
+            code="rate_limited",
+        )
+
+    payment_id = str(payment_id).strip()
+    db = get_db()
+    matches = list(
+        db.collection(COLLECTION_DONATIONS)
+        .where(filter=gcloud_firestore.FieldFilter("razorpayPaymentId", "==", payment_id))
+        .limit(1)
+        .stream()
+    )
+    if not matches:
+        return api_error("No donation found for that payment.", 404, code="donation_not_found")
+
+    data = matches[0].to_dict()
+    created_at = data.get("createdAt")
+
+    try:
+        pdf_bytes = build_donation_receipt_pdf(
+            data.get("name") or "Anonymous",
+            data.get("amount"),
+            data.get("currency"),
+            payment_id,
+            data.get("razorpayOrderId"),
+            created_at if created_at else datetime.now(),
+        )
+    except Exception:
+        return api_error("Could not build that receipt right now.", 500, code="receipt_build_failed")
+
+    filename = f"EcoTrack-Receipt-{_receipt_number(payment_id, created_at)}.pdf"
+
+    return Response(
+        pdf_bytes,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

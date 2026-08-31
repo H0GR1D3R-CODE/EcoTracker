@@ -35,6 +35,7 @@ const LINK_COLUMNS = [
     links: [
       { label: 'Create account', to: '/register' },
       { label: 'Log in', to: '/login' },
+      { label: 'FAQ', to: '/faq' },
       { label: 'Give feedback', to: '/feedback' },
       { label: 'Support EcoTrack', to: '/donate' },
     ],

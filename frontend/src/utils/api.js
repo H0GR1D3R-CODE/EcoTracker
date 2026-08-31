@@ -454,6 +454,13 @@ export const paymentsApi = {
   // amount/currency/name/email recorded alongside the verified donation.
   // Returns the whole envelope so the caller can show the server's message.
   verifyPayment: (payload) => api.post('/api/verify-payment', payload).then((r) => r.data),
+
+  // The branded PDF receipt (routes/payments.py's download_donation_receipt),
+  // built server-side from the STORED donation record - never from anything
+  // this call sends. responseType 'blob' is what makes axios hand back raw
+  // bytes instead of trying to JSON-parse a PDF.
+  downloadReceipt: (paymentId) =>
+    api.get(`/api/donation-receipt/${paymentId}`, { responseType: 'blob' }),
 };
 
 // ---------------------------------------------------------------------------

@@ -38,6 +38,7 @@ custom email path is unavailable right now", not as an error - the same shape
 as how routes/assistant.py treats a missing GROQ_API_KEY.
 """
 
+import base64
 import re
 from datetime import datetime
 
@@ -384,13 +385,24 @@ def _tree_impact(rupees):
     return trees if trees > 0 else None
 
 
-def _receipt_number(payment_id):
-    """The exact same rule as Donate.jsx's own receiptNumber(), in Python."""
+def _receipt_number(payment_id, when=None):
+    """
+    The exact same rule as Donate.jsx's own receiptNumber(), in Python.
+
+    when is the donation's own timestamp, not "now" - Donate.jsx's version
+    takes the same `when` argument for exactly this reason: a receipt
+    requested or resent in a later calendar year than the donation itself
+    (a delayed email retry, a "download receipt" click months on) must
+    still show the year the money actually moved, or the same payment would
+    carry two different receipt numbers depending only on when a document
+    happened to be generated.
+    """
     tail = re.sub(r"[^a-zA-Z0-9]", "", payment_id or "")[-6:].upper()
-    return f"ECO-{datetime.now().year}-{tail or '000000'}"
+    year = (when or datetime.now()).year
+    return f"ECO-{year}-{tail or '000000'}"
 
 
-def _donation_email_html(name, rupees, currency, payment_id):
+def _donation_email_html(name, rupees, currency, payment_id, when=None):
     """
     The branded HTML body for a donation thank-you email.
 
@@ -400,7 +412,7 @@ def _donation_email_html(name, rupees, currency, payment_id):
     """
     display_name = name.strip() if name and name.strip() and name.strip().lower() != "anonymous" else "you"
     trees = _tree_impact(rupees) if currency.upper() == "INR" else None
-    receipt = _receipt_number(payment_id)
+    receipt = _receipt_number(payment_id, when)
     amount_display = f"{rupees:,.2f}"
 
     if trees:
@@ -495,10 +507,10 @@ def _donation_email_html(name, rupees, currency, payment_id):
 """
 
 
-def _donation_email_text(name, rupees, currency, payment_id):
+def _donation_email_text(name, rupees, currency, payment_id, when=None):
     display_name = name.strip() if name and name.strip() and name.strip().lower() != "anonymous" else "you"
     trees = _tree_impact(rupees) if currency.upper() == "INR" else None
-    receipt = _receipt_number(payment_id)
+    receipt = _receipt_number(payment_id, when)
     amount_display = f"{rupees:,.2f}"
 
     impact_line = (
@@ -522,9 +534,237 @@ def _donation_email_text(name, rupees, currency, payment_id):
     )
 
 
-def send_donation_thank_you_email(recipient_email, name, amount_paise, currency, payment_id):
+def _leaf_path(canvas_obj, cx, cy, size):
+    """A simple vesica/almond leaf shape (two mirrored bezier curves meeting
+    at a point top and bottom) - the same construction generate_app_icons.py's
+    _leaf_path uses for the mobile icon, redone here with reportlab's own
+    Path object since PIL's polygon fill is not available inside a PDF
+    canvas. Returns the Path so the caller decides fill colour."""
+    path = canvas_obj.beginPath()
+    path.moveTo(cx, cy - size)
+    path.curveTo(cx + size * 0.95, cy - size * 0.35, cx + size * 0.95, cy + size * 0.35, cx, cy + size)
+    path.curveTo(cx - size * 0.95, cy + size * 0.35, cx - size * 0.95, cy - size * 0.35, cx, cy - size)
+    path.close()
+    return path
+
+
+def _donation_receipt_pdf_bytes(name, rupees, currency, payment_id, order_id, receipt, when):
     """
-    Send the branded donation thank-you email through Resend.
+    A one-page, branded PDF of the donation receipt shown on Donate.jsx's
+    own thank-you screen - built with reportlab (pure Python, no system
+    libraries a serverless function would need to have preinstalled, unlike
+    e.g. WeasyPrint's Cairo/Pango dependency).
+
+    Deliberately the SAME document for two different callers: attached to
+    the thank-you email below, and served standalone by
+    GET /api/donation-receipt/<payment_id> for the "Download receipt"
+    button - one design, not two documents that could quietly drift apart.
+
+    Colours are the exact hex values _donation_email_html already uses, so
+    the emailed PDF, the attached PDF and the on-screen receipt all read as
+    the same document rather than three different ideas of "EcoTrack green".
+    No custom fonts embedded, for the same reason the HTML email uses none -
+    Helvetica is guaranteed present in any PDF reader without shipping font
+    files into a serverless function's deploy bundle.
+    """
+    from io import BytesIO
+
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    GREEN = colors.HexColor("#1f7a44")
+    DARK = colors.HexColor("#1e2a1d")
+    MUTED = colors.HexColor("#5f6b58")
+    CARD = colors.HexColor("#fdfcf8")
+    PAGE_BG = colors.HexColor("#f5f3ec")
+    RULE = colors.HexColor("#e4e0d3")
+
+    # The same four accent hues _DONATION_PARTNERS' rows use nowhere else
+    # yet - straight off the app's own category ramp (index.css), so a
+    # printed page still reads as this product's palette, not a generic one.
+    PARTNER_ACCENTS = [GREEN, colors.HexColor("#2c6577"), colors.HexColor("#8a5116"), colors.HexColor("#6a5480")]
+
+    page_width, page_height = A4
+    header_height = 118
+    buffer = BytesIO()
+
+    def _draw_header(canvas_obj, _doc):
+        canvas_obj.saveState()
+        # Cream page background, full bleed - reportlab's default is white.
+        canvas_obj.setFillColor(PAGE_BG)
+        canvas_obj.rect(0, 0, page_width, page_height, fill=1, stroke=0)
+
+        # The green header band.
+        canvas_obj.setFillColor(GREEN)
+        canvas_obj.rect(0, page_height - header_height, page_width, header_height, fill=1, stroke=0)
+
+        # A small white leaf mark, left of the wordmark.
+        canvas_obj.setFillColor(colors.white)
+        leaf = _leaf_path(canvas_obj, 62, page_height - header_height / 2 + 2, 11)
+        canvas_obj.drawPath(leaf, fill=1, stroke=0)
+
+        canvas_obj.setFillColor(colors.white)
+        canvas_obj.setFont("Helvetica-Bold", 20)
+        canvas_obj.drawString(82, page_height - header_height / 2 - 3, "EcoTrack")
+
+        canvas_obj.setFont("Helvetica", 9)
+        canvas_obj.setFillColor(colors.HexColor("#d7ecdf"))
+        canvas_obj.drawString(82, page_height - header_height / 2 - 18, "DONATION RECEIPT")
+
+        canvas_obj.setFont("Helvetica-Bold", 11)
+        canvas_obj.setFillColor(colors.white)
+        canvas_obj.drawRightString(page_width - 50, page_height - header_height / 2 - 3, receipt)
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.setFillColor(colors.HexColor("#d7ecdf"))
+        canvas_obj.drawRightString(
+            page_width - 50, page_height - header_height / 2 - 18,
+            when.strftime("%d %b %Y, %H:%M"),
+        )
+        canvas_obj.restoreState()
+
+    styles = {
+        "headline": ParagraphStyle("headline", fontName="Helvetica-Bold", fontSize=22, textColor=DARK, leading=26),
+        "amount": ParagraphStyle("amount", fontName="Helvetica-Bold", fontSize=34, textColor=GREEN, leading=38),
+        "caption": ParagraphStyle("caption", fontName="Helvetica", fontSize=9, textColor=MUTED, leading=13),
+        "body": ParagraphStyle("body", fontName="Helvetica", fontSize=10, textColor=MUTED, leading=15),
+        "sectionLabel": ParagraphStyle(
+            "sectionLabel", fontName="Helvetica-Bold", fontSize=9, textColor=MUTED, leading=12,
+        ),
+        "partnerName": ParagraphStyle("partnerName", fontName="Helvetica-Bold", fontSize=10.5, textColor=DARK, leading=14),
+        "partnerBody": ParagraphStyle("partnerBody", fontName="Helvetica", fontSize=8.5, textColor=MUTED, leading=12.5),
+        "footer": ParagraphStyle("footer", fontName="Helvetica", fontSize=7.5, textColor=MUTED, leading=11),
+        "brand": ParagraphStyle("brand", fontName="Helvetica", fontSize=8, textColor=MUTED, alignment=TA_CENTER),
+    }
+
+    display_name = name.strip() if name and name.strip() and name.strip().lower() != "anonymous" else "you"
+    trees = _tree_impact(rupees) if currency.upper() == "INR" else None
+    # "Rs", not "₹" - the built-in Helvetica the PDF uses (no embedded font,
+    # same reasoning as the HTML email's "no custom @font-face") only covers
+    # WinAnsi/Latin-1, which has no rupee sign glyph; it silently renders as
+    # a solid block instead of erroring, so this only shows up by looking.
+    amount_display = f"Rs {rupees:,.2f}" if currency.upper() == "INR" else f"{currency.upper()} {rupees:,.2f}"
+
+    story = [
+        Spacer(1, 14),
+        Paragraph(f"Thank you, {display_name}.", styles["headline"]),
+        Spacer(1, 6),
+        Paragraph(amount_display, styles["amount"]),
+        Paragraph("forwarded in full, less the processing fee", styles["caption"]),
+        Spacer(1, 16),
+    ]
+
+    if trees:
+        story.append(
+            Paragraph(
+                f"That funds about <b><font color='#1e2a1d'>{trees} tree{'s' if trees != 1 else ''}</font></b> "
+                f"through One Tree Planted, on top of whatever Cool Earth, Clean Air Task Force and "
+                f"Gold Standard can do with the rest.",
+                styles["body"],
+            )
+        )
+        story.append(Spacer(1, 16))
+
+    usable_width = page_width - 100  # page width minus the doc's own left+right margins
+
+    detail_rows = [
+        ["Receipt no.", receipt],
+        ["Donor", name.strip() or "Anonymous"],
+        ["Payment ref", payment_id],
+        ["Order ref", order_id or "—"],
+    ]
+    detail_table = Table(
+        [[Paragraph(label, styles["sectionLabel"]), Paragraph(str(value), styles["body"])] for label, value in detail_rows],
+        colWidths=[110, usable_width - 110],
+    )
+    detail_table.setStyle(
+        TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.5, RULE),
+        ])
+    )
+    story.append(detail_table)
+    story.append(Spacer(1, 20))
+    story.append(Paragraph("WHERE THIS GOES", styles["sectionLabel"]))
+    story.append(Spacer(1, 8))
+
+    for index, (pname, focus, body) in enumerate(_DONATION_PARTNERS):
+        accent = PARTNER_ACCENTS[index % len(PARTNER_ACCENTS)]
+        text_cell = Paragraph(
+            f"<font color='#1e2a1d'><b>{pname}</b></font> "
+            f"<font color='#5f6b58' size='8'>&middot; {focus}</font><br/>"
+            f"{body}",
+            styles["partnerBody"],
+        )
+        # A coloured left accent bar next to the text, the same idea as the
+        # on-screen partner cards' category-coloured left edge - one flat
+        # 2-column row, not a table nested inside a table (which, at this
+        # bar's 4pt width, leaves negative room once padding is subtracted
+        # and reportlab raises rather than silently clipping).
+        bar_and_text = Table([["", text_cell]], colWidths=[4, usable_width - 4])
+        bar_and_text.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("BACKGROUND", (0, 0), (0, 0), accent),
+            ("LEFTPADDING", (0, 0), (0, 0), 0),
+            ("RIGHTPADDING", (0, 0), (0, 0), 0),
+            ("LEFTPADDING", (1, 0), (1, 0), 12),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ]))
+        story.append(bar_and_text)
+        story.append(Spacer(1, 6))
+
+    story.append(Spacer(1, 14))
+    story.append(
+        Paragraph(
+            "This is a payment receipt, not a tax-exemption certificate - EcoTrack is a student "
+            "project and is not registered for 80G. Donations are forwarded to the organisations "
+            "listed above, less Razorpay's processing fee. Keep this reference for any query about "
+            "the payment.",
+            styles["footer"],
+        )
+    )
+    story.append(Spacer(1, 18))
+    story.append(Paragraph("EcoTrack &middot; measure your footprint, then bring it down &middot; built around UN SDG 13", styles["brand"]))
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        topMargin=header_height + 24,
+        leftMargin=50,
+        rightMargin=50,
+        bottomMargin=40,
+        title=f"EcoTrack donation receipt {receipt}",
+    )
+    doc.build(story, onFirstPage=_draw_header, onLaterPages=_draw_header)
+
+    return buffer.getvalue()
+
+
+def build_donation_receipt_pdf(name, amount_paise, currency, payment_id, order_id, when):
+    """
+    Public entry point for both callers below - resolves the shared receipt
+    number the same way _donation_email_html does, then hands off to the
+    actual PDF builder. Kept separate from _donation_receipt_pdf_bytes so a
+    caller never has to compute the receipt number itself and risk it
+    drifting from _receipt_number's own rule.
+    """
+    rupees = (amount_paise or 0) / 100
+    receipt = _receipt_number(payment_id, when)
+    return _donation_receipt_pdf_bytes(name, rupees, currency or "INR", payment_id, order_id, receipt, when)
+
+
+def send_donation_thank_you_email(recipient_email, name, amount_paise, currency, payment_id, order_id=None, when=None):
+    """
+    Send the branded donation thank-you email through Resend, with the same
+    branded PDF receipt GET /api/donation-receipt/<payment_id> serves,
+    attached - "thanks in the email" alone left the receipt itself only
+    reachable by going back to the website, which defeats the point of
+    emailing it in the first place.
 
     Degrades exactly like send_password_reset_email(): returns False with no
     network call when RESEND_API_KEY is not set, and False on any send
@@ -536,14 +776,27 @@ def send_donation_thank_you_email(recipient_email, name, amount_paise, currency,
 
     rupees = (amount_paise or 0) / 100
     currency = currency or "INR"
+    when = when or datetime.now()
 
     payload = {
         "from": Config.RESEND_FROM_EMAIL,
         "to": [recipient_email],
         "subject": "Thank you for your donation to EcoTrack",
-        "html": _donation_email_html(name, rupees, currency, payment_id),
-        "text": _donation_email_text(name, rupees, currency, payment_id),
+        "html": _donation_email_html(name, rupees, currency, payment_id, when),
+        "text": _donation_email_text(name, rupees, currency, payment_id, when),
     }
+
+    # A failure building the PDF (a reportlab bug, a weird name/amount edge
+    # case) must not cost the donor their thank-you email entirely - send it
+    # without the attachment rather than not at all.
+    try:
+        pdf_bytes = build_donation_receipt_pdf(name, amount_paise, currency, payment_id, order_id, when)
+        payload["attachments"] = [{
+            "filename": f"EcoTrack-Receipt-{_receipt_number(payment_id, when)}.pdf",
+            "content": base64.b64encode(pdf_bytes).decode("ascii"),
+        }]
+    except Exception as error:
+        print(f"[EcoTrack] Could not build the donation receipt PDF: {error}")
 
     try:
         response = requests.post(

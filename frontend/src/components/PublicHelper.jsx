@@ -21,6 +21,7 @@ import { AlertCircle, Bot, HelpCircle, Loader2, Send, Sparkles, User, X } from '
 import { assistantApi, getErrorMessage } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useCloseOnOutsideClick } from '../hooks/useCloseOnOutsideClick';
 import { executeRecaptcha } from '../utils/recaptcha';
 import ChatMarkdown from './ChatMarkdown';
 
@@ -47,6 +48,13 @@ export default function PublicHelper() {
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
+  const fabRef = useRef(null);
+
+  // Tapping anywhere outside the panel closes it, same as pressing the X -
+  // see useCloseOnOutsideClick's own comment for why the launcher button
+  // needs its own ref excluded from "outside".
+  useCloseOnOutsideClick(open, () => setOpen(false), panelRef, fabRef);
 
   // Ask once whether the model is actually configured server-side. If not,
   // the button never appears - same reasoning as the signed-in Assistant.
@@ -119,6 +127,7 @@ export default function PublicHelper() {
     <>
       {/* ---------- floating button ---------- */}
       <motion.button
+        ref={fabRef}
         type="button"
         onClick={() => setOpen((isOpen) => !isOpen)}
         aria-label={open ? 'Close the guide' : 'Open the guide'}
@@ -154,6 +163,7 @@ export default function PublicHelper() {
           mounted copy, or the panel simply failing to close visibly. */}
         {open && (
           <motion.div
+            ref={panelRef}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
@@ -187,7 +197,7 @@ export default function PublicHelper() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>EcoTrack Guide</div>
                 <div className="eco-text-muted" style={{ fontSize: '0.74rem' }}>
-                  Ask anything - no account needed
+                  Free to use, right now - no sign-in
                 </div>
               </div>
 

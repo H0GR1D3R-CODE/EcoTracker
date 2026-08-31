@@ -32,6 +32,7 @@ import { AlertCircle, Bot, Loader2, Send, Sparkles, User, X } from 'lucide-react
 import { assistantApi, getErrorMessage } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useCloseOnOutsideClick } from '../hooks/useCloseOnOutsideClick';
 import ChatMarkdown from './ChatMarkdown';
 
 // Shown when the conversation is empty, to give people a way in
@@ -65,6 +66,13 @@ export default function Assistant() {
 
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
+  const fabRef = useRef(null);
+
+  // Tapping anywhere outside the panel closes it, same as pressing the X -
+  // a floating chat widget people expect to dismiss by clicking away from,
+  // not hunt for a specific button to close.
+  useCloseOnOutsideClick(open, () => setOpen(false), panelRef, fabRef);
 
   // Ask the server once whether the assistant is configured. If there is no
   // API key, the button never appears - better than showing a feature that
@@ -146,6 +154,7 @@ export default function Assistant() {
     <>
       {/* ---------- floating button ---------- */}
       <motion.button
+        ref={fabRef}
         type="button"
         onClick={() => setOpen((isOpen) => !isOpen)}
         aria-label={open ? 'Close the assistant' : 'Open the assistant'}
@@ -183,6 +192,7 @@ export default function Assistant() {
           complete. */}
         {open && (
           <motion.div
+            ref={panelRef}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}

@@ -99,26 +99,6 @@ const DASHBOARD_POINTS = [
 // The mock chart bars in the preview (relative heights, 0–1).
 const PREVIEW_BARS = [0.45, 0.7, 0.55, 0.85, 0.62, 0.95];
 
-// Landing-page FAQ. Short, honest answers to the obvious questions.
-const HOME_FAQS = [
-  {
-    q: 'Is EcoTrack free?',
-    a: 'Completely. Create an account and track as much as you like — there is nothing to pay and no card required.',
-  },
-  {
-    q: 'Where do the numbers come from?',
-    a: 'Every activity is multiplied by a published emission factor from DEFRA, the IPCC, the Central Electricity Authority of India, or Our World in Data. Nothing is invented.',
-  },
-  {
-    q: 'How long does it take to start?',
-    a: 'About thirty seconds. Log one activity — a car journey or an electricity bill — and the whole dashboard comes to life.',
-  },
-  {
-    q: 'Who can see my data?',
-    a: 'Only you. Sign-in runs through Firebase Authentication, and the server checks your identity on every request before any data is read.',
-  },
-];
-
 // Established environmental organisations the "take action" section links out
 // to. These are real charities with verified official donation pages (checked
 // against each org's own site). EcoTrack does not handle any money itself — each
@@ -525,9 +505,6 @@ export default function Home() {
   // Without this, the page behind this fixed-position modal can still be
   // drag-scrolled on iOS while the modal itself stays put on screen.
   useBodyScrollLock(Boolean(openCategory));
-
-  // Which landing-page FAQ answer is expanded (-1 = all closed).
-  const [openFaq, setOpenFaq] = useState(0);
 
   // --- scroll animations ---
   const statsRef = useScrollReveal({ y: 30 });
