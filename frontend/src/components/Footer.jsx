@@ -132,10 +132,13 @@ export default function Footer() {
             </span>
 
             {/* Hosting this costs a little; this is the one ask on the page.
-                Outline, not solid - the footer should not shout. */}
+                Outline, not solid - the footer should not shout.
+                eco-footer-donate-btn scales it down further on phones (see
+                index.css) - at full .eco-btn size it read as oversized
+                against the rest of this footer's small, quiet type. */}
             <Link
               to="/donate"
-              className="eco-btn eco-btn-outline"
+              className="eco-btn eco-btn-outline eco-footer-donate-btn"
               style={{ marginTop: '1.2rem', fontSize: '0.86rem' }}
             >
               <Heart size={15} />

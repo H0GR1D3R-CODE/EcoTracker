@@ -1658,6 +1658,19 @@ a:hover {
   }
 }
 
+/* The footer's "Support EcoTrack" button, at full .eco-btn size (0.68rem
+   1.4rem padding, near-1rem type once its own inline fontSize is added on
+   top), read as oversized against everything else in this footer - a
+   column of small, quiet 0.82-0.88rem text with one conspicuously large
+   pill sitting under it. Phones only: the desktop footer has room for a
+   normal-sized button among wider columns. */
+@media (max-width: 480px) {
+  .eco-footer-donate-btn {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.78rem !important;
+  }
+}
+
 /* ===========================================================================
    13. RESPONSIVE
    =========================================================================== */
