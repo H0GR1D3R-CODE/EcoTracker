@@ -6,27 +6,25 @@ generate_og_image.py - not part of the running app). Regenerates
 frontend/public/icons/icon-{size}.webp, the favicon and PWA manifest icon
 set actually served to browsers.
 
-WHY THIS EXISTS SEPARATELY FROM generate_app_icons.py
-That file draws the Capacitor MOBILE app's icon (Android/iOS build inputs,
-written to frontend/resources/) from its own hand-drawn leaf shape. This
-file draws the browser-facing set independently - the two have never been
-required to match pixel-for-pixel (see generate_app_icons.py's own
-docstring), so swapping this one's mark is a self-contained change.
+THE MARK: THE SAME LEAF AS THE NAVBAR, ON THE SAME PAPER
+Two changes back this became a sprout, deliberately distinct from
+Navbar.jsx's <Leaf /> logo. Reverted on request: shown a screenshot of the
+navbar wordmark itself and asked for "exactly like this" - so this is once
+again lucide-react's own Leaf path, parsed straight out of
+frontend/node_modules/lucide-react/dist/esm/icons/leaf.js (its 24x24
+viewBox, unchanged) via svgpathtools, not a redrawn approximation.
 
-THE SHAPE ITSELF: THE REAL LUCIDE PATH, NOT A REDRAWN APPROXIMATION
-Parsed directly from frontend/node_modules/lucide-react/dist/esm/icons/
-sprout.js's own four SVG path strings (its 24x24 viewBox, unchanged) via
-svgpathtools - a sprout, not the navbar's leaf: asked for explicitly as a
-"something else" favicon, distinct from Navbar.jsx's <Leaf /> logo on
-purpose, so a browser tab is never mistaken for the in-app brand mark.
-Lucide's icon is four separate stroke paths, not one filled blob:
-  - two closed paths (the two young leaves) - filled solid, same as the
-    old leaf favicon's single blob
-  - two open paths (the stem, and the short ground line at its base) -
-    rendered as thick rounded strokes, since Pillow has no "fill from an
-    open path" operation and a hairline at browser-tab size would vanish
-    the same way the old leaf's vein-as-a-line would have without its own
-    boosted stroke width.
+WHY A CREAM GROUND, NOT A GREEN TILE
+The earlier leaf favicon (and the sprout after it) sat on a solid green
+square - the ordinary app-icon-tile convention. Asked for "formal and
+premium" this time, which reads differently: a colour-blocked tile is the
+loud, generic-app convention; the mark actually looks like this - green
+ink on paper - everywhere else it appears (the navbar, the footer, on the
+page's own --eco-bg). So the favicon's ground is that exact light-theme
+background colour instead of the brand green, with the leaf drawn in the
+brand green on top of it. Still a filled solid glyph rather than lucide's
+own stroke outline - a 2px stroke does not survive down to 16px, the same
+reason the original version of this file gave.
 
 Requires Pillow and svgpathtools (`pip install pillow svgpathtools`) -
 generation-time tools only, not runtime dependencies, so deliberately not
@@ -42,18 +40,24 @@ from svgpathtools import parse_path
 SCALE = 8  # rendered large and downscaled per output size, for anti-aliased curves
 CANVAS = 512 * SCALE
 
-# Exact value from frontend/src/index.css's light --eco-primary - the same
-# constant generate_app_icons.py uses, so the two icon families (mobile,
-# web) still share one green even though the mark itself now differs.
-BG_COLOR = (31, 122, 68, 255)
-MARK_COLOR = (255, 255, 255, 255)
+# Exact values from frontend/src/index.css's [data-theme='light'] block -
+# --eco-bg and --eco-primary. The favicon never switches with the visitor's
+# theme (it's a static file), so it fixes on light - the theme the mark
+# itself was designed against (5.94:1 contrast, per that block's own
+# comment) and the one the reference screenshot showed.
+BG_COLOR = (239, 237, 228, 255)   # --eco-bg  #efede4, warm linen
+LEAF_COLOR = (29, 107, 62, 255)   # --eco-primary  #1d6b3e, deep forest
 
-# The four path strings straight from sprout.js, 24x24 viewBox
-GROUND_D = "M7 20h10"
-STEM_D = "M10 20c5.5-2.5.8-6.4 3-10"
-LEAF_LEFT_D = "M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"
-LEAF_RIGHT_D = "M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"
+# The two path strings straight from leaf.js, 24x24 viewBox
+LEAF_BLOB_D = "M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"
+LEAF_VEIN_D = "M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"
 
+# 16 and 32 render from their own SIMPLE master (see _draw_master_icon's
+# detailed=False branch) rather than being Lanczos-downscaled from the same
+# 512px master everything else uses. The vein line survives that downscale
+# as a few stray anti-aliased pixels, not a line - at actual browser-tab
+# size that reads as visual noise on the leaf rather than a leaf marking.
+TINY_SIZES = {16, 32}
 OUTPUT_SIZES = [16, 32, 48, 72, 96, 128, 192, 256, 512]
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "public", "icons")
 
@@ -75,9 +79,8 @@ def _sample_path(d, steps=240):
 
 def _fit_transform(points_groups, canvas_size, margin_ratio=0.16):
     """One shared scale+offset for every group, fit to the combined bounding
-    box of all of them - the leaves, stem and ground line must move
-    together, not be independently centred, or the stem drifts away from
-    the leaves it is meant to be growing out of."""
+    box of all of them - the leaf and its vein must move together, not be
+    independently centred, or the vein drifts off the blob it is meant to sit in."""
     all_points = [p for group in points_groups for p in group]
     xs = [p[0] for p in all_points]
     ys = [p[1] for p in all_points]
@@ -99,56 +102,51 @@ def _fit_transform(points_groups, canvas_size, margin_ratio=0.16):
     return transform
 
 
-def _draw_stroke(draw, points_px, width):
-    """A rounded-cap, rounded-join stroke along a sampled point list -
-    ImageDraw.line's own joints look faceted on a tight curve like the
-    stem, so this draws overlapping circles at every sample point plus the
-    connecting line segments, the same trick generate_app_icons.py's
-    splash art uses for its own curves."""
-    draw.line(points_px, fill=MARK_COLOR, width=width, joint="curve")
-    r = width / 2
-    for x, y in points_px:
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=MARK_COLOR)
+def _draw_master_icon(detailed=True, margin_ratio=0.16):
+    """
+    The 512x512-at-8x master render, downscaled per output size below.
 
+    detailed=False drops the vein line and gives the blob a touch more room
+    (a smaller margin_ratio) - what actually reads as "a leaf" at 16-32px is
+    the bold silhouette, and the vein has no pixels left to survive that
+    downscale anyway, so keeping it there only adds speckling.
+    """
+    blob_points = _sample_path(LEAF_BLOB_D)
+    vein_points = _sample_path(LEAF_VEIN_D)
 
-def _draw_master_icon():
-    """The 512x512-at-8x master render, downscaled per output size below.
-    One master for every size - the two leaves and the boosted-width stem
-    and ground line all stay legible down to 16px without a separate
-    simplified version, unlike the old leaf favicon's fine vein line."""
-    groups = {
-        "ground": _sample_path(GROUND_D),
-        "stem": _sample_path(STEM_D),
-        "leaf_left": _sample_path(LEAF_LEFT_D),
-        "leaf_right": _sample_path(LEAF_RIGHT_D),
-    }
-    transform = _fit_transform(list(groups.values()), CANVAS, margin_ratio=0.18)
-    px = {name: [transform(p) for p in points] for name, points in groups.items()}
+    fit_groups = [blob_points, vein_points] if detailed else [blob_points]
+    transform = _fit_transform(fit_groups, CANVAS, margin_ratio=margin_ratio)
+    blob_px = [transform(p) for p in blob_points]
 
     img = Image.new("RGBA", (CANVAS, CANVAS), BG_COLOR)
     draw = ImageDraw.Draw(img)
 
-    # Leaves first (filled blobs), then the stem and ground line on top -
-    # matches the stacking order lucide itself draws these paths in.
-    draw.polygon(px["leaf_left"], fill=MARK_COLOR)
-    draw.polygon(px["leaf_right"], fill=MARK_COLOR)
+    draw.polygon(blob_px, fill=LEAF_COLOR)
 
-    # Lucide's own stroke is 2 of a 24-unit viewBox (~8.3%); boosted here so
-    # the stem and ground line read as bold marks rather than hairlines
-    # once downscaled to a 16px browser tab.
-    stroke_width = round(CANVAS * 0.075)
-    _draw_stroke(draw, px["stem"], stroke_width)
-    _draw_stroke(draw, px["ground"], stroke_width)
+    if detailed:
+        vein_px = [transform(p) for p in vein_points]
+        # The vein, cut back through in the ground colour - a stroke width
+        # proportional to the canvas so it stays a fine line at every output
+        # size rather than a fixed pixel count that would look chunky once
+        # downscaled from an 8x-scaled master.
+        vein_width = max(2, round(CANVAS * 0.018))
+        draw.line(vein_px, fill=BG_COLOR, width=vein_width, joint="curve")
+        # Rounded line caps - ImageDraw.line has none of its own
+        r = vein_width / 2
+        for x, y in (vein_px[0], vein_px[-1]):
+            draw.ellipse([x - r, y - r, x + r, y + r], fill=BG_COLOR)
 
     return img
 
 
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    master = _draw_master_icon()
+    master = _draw_master_icon(detailed=True)
+    tiny_master = _draw_master_icon(detailed=False, margin_ratio=0.11)
 
     for size in OUTPUT_SIZES:
-        resized = master.resize((size, size), Image.LANCZOS)
+        source = tiny_master if size in TINY_SIZES else master
+        resized = source.resize((size, size), Image.LANCZOS)
         out_path = os.path.join(OUTPUT_DIR, f"icon-{size}.webp")
         resized.save(out_path, "WEBP", quality=92)
         print(f"wrote {out_path} ({size}x{size})")

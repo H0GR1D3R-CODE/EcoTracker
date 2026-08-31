@@ -9,12 +9,12 @@ generate` reads them to produce every actual icon/splash size both Android
 and iOS need.
 
 WHAT IT DRAWS, AND WHY
-The same leaf mark as Navbar.jsx's <Leaf /> logo and the "EcoTrack"
-wordmark's leading glyph (the browser favicon is now a separate sprout
-mark - see generate_web_favicon.py's own docstring for why), drawn as flat
-vector shapes rather than reused from anywhere, since nothing else in the
-repo is a clean square mark at icon resolution. Three source files, per
-capacitor-assets' convention:
+The same leaf mark used everywhere else in the brand (the favicon, the
+"EcoTrack" wordmark's leading glyph) - drawn here as its own flat vector
+shape rather than reused from anywhere, since nothing else in the repo is
+a clean square mark at icon resolution; generate_web_favicon.py draws the
+same leaf idea independently, straight from lucide's own path, for the
+browser-facing set. Three source files, per capacitor-assets' convention:
   - icon-background.png / icon-foreground.png : Android adaptive icon
     layers (the OS masks these into a circle, squircle, etc. itself, so the
     foreground leaf sits inside a safe zone well clear of the edges).
