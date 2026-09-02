@@ -24,7 +24,8 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "switchToDarkMode": "Switch to dark mode",
-    "switchToLightMode": "Switch to light mode"
+    "switchToLightMode": "Switch to light mode",
+    "research": "Research"
   },
   "home": {
     "atmosphericTag": "and rising",
@@ -158,5 +159,21 @@
     "couldNotLoad": "Could not load your dashboard",
     "tryAgain": "Try again",
     "wakingServer": "Waking up the server — the first request after a quiet spell can take a few seconds."
+  },
+  "calculator": {
+    "subtitle": "Pick a category, enter what you did, and see the emissions before you save.",
+    "dateLabel": "Date",
+    "submitIdle": "Log this emission",
+    "submitSaving": "Saving…",
+    "submitChecking": "Checking…",
+    "anomalyTitle": "That looks unusual",
+    "anomalyBody": "{{reason}} If that's right, log it as-is.",
+    "anomalyFixIt": "Let me fix it",
+    "anomalyLogAnyway": "Log anyway",
+    "savedToRecord": "Saved to your record",
+    "ofDailyAverage": "of your daily average",
+    "averageNote": "Your average is {{value}} per day over the last 30 days.",
+    "computedWith": "Computed with {{factorValue}} kg CO₂/{{unit}} — {{source}}",
+    "budgetNote": "Your climate-safe budget this year works out at {{value}} kg a month."
   }
 }

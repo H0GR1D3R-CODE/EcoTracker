@@ -174,6 +174,27 @@ def is_admin(uid, email=None):
     return admin_doc.exists
 
 
+def is_researcher(uid):
+    """
+    Whether this user has read-only research access - GET
+    /api/admin/research/export and /research/stats only, nothing else an
+    admin can do. Unlike is_admin, this has no ADMIN_EMAILS allowlist
+    escape hatch: a researcher grant always lives in the researchers/{uid}
+    Firestore collection (see routes/admin.py's manage_researchers), added
+    by an admin through the API rather than by hand in the Firebase
+    console, because unlike the FIRST admin this is a role admins should be
+    able to hand out routinely (a new research assistant joining the
+    project) without a manual console trip each time.
+
+    Deliberately does not check is_admin - callers that want "admin OR
+    researcher" call both explicitly (see require_researcher below), so a
+    check of is_researcher alone never silently returns True for an admin
+    whose email happens to not be listed in this Firestore collection.
+    """
+    db = get_db()
+    return db.collection(Config.COLLECTION_RESEARCHERS).document(uid).get().exists
+
+
 def require_auth(view_function):
     """
     Decorator that blocks the request unless a valid Firebase ID token is sent.
@@ -352,6 +373,28 @@ def require_admin(view_function):
     return wrapper
 
 
+def require_researcher(view_function):
+    """
+    Decorator for the two research-data routes: passes an admin through (an
+    admin can already do everything a researcher can and more) OR a user
+    with a researchers/{uid} document. Everyone else gets a 403.
+    """
+
+    @wraps(view_function)
+    @require_auth
+    def wrapper(*args, **kwargs):
+        if not (is_admin(g.uid, g.email) or is_researcher(g.uid)):
+            return api_error(
+                "Research access required.",
+                403,
+                code="researcher_required",
+            )
+
+        return view_function(*args, **kwargs)
+
+    return wrapper
+
+
 # ===========================================================================
 # 3. DATE HELPERS
 #
@@ -464,6 +507,20 @@ def serialize_record(doc):
         "emissionKgco2": float(data.get("emissionKgco2", 0)),
         "recordedDate": data.get("recordedDate", ""),
         "createdAt": created_at.isoformat() if created_at else None,
+        # Provenance - which emissionFactors document and version this
+        # record's emissionKgco2 was actually computed from. Absent on a
+        # record saved before this field existed, hence the None default
+        # rather than a misleading 0/1 - see routes/factors.py's PROVENANCE
+        # note for why this exists.
+        "factorId": data.get("factorId"),
+        "factorVersion": data.get("factorVersion"),
+        "factorValue": data.get("factorValue"),
+        "factorSource": data.get("factorSource", ""),
+        # Data quality - see routes/carbon.py's _anomaly_check. Absent/False
+        # on a record saved before this field existed, same reasoning as
+        # the provenance fields just above.
+        "flaggedAnomaly": bool(data.get("flaggedAnomaly", False)),
+        "anomalyReason": data.get("anomalyReason"),
     }
 
 

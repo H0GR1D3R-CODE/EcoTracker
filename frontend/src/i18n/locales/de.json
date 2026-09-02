@@ -24,7 +24,8 @@
     "openMenu": "Menü öffnen",
     "closeMenu": "Menü schließen",
     "switchToDarkMode": "Zum dunklen Modus wechseln",
-    "switchToLightMode": "Zum hellen Modus wechseln"
+    "switchToLightMode": "Zum hellen Modus wechseln",
+    "research": "Forschung"
   },
   "home": {
     "atmosphericTag": "und steigt weiter",

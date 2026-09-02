@@ -24,7 +24,8 @@
     "openMenu": "Abrir menu",
     "closeMenu": "Fechar menu",
     "switchToDarkMode": "Mudar para modo escuro",
-    "switchToLightMode": "Mudar para modo claro"
+    "switchToLightMode": "Mudar para modo claro",
+    "research": "Pesquisa"
   },
   "home": {
     "atmosphericTag": "e continua subindo",

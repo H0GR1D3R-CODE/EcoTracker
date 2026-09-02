@@ -108,3 +108,66 @@ def grid_intensity_now(region, current_hour):
             for key, value in multipliers.items()
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# APPLIANCE SCHEDULING - "run this at 11pm instead of 7pm, save X kg"
+# ---------------------------------------------------------------------------
+#
+# Built on the exact same three-band multiplier model above - an appliance's
+# own typical per-use energy draw (a stated, rough figure - BEE star-rated
+# appliance averages for the Indian market, not a measurement of any real
+# device) multiplied by whichever day part it runs in. Same honesty rule as
+# the rest of this file: getting the appliance's exact wattage right matters
+# far less than a real, actionable "the evening peak costs you N% more for
+# the exact same load" comparison.
+
+APPLIANCE_CATALOG = {
+    "washing_machine": {"label": "Washing machine (one load)", "typicalKwh": 1.0},
+    "dishwasher": {"label": "Dishwasher (one load)", "typicalKwh": 1.2},
+    "water_heater": {"label": "Electric water heater (one use)", "typicalKwh": 2.0},
+    "ev_charging": {"label": "EV charging (one hour)", "typicalKwh": 3.3},
+    "air_conditioner": {"label": "Air conditioner (one hour)", "typicalKwh": 1.5},
+    "iron": {"label": "Ironing (30 minutes)", "typicalKwh": 0.5},
+}
+
+
+def best_time_to_run(region, appliance_key, current_hour):
+    """
+    For one appliance, the estimated kg CO2 of running it right now vs. in
+    the cleanest day part - the actionable half of grid_intensity_now above.
+    Returns None for an unrecognised appliance_key rather than raising, so
+    the route can turn that into a normal 400 instead of a 500.
+    """
+    appliance = APPLIANCE_CATALOG.get(appliance_key)
+    if not appliance:
+        return None
+
+    multipliers = multipliers_for_region(region)
+    current_part = day_part_for_hour(current_hour)
+    cleanest_part = min(multipliers, key=multipliers.get)
+
+    def kg_for_part(part):
+        factor = BASE_ELECTRICITY_FACTOR_KG_PER_KWH * multipliers[part]
+        return round(appliance["typicalKwh"] * factor, 3)
+
+    kg_now = kg_for_part(current_part)
+    kg_cleanest = kg_for_part(cleanest_part)
+
+    return {
+        "appliance": appliance_key,
+        "applianceLabel": appliance["label"],
+        "typicalKwh": appliance["typicalKwh"],
+        "currentPart": current_part,
+        "currentPartLabel": DAY_PART_LABELS[current_part],
+        "kgIfRunNow": kg_now,
+        "cleanestPart": cleanest_part,
+        "cleanestPartLabel": DAY_PART_LABELS[cleanest_part],
+        "kgIfRunCleanest": kg_cleanest,
+        "savingKg": round(kg_now - kg_cleanest, 3),
+        "isAlreadyCleanest": current_part == cleanest_part,
+        "schedule": [
+            {"key": key, "label": DAY_PART_LABELS[key], "kg": kg_for_part(key)}
+            for key in multipliers
+        ],
+    }

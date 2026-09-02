@@ -45,10 +45,13 @@ import {
   formatNumber,
   formatSubType,
 } from '../utils/formatters';
+import { currentAnnualBudgetKg } from '../utils/carbonBudget';
 
-// The personal carbon budget consistent with holding warming to 1.5 °C is
-// roughly 2 tonnes per person per year - about 5.5 kg a day.
-const DAILY_BUDGET_KG = 2000 / 365;
+// The personal carbon budget consistent with holding warming to 1.5 °C -
+// see utils/carbonBudget.js for the shared five-year glidepath every other
+// page's own budget figure (Calculator, Insights, Estimate) is computed
+// from, rather than a flat "2 tonnes forever" figure.
+const DAILY_BUDGET_KG = currentAnnualBudgetKg() / 365;
 
 // Every preset here is "from the start of the period to today" - the same
 // rule applied at four scales, so choosing between them is really just

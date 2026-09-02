@@ -24,7 +24,8 @@
     "openMenu": "Открыть меню",
     "closeMenu": "Закрыть меню",
     "switchToDarkMode": "Включить тёмную тему",
-    "switchToLightMode": "Включить светлую тему"
+    "switchToLightMode": "Включить светлую тему",
+    "research": "Исследования"
   },
   "home": {
     "atmosphericTag": "и продолжает расти",

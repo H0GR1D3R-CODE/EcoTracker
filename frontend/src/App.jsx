@@ -73,6 +73,7 @@ const Achievements = lazy(() => import('./pages/Achievements'));
 const ActivityLog = lazy(() => import('./pages/ActivityLog'));
 const Profile = lazy(() => import('./pages/Profile'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const ResearchDashboard = lazy(() => import('./pages/ResearchDashboard'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // ---------------------------------------------------------------------------
@@ -367,6 +368,16 @@ export default function App() {
               element={
                 <ProtectedRoute adminOnly>
                   <MotionPage><AdminDashboard /></MotionPage>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ---------- Admin or researcher ---------- */}
+            <Route
+              path="/research"
+              element={
+                <ProtectedRoute researcherOnly>
+                  <MotionPage><ResearchDashboard /></MotionPage>
                 </ProtectedRoute>
               }
             />

@@ -1,9 +1,10 @@
 # EcoTrack/backend/routes/household.py
 """
 Household/group mode: a small, invite-code-joined group (family, hostel
-room, college batch) that sees a combined monthly footprint, a
-points-ranked leaderboard, a shared weekly challenge, an activity feed of
-real logged entries, and lightweight cheers on those entries.
+room, college batch, workplace team) that sees a combined monthly
+footprint, a points-ranked leaderboard, a shared weekly challenge, an
+activity feed of real logged entries, and lightweight cheers on those
+entries.
 
 WHY RANKED BY POINTS, NOT RAW EMISSIONS
 ----------------------------------------
@@ -77,11 +78,23 @@ MAX_HOUSEHOLD_MEMBERS = 10
 # groupType below.
 MAX_CLASSROOM_MEMBERS = 60
 
-VALID_GROUP_TYPES = ("household", "classroom")
+# A workplace group is the exact same document and mechanics again, one
+# tier further: an employer or SME sustainability lead tracking commute and
+# workplace footprint as a team, not a classroom-sized group. A real
+# company department can be larger than a single class, hence its own,
+# larger cap - still capped at all, for the same per-member aggregation
+# cost reasoning MAX_CLASSROOM_MEMBERS's own comment gives.
+MAX_WORKPLACE_MEMBERS = 300
+
+VALID_GROUP_TYPES = ("household", "classroom", "workplace")
 
 
 def _max_members(group_type):
-    return MAX_CLASSROOM_MEMBERS if group_type == "classroom" else MAX_HOUSEHOLD_MEMBERS
+    if group_type == "classroom":
+        return MAX_CLASSROOM_MEMBERS
+    if group_type == "workplace":
+        return MAX_WORKPLACE_MEMBERS
+    return MAX_HOUSEHOLD_MEMBERS
 
 MIN_NAME_LENGTH = 2
 MAX_NAME_LENGTH = 40
@@ -213,7 +226,7 @@ def get_household():
 @household_bp.route("", methods=["POST"])
 @require_auth
 def create_household():
-    """Body: {"name": "The Green Team", "groupType": "household" | "classroom"}
+    """Body: {"name": "The Green Team", "groupType": "household" | "classroom" | "workplace"}
 
     groupType defaults to "household" so every existing caller (and the
     tests) that never send it keeps behaving exactly as before.
@@ -230,7 +243,11 @@ def create_household():
         )
 
     if group_type not in VALID_GROUP_TYPES:
-        return api_error("groupType must be 'household' or 'classroom'.", 400, code="invalid_group_type")
+        return api_error(
+            f"groupType must be one of: {', '.join(VALID_GROUP_TYPES)}.",
+            400,
+            code="invalid_group_type",
+        )
 
     existing_ref, _existing_doc = _get_own_household_doc(g.uid)
     if existing_ref is not None:
@@ -714,12 +731,13 @@ def set_challenge_focus():
     """
     Body: {"category": "transport"} or {"category": null} to go back to auto.
 
-    This is the "assigns shared challenges" half of classroom/team mode - a
-    household never had a way to pick its own focus, only the auto-selected
-    top-emitting category. Owner-only, same authority as removing a member;
-    a classroom's organizer role and a household's owner role are the same
-    field (ownerUid), so this works for either groupType, though the
-    frontend only surfaces the control for classroom groups.
+    This is the "assigns shared challenges" half of classroom/workplace mode
+    - a household never had a way to pick its own focus, only the
+    auto-selected top-emitting category. Owner-only, same authority as
+    removing a member; a classroom or workplace's organizer role and a
+    household's owner role are the same field (ownerUid), so this works for
+    any groupType, though the frontend only surfaces the control for
+    non-household groups.
     """
     body = request.get_json(silent=True) or {}
     category = body.get("category")

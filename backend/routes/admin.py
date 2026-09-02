@@ -13,6 +13,17 @@ user document. That separation means a normal user cannot promote themselves by
 editing their own profile - the admins collection is written only from the
 Firebase console, never by the API.
 
+A SECOND, NARROWER ROLE: RESEARCHER
+------------------------------------
+research_export and research_stats near the bottom of this file use
+@require_researcher instead of @require_admin - it passes an admin through
+too, but also anyone with a document in the separate researchers/{uid}
+collection, managed by add_researcher/remove_researcher/list_researchers
+below. Unlike becoming the first admin, granting this is a normal,
+API-driven admin action (a guide or research assistant joining the
+project) - see require_researcher's own docstring in routes/__init__.py for
+why that split in trust is safe.
+
 TO CREATE YOUR FIRST ADMIN
 --------------------------
 There is deliberately no "make me an admin" route - that would be a security
@@ -45,6 +56,7 @@ from routes import (
     month_bounds,
     month_key_of,
     require_admin,
+    require_researcher,
 )
 from routes.announcements import COLLECTION_ANNOUNCEMENTS
 
@@ -978,7 +990,7 @@ def _hashed_uid(uid):
 
 
 @admin_bp.route("/research/export", methods=["GET"])
-@require_admin
+@require_researcher
 def research_export():
     """
     Anonymised CSV of every logged intervention - the evaluation-harness data
@@ -1053,7 +1065,7 @@ def _adoption_rate(accepted, shown):
 
 
 @admin_bp.route("/research/stats", methods=["GET"])
-@require_admin
+@require_researcher
 def research_stats():
     """
     Turns the raw `interventions` log into the actual numbers the project's
@@ -1221,3 +1233,139 @@ def invite_admin():
         )
 
     return api_success({"email": email, "sent": True}, message=f"Invite sent to {email}.")
+
+
+# ---------------------------------------------------------------------------
+# GET / POST / DELETE /api/admin/researchers   (manage the researcher role)
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/researchers", methods=["GET"])
+@require_admin
+def list_researchers():
+    """Everyone currently holding read-only research access."""
+    db = get_db()
+    researchers = [
+        {"uid": doc.id, **doc.to_dict()}
+        for doc in db.collection(Config.COLLECTION_RESEARCHERS).stream()
+    ]
+    researchers.sort(key=lambda r: r.get("createdAt") or "", reverse=True)
+    return api_success({"researchers": researchers, "count": len(researchers)})
+
+
+@admin_bp.route("/researchers", methods=["POST"])
+@require_admin
+def add_researcher():
+    """
+    Grant read-only research access (routes/admin.py's research_export and
+    research_stats - the anonymised interventions export/adoption stats,
+    nothing else) to an existing EcoTrack account.
+
+    Body: {"email": "guide@university.edu"}
+
+    Unlike inviting an admin, this takes effect immediately - no redeploy,
+    no ADMIN_EMAILS env var - because unlike granting the FIRST admin (see
+    this file's own module docstring on why that stays a manual console
+    step forever), an existing admin adding a research collaborator is
+    exactly the kind of routine, already-authenticated action an admin
+    session should be trusted to do directly.
+    """
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email", "")).strip().lower()
+
+    if not is_valid_email(email):
+        return api_error(EMAIL_ERROR, 400, code="invalid_email")
+
+    try:
+        user_record = firebase_auth.get_user_by_email(email)
+    except firebase_auth.UserNotFoundError:
+        return api_error(
+            "No EcoTrack account exists for that email yet. "
+            "They need to register first.",
+            404,
+            code="user_not_found",
+        )
+
+    db = get_db()
+    ref = db.collection(Config.COLLECTION_RESEARCHERS).document(user_record.uid)
+    if ref.get().exists:
+        return api_error("That person already has research access.", 409, code="already_researcher")
+
+    ref.set({
+        "email": email,
+        "name": user_record.display_name or "",
+        "addedBy": g.email,
+        "createdAt": gcloud_firestore.SERVER_TIMESTAMP,
+    })
+
+    return api_success(
+        {"uid": user_record.uid, "email": email},
+        message=f"Research access granted to {email}.",
+        status=201,
+    )
+
+
+@admin_bp.route("/researchers/<researcher_uid>", methods=["DELETE"])
+@require_admin
+def remove_researcher(researcher_uid):
+    """Revoke research access. Does not touch the user's account or data -
+    the same non-destructive shape as removing a household member."""
+    db = get_db()
+    ref = db.collection(Config.COLLECTION_RESEARCHERS).document(researcher_uid)
+    if not ref.get().exists:
+        return api_error("That person does not have research access.", 404, code="not_researcher")
+
+    ref.delete()
+    return api_success({"uid": researcher_uid}, message="Research access revoked.")
+
+
+# ---------------------------------------------------------------------------
+# GET /api/admin/data-quality
+# ---------------------------------------------------------------------------
+
+@admin_bp.route("/data-quality", methods=["GET"])
+@require_admin
+def data_quality():
+    """
+    Platform-wide view of routes/carbon.py's anomaly flag - how many logged
+    entries look statistically unusual against the user's own history, and
+    the most recent ones, so an admin can spot a pattern (a broken bill
+    scanner extraction, a factor that quietly encourages odd inputs)
+    instead of only ever seeing this one flag at a time on one user's own
+    Activity Log.
+
+    Read-only, deliberately: this is visibility, not moderation - an admin
+    here cannot edit or delete another user's individual record (only the
+    whole-account deletion list_users/delete_user already supports), the
+    same boundary this file's own module docstring draws around
+    self-promotion. See routes/carbon.py's module docstring for what the
+    flag itself means and why it never blocks a save.
+    """
+    db = get_db()
+
+    total = 0
+    flagged_records = []
+    for doc in db.collection(Config.COLLECTION_CARBON_RECORDS).stream():
+        data = doc.to_dict()
+        total += 1
+        if data.get("flaggedAnomaly"):
+            flagged_records.append({
+                "id": doc.id,
+                "userHash": _hashed_uid(data.get("userId", "")),
+                "category": data.get("category", ""),
+                "subType": data.get("subType", ""),
+                "quantity": float(data.get("quantity", 0)),
+                "recordedDate": data.get("recordedDate", ""),
+                "reason": data.get("anomalyReason"),
+            })
+
+    flagged_records.sort(key=lambda r: r["recordedDate"], reverse=True)
+
+    return api_success({
+        "totalRecords": total,
+        "flaggedCount": len(flagged_records),
+        "flaggedRate": round(100 * len(flagged_records) / total, 2) if total else 0.0,
+        # Capped the same way research_export's own row-per-page reasoning
+        # goes - enough to see a pattern, not the platform's whole history
+        # in one response.
+        "recentFlags": flagged_records[:50],
+    })

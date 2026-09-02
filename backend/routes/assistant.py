@@ -105,8 +105,16 @@ ASSISTANT_REASONING_EFFORT = "low"
 
 MAX_MESSAGE_LENGTH = 2000
 
-# The personal carbon budget consistent with 1.5 C of warming
-MONTHLY_BUDGET_KG = 2000 / 12
+# The personal carbon budget consistent with 1.5 C of warming - a
+# glidepath, not a flat number. See carbon_budget.py's own module
+# docstring for the full reasoning; every other file that references a
+# monthly/annual budget (routes/cron.py, routes/insights.py) imports the
+# same two names FROM HERE rather than redefining them, so there is exactly
+# one place this figure is computed.
+from carbon_budget import CURRENT_ANNUAL_BUDGET_KG, CURRENT_MONTHLY_BUDGET_KG  # noqa: E402
+
+MONTHLY_BUDGET_KG = CURRENT_MONTHLY_BUDGET_KG
+ANNUAL_BUDGET_KG = CURRENT_ANNUAL_BUDGET_KG
 
 # The OpenAI-compatible finish_reason string that means "a content filter
 # stopped this response" - the Groq equivalent of Gemini's SAFETY /

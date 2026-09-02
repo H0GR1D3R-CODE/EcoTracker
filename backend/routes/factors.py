@@ -25,6 +25,33 @@ This route is PUBLIC - one of only three in the API without token verification.
 Emission factors are published constants from DEFRA, IPCC and CEA, not personal
 data, and the landing page shows them before anyone has logged in.
 
+PROVENANCE: WHY EVERY FACTOR HAS A version
+--------------------------------------------
+Editing factorValue here used to be silent from a saved record's point of
+view: routes/carbon.py computed emissionKgco2 at save time and stored only
+that number, never which factor document or which value produced it. That
+meant an admin correcting transport/petrol_car from 0.141 to a newer DEFRA
+figure would make every past record silently stop equalling
+quantity x (today's factor) - with nothing anywhere able to say so, because
+the number that could prove it (the factor value AT THE TIME) was never
+kept.
+
+version is an integer, starting at 1, incremented by update_factor every
+time factorValue actually changes (not on a unit/source/region-only edit -
+see update_factor below). save_calculated_record in routes/carbon.py now
+stores the (factorId, factorVersion, factorValue, factorSource) it used
+alongside emissionKgco2, so:
+  - a record can always show "computed with DEFRA 2023, factor v1" even
+    after the factor is later corrected to v2
+  - GET /api/factors/<id>/impact tells an admin, before they save an edit,
+    exactly how many saved records were computed with the OLD value
+  - POST /api/factors/<id>/recalculate lets them explicitly bring those
+    records up to date with the new value - never automatic, because
+    silently rewriting a user's own logged history is exactly the kind of
+    surprise this app avoids everywhere else (see routes/goals.py and
+    routes/household.py's own module docstrings on computing-fresh-not-
+    caching for the same reasoning applied elsewhere).
+
 Mounted at /api/factors
 """
 
@@ -46,6 +73,12 @@ def _serialize_factor(doc):
         "subType": data.get("subType", ""),
         # float() guards against a factor accidentally saved as a string in the console
         "factorValue": float(data.get("factorValue", 0)),
+        # Bumped every time factorValue changes (see update_factor below) - a
+        # saved carbonRecords row stores the version it was computed with, so
+        # comparing the two tells a user or admin whether that record still
+        # matches today's published number. Missing on a factor nobody has
+        # ever edited since PROVENANCE shipped, hence the default of 1.
+        "version": int(data.get("version", 1)),
         "unit": data.get("unit", ""),
         "region": data.get("region", ""),
         "source": data.get("source", ""),
@@ -317,7 +350,15 @@ def create_factor():
 def update_factor(factor_id):
     """Body: any of {"factorValue", "unit", "region", "source", "category", "subType"} -
     exactly the fields to change. The most common edit is just factorValue,
-    the number that actually changes when a new DEFRA/IPCC report lands."""
+    the number that actually changes when a new DEFRA/IPCC report lands.
+
+    Changing factorValue bumps this factor's version (see PROVENANCE in this
+    file's module docstring) - a unit/source/region-only edit does not, since
+    those never change what a past record's stored emissionKgco2 means.
+    Call GET .../impact first to see how many saved records this will make
+    stale, and POST .../recalculate afterward if they should be brought up
+    to date.
+    """
     body = request.get_json(silent=True) or {}
     clean, error = _validate_factor_body(body, require_all=False)
     if error:
@@ -327,24 +368,130 @@ def update_factor(factor_id):
 
     db = get_db()
     ref = db.collection(Config.COLLECTION_EMISSION_FACTORS).document(factor_id)
-    if not ref.get().exists:
+    current = ref.get()
+    if not current.exists:
         return api_error("Factor not found.", 404, code="factor_not_found")
+
+    current_data = current.to_dict()
+    if "factorValue" in clean and clean["factorValue"] != float(current_data.get("factorValue", 0)):
+        clean["version"] = int(current_data.get("version", 1)) + 1
 
     ref.update(clean)
     return api_success({"factor": _serialize_factor(ref.get())}, message="Factor updated.")
+
+
+@factors_bp.route("/<factor_id>/impact", methods=["GET"])
+@require_admin
+def factor_impact(factor_id):
+    """
+    How many saved carbonRecords were computed with an older version of this
+    factor than it currently holds - the number an admin should see BEFORE
+    confirming an edit that changes factorValue, not after.
+
+    staleCount is scoped to factorId so it only ever counts records that
+    actually used THIS factor document, never a different one that happens
+    to share the same category/subType (region-specific factors mean more
+    than one factor document can exist per category+subType).
+    """
+    db = get_db()
+    ref = db.collection(Config.COLLECTION_EMISSION_FACTORS).document(factor_id)
+    doc = ref.get()
+    if not doc.exists:
+        return api_error("Factor not found.", 404, code="factor_not_found")
+
+    current_version = int(doc.to_dict().get("version", 1))
+
+    total_count = 0
+    stale_count = 0
+    for record_doc in (
+        db.collection(Config.COLLECTION_CARBON_RECORDS)
+        .where(filter=gcloud_firestore.FieldFilter("factorId", "==", factor_id))
+        .stream()
+    ):
+        total_count += 1
+        if int(record_doc.to_dict().get("factorVersion", 1)) != current_version:
+            stale_count += 1
+
+    return api_success({
+        "factorId": factor_id,
+        "currentVersion": current_version,
+        "recordsUsingThisFactor": total_count,
+        "staleCount": stale_count,
+    })
+
+
+@factors_bp.route("/<factor_id>/recalculate", methods=["POST"])
+@require_admin
+def recalculate_factor(factor_id):
+    """
+    Bring every saved record that used an older version of this factor up
+    to today's factorValue - explicit and admin-triggered only, never run
+    automatically from update_factor. Recomputes emissionKgco2 = quantity x
+    (current factorValue), the exact same formula save_calculated_record
+    uses, and stamps the record with the current factorVersion so a second
+    call is a safe no-op (nothing left stale to recalculate).
+    """
+    db = get_db()
+    ref = db.collection(Config.COLLECTION_EMISSION_FACTORS).document(factor_id)
+    doc = ref.get()
+    if not doc.exists:
+        return api_error("Factor not found.", 404, code="factor_not_found")
+
+    factor_data = doc.to_dict()
+    current_version = int(factor_data.get("version", 1))
+    current_value = float(factor_data.get("factorValue", 0))
+
+    stale_docs = list(
+        db.collection(Config.COLLECTION_CARBON_RECORDS)
+        .where(filter=gcloud_firestore.FieldFilter("factorId", "==", factor_id))
+        .stream()
+    )
+
+    updated = 0
+    batch = db.batch()
+    batch_size = 0
+    for record_doc in stale_docs:
+        record = record_doc.to_dict()
+        if int(record.get("factorVersion", 1)) == current_version:
+            continue
+        quantity = float(record.get("quantity", 0))
+        batch.update(record_doc.reference, {
+            "emissionKgco2": round(quantity * current_value, 3),
+            "factorValue": current_value,
+            "factorVersion": current_version,
+        })
+        updated += 1
+        batch_size += 1
+        # Firestore rejects a batch larger than 500 writes - same limit
+        # routes/admin.py's own BATCH_LIMIT works around.
+        if batch_size >= 400:
+            batch.commit()
+            batch = db.batch()
+            batch_size = 0
+
+    if batch_size:
+        batch.commit()
+
+    return api_success(
+        {"factorId": factor_id, "recalculatedCount": updated},
+        message=f"Recalculated {updated} record{'s' if updated != 1 else ''}.",
+    )
 
 
 @factors_bp.route("/<factor_id>", methods=["DELETE"])
 @require_admin
 def delete_factor(factor_id):
     """
-    Deletes a factor outright. Existing carbonRecords are unaffected - each
-    one already stored its own computed emissionKgco2 at the time it was
-    logged (see save_calculated_record in routes/carbon.py), never a live
-    reference back to this document - but logging a NEW entry for this
-    category+subType will fail with factor_not_found until a replacement is
-    added, which is the correct, honest failure mode rather than silently
-    falling back to a stale or wrong number.
+    Deletes a factor outright. Existing carbonRecords are unaffected in what
+    they display - each one already stored its own computed emissionKgco2 at
+    the time it was logged (see save_calculated_record in routes/carbon.py) -
+    but a record's stored factorId now becomes a reference to a document
+    that no longer exists, which is fine: it is kept only as historical
+    provenance ("this is what computed it"), never re-fetched live, so a
+    deleted factor cannot break a past record's display. Logging a NEW entry
+    for this category+subType will fail with factor_not_found until a
+    replacement is added, which is the correct, honest failure mode rather
+    than silently falling back to a stale or wrong number.
     """
     db = get_db()
     ref = db.collection(Config.COLLECTION_EMISSION_FACTORS).document(factor_id)

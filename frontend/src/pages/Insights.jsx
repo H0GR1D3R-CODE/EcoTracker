@@ -24,7 +24,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeftRight, CalendarRange, ChevronDown, Compass, Target, ThermometerSun, Users, Zap } from 'lucide-react';
+import { ArrowLeftRight, CalendarRange, ChevronDown, Compass, Target, ThermometerSun, Users, Wind, Zap } from 'lucide-react';
 
 import { dashboardApi, insightsApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
@@ -38,17 +38,18 @@ import ActivityHeatmap from '../components/ActivityHeatmap';
 import CohortCurve from '../components/CohortCurve';
 import WeatherContext from '../components/WeatherContext';
 import GridIntensityCard from '../components/GridIntensityCard';
+import ApplianceScheduler from '../components/ApplianceScheduler';
+import AirQualityCard from '../components/AirQualityCard';
 import { PathwayChart } from '../components/EmissionChart';
 import { currentMonthISO, formatEmission, formatNumber } from '../utils/formatters';
+import { currentAnnualBudgetKg } from '../utils/carbonBudget';
 
-// The same personal-budget figure Reports.jsx's DAILY_BUDGET_KG and
-// Dashboard's SDG-13 strip already anchor on - 2,000 kg CO2/year is this
-// app's one, consistently-used "1.5°C compatible" personal footprint. Kept
-// as its own named constant here rather than imported, the same independent-
-// but-identical-value pattern this codebase already uses for figures shared
-// across the JS/Python boundary (see emissionHelpers.js's own comment on
-// FALLBACK_PETROL_CAR_FACTOR).
-const ANNUAL_BUDGET_KG = 2000;
+// The same personal-budget glidepath Reports.jsx's DAILY_BUDGET_KG,
+// Calculator.jsx and Estimate.jsx all anchor on - see utils/carbonBudget.js
+// (backend/carbon_budget.py's exact JS mirror) for the full reasoning: a
+// five-year straight line from 2,000 kg CO2/year down to 1,500 by 2030,
+// not a flat number forever.
+const ANNUAL_BUDGET_KG = currentAnnualBudgetKg();
 const MONTHLY_BUDGET_KG = ANNUAL_BUDGET_KG / 12;
 
 function Section({ icon: Icon, title, subtitle, children, delay = 0 }) {
@@ -84,6 +85,7 @@ export default function Insights() {
   const [pathwayChart, setPathwayChart] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [gridData, setGridData] = useState(null);
+  const [airData, setAirData] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
@@ -121,6 +123,11 @@ export default function Insights() {
       .getGrid()
       .then(setGridData)
       .catch(() => {}); // same - a missing nudge should not break the page
+
+    insightsApi
+      .getAirQuality()
+      .then(setAirData)
+      .catch(() => {}); // same - AirQualityCard itself no-ops on a non-"ok" status
   }, []);
 
   const showWeather = weatherData && weatherData.status !== 'weather_unavailable' && weatherData.status !== 'insufficient_data';
@@ -358,6 +365,17 @@ export default function Insights() {
               subtitle="The grid isn't the same all day - a real, stated model of when it's cleanest to draw power."
             >
               <GridIntensityCard grid={gridData} />
+              <ApplianceScheduler />
+            </Section>
+          )}
+
+          {airData?.status === 'ok' && (
+            <Section
+              icon={Wind}
+              title="Air quality today"
+              subtitle="A health reason to act, not just a carbon one."
+            >
+              <AirQualityCard air={airData} />
             </Section>
           )}
 

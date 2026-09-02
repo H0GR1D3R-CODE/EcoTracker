@@ -4,11 +4,15 @@
 //   <ProtectedRoute><Dashboard /></ProtectedRoute>
 //   <ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>
 //   <ProtectedRoute userOnly><Dashboard /></ProtectedRoute>   (admins redirected)
+//   <ProtectedRoute researcherOnly><ResearchDashboard /></ProtectedRoute>
 //
-// adminOnly  - only admins may enter; normal users are sent to /dashboard.
-// userOnly   - only normal users may enter; the admin account is admin-only, so
-//              admins are sent to their console (/admin). This is what keeps the
-//              two experiences separate rather than mixed into one account.
+// adminOnly      - only admins may enter; normal users are sent to /dashboard.
+// userOnly       - only normal users may enter; the admin account is admin-only, so
+//                  admins are sent to their console (/admin). This is what keeps the
+//                  two experiences separate rather than mixed into one account.
+// researcherOnly - an admin OR a researchers/{uid} document may enter, mirroring
+//                  backend/routes/__init__.py's require_researcher exactly (an
+//                  admin can already do everything a researcher can).
 //
 // SECURITY NOTE (important for the viva)
 // This component is CONVENIENCE, not security. Anyone can edit JavaScript in
@@ -26,8 +30,8 @@ import { useAuth } from '../context/AuthContext';
 import { useSlowLoadHint } from '../hooks/useSlowLoadHint';
 import LoadingSpinner from './LoadingSpinner';
 
-export default function ProtectedRoute({ children, adminOnly = false, userOnly = false }) {
-  const { user, profile, loading, isAdmin, profileError, refreshProfile, logout, twoFactorPending } = useAuth();
+export default function ProtectedRoute({ children, adminOnly = false, userOnly = false, researcherOnly = false }) {
+  const { user, profile, loading, isAdmin, isResearcher, profileError, refreshProfile, logout, twoFactorPending } = useAuth();
   const location = useLocation();
   const [retrying, setRetrying] = useState(false);
 
@@ -175,6 +179,12 @@ export default function ProtectedRoute({ children, adminOnly = false, userOnly =
 
   // STEP 5: admin pages need the admins document as well
   if (adminOnly && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // STEP 5b: research pages need either role - see this file's own comment
+  // on researcherOnly above.
+  if (researcherOnly && !isAdmin && !isResearcher) {
     return <Navigate to="/dashboard" replace />;
   }
 

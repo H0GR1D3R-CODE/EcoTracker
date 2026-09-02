@@ -1,6 +1,14 @@
 # EcoTrack/backend/routes/ingest.py
 """
-Bill/receipt ingestion - a photo, read by Groq's vision model.
+Bill/receipt (or standalone product) ingestion - a photo, read by Groq's
+vision model. Doubles as this app's "barcode scanner": rather than
+decoding an actual barcode against a third-party product database (Open
+Food Facts' own carbon-relevant fields are patchy outside packaged food,
+and a mis-scanned barcode fails silently with no image for the user to
+judge against), a photo of the product itself - its packaging, label or a
+clothing tag - is read the same way a receipt is, so a person can point
+their camera at what they bought instead of typing a category and count
+by hand. See BILL_EXTRACTION_INSTRUCTION's consumption line below.
 
 WHAT THIS ROUTE DOES AND DOES NOT DO
 -------------------------------------
@@ -102,7 +110,10 @@ published for; anything else cannot be matched to a real published number):
   waste (unit: kg): landfill, recycled - from a waste-collection receipt
   water (unit: liter): municipal_supply - from a water utility bill
   consumption (unit: item): clothing_item, electronics_item - from a
-    shopping receipt or invoice, counting the number of items bought
+    shopping receipt or invoice (counting the number of items bought), OR
+    from a photo of the product itself (its packaging, label or a clothing
+    tag) when no receipt is available - in that case the quantity is the
+    number of that exact item visible in the photo (almost always 1)
 
 Read every printed number and label carefully before choosing - a bill
 often shows several quantities (units this period, units last period,
@@ -121,7 +132,8 @@ Respond with exactly this JSON shape:
   "rawFields": {{"<label as printed on the document>": "<value as printed>", ...}}
 }}
 
-If the image is not a bill or receipt, or you cannot find a usable quantity, \
+If the image is not a bill, receipt, or a clothing/electronics product you \
+can identify, or you cannot find a usable quantity, \
 set category, subType, quantity and unit to null and confidence to 0, but still \
 return valid JSON in this exact shape. Never invent a number that is not visibly \
 printed on the document."""

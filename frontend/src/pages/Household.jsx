@@ -41,10 +41,60 @@ import { formatCategory, formatEmission, formatNumber, formatDate } from '../uti
 
 const RANK_MEDALS = ['🥇', '🥈', '🥉'];
 
-// Copy-only mirror of routes/household.py's MAX_CLASSROOM_MEMBERS - the
-// backend is the real enforcement, this just lets the create form tell
-// people the cap before they hit it.
+// Copy-only mirror of routes/household.py's MAX_CLASSROOM_MEMBERS/
+// MAX_WORKPLACE_MEMBERS - the backend is the real enforcement, this just
+// lets the create form tell people the cap before they hit it.
 const MAX_CLASSROOM_MEMBERS = 60;
+const MAX_WORKPLACE_MEMBERS = 300;
+
+// One lookup for every piece of copy that varies by groupType, instead of
+// a household/classroom ternary repeated at each call site - see
+// backend/routes/household.py's own module docstring: "a classroom/team is
+// the same document and the same mechanics... just at a different scale",
+// which is exactly as true of a workplace group. Falls back to
+// GROUP_TYPE_META.household for any unrecognised or missing value.
+const GROUP_TYPE_META = {
+  household: {
+    label: 'Household',
+    challengeLabel: 'Household',
+    nounSingular: 'household',
+    possessive: "household's",
+    organizerTitle: 'owner',
+    createdToast: 'Household created.',
+    createCta: 'Create household',
+    nameLabel: 'Household name',
+    nameHint: "You'll get an invite code to share with whoever should join.",
+    titleAccent: 'Household',
+  },
+  classroom: {
+    label: 'Classroom / Team',
+    challengeLabel: 'Team',
+    nounSingular: 'team',
+    possessive: "team's",
+    organizerTitle: 'organizer',
+    createdToast: 'Team created.',
+    createCta: 'Create team',
+    nameLabel: 'Class or team name',
+    nameHint: `You'll get an invite code to share with your class or team (up to ${MAX_CLASSROOM_MEMBERS} people), and can assign which category each week's shared challenge targets.`,
+    titleAccent: 'Team',
+  },
+  workplace: {
+    label: 'Workplace',
+    challengeLabel: 'Workplace',
+    nounSingular: 'workplace group',
+    possessive: "workplace's",
+    organizerTitle: 'organizer',
+    createdToast: 'Workplace group created.',
+    createCta: 'Create workplace group',
+    nameLabel: 'Workplace or team name',
+    nameHint: `You'll get an invite code to share with colleagues (up to ${MAX_WORKPLACE_MEMBERS} people) - a lightweight way to track commute and workplace footprint together, and assign which category each week's shared challenge targets.`,
+    titleAccent: 'Workplace',
+  },
+};
+
+function groupTypeMeta(groupType) {
+  return GROUP_TYPE_META[groupType] || GROUP_TYPE_META.household;
+}
 
 function CreateOrJoinPanel({ onChanged }) {
   const [mode, setMode] = useState('create');
@@ -59,7 +109,7 @@ function CreateOrJoinPanel({ onChanged }) {
     setSubmitting(true);
     try {
       await householdApi.create(name.trim(), groupType);
-      toast.success(groupType === 'classroom' ? 'Team created.' : 'Household created.');
+      toast.success(groupTypeMeta(groupType).createdToast);
       onChanged();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not create that group.'));
@@ -110,27 +160,20 @@ function CreateOrJoinPanel({ onChanged }) {
 
       {mode === 'create' ? (
         <form onSubmit={handleCreate} noValidate>
-          <div role="radiogroup" aria-label="Group type" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={groupType === 'household'}
-              onClick={() => setGroupType('household')}
-              className={`eco-btn ${groupType === 'household' ? 'eco-btn-primary' : 'eco-btn-outline'}`}
-              style={{ flex: 1, fontSize: '0.84rem' }}
-            >
-              Household
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={groupType === 'classroom'}
-              onClick={() => setGroupType('classroom')}
-              className={`eco-btn ${groupType === 'classroom' ? 'eco-btn-primary' : 'eco-btn-outline'}`}
-              style={{ flex: 1, fontSize: '0.84rem' }}
-            >
-              Classroom / Team
-            </button>
+          <div role="radiogroup" aria-label="Group type" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            {Object.entries(GROUP_TYPE_META).map(([key, meta]) => (
+              <button
+                key={key}
+                type="button"
+                role="radio"
+                aria-checked={groupType === key}
+                onClick={() => setGroupType(key)}
+                className={`eco-btn ${groupType === key ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+                style={{ flex: '1 1 auto', fontSize: '0.84rem' }}
+              >
+                {meta.label}
+              </button>
+            ))}
           </div>
 
           <div className="form-floating" style={{ marginBottom: '1rem' }}>
@@ -144,16 +187,14 @@ function CreateOrJoinPanel({ onChanged }) {
               maxLength={40}
             />
             <label htmlFor="household-name">
-              {groupType === 'classroom' ? 'Class or team name' : 'Household name'}
+              {groupTypeMeta(groupType).nameLabel}
             </label>
           </div>
           <p className="eco-text-muted" style={{ fontSize: '0.82rem', margin: '0 0 1rem' }}>
-            {groupType === 'classroom'
-              ? `You'll get an invite code to share with your class or team (up to ${MAX_CLASSROOM_MEMBERS} people), and can assign which category each week's shared challenge targets.`
-              : "You'll get an invite code to share with whoever should join."}
+            {groupTypeMeta(groupType).nameHint}
           </p>
           <button type="submit" className="eco-btn eco-btn-primary" disabled={submitting || !name.trim()} style={{ width: '100%' }}>
-            {groupType === 'classroom' ? 'Create team' : 'Create household'}
+            {groupTypeMeta(groupType).createCta}
           </button>
         </form>
       ) : (
@@ -391,11 +432,7 @@ function HouseholdChallengeCard({ groupType, isOwner, preferredChallengeCategory
     setClaiming(true);
     try {
       await householdApi.claimChallenge(challenge.id);
-      toast.success(
-        groupType === 'classroom'
-          ? "Team challenge claimed - everyone earned points!"
-          : 'Household challenge claimed - everyone earned points!'
-      );
+      toast.success(`${groupTypeMeta(groupType).challengeLabel} challenge claimed - everyone earned points!`);
       load();
       onClaimed?.();
     } catch (error) {
@@ -407,12 +444,13 @@ function HouseholdChallengeCard({ groupType, isOwner, preferredChallengeCategory
 
   if (!challenge) return null;
 
-  const groupLabel = groupType === 'classroom' ? "team's" : "household's";
+  const meta = groupTypeMeta(groupType);
+  const groupLabel = meta.possessive;
 
   return (
     <div className="eco-card" style={{ marginBottom: '1.8rem' }}>
       <span className="eco-marker" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
-        <Target size={14} /> This week's {groupType === 'classroom' ? 'team' : 'household'} challenge
+        <Target size={14} /> This week's {meta.nounSingular} challenge
       </span>
 
       {!challenge.available ? (
@@ -463,10 +501,10 @@ function HouseholdChallengeCard({ groupType, isOwner, preferredChallengeCategory
         </>
       )}
 
-      {/* Organizer-only, and only for classroom/team groups - a plain
+      {/* Organizer-only, and only for classroom/workplace groups - a plain
           household never had this control, and keeps its exact original
           behaviour (always the auto top-emitting category). */}
-      {groupType === 'classroom' && isOwner && (
+      {groupType !== 'household' && isOwner && (
         <ChallengeFocusPicker preferredChallengeCategory={preferredChallengeCategory} onSaved={onFocusSaved} />
       )}
     </div>
@@ -592,10 +630,10 @@ export default function Household() {
   };
 
   const handleLeave = async () => {
-    const isClassroom = data?.groupType === 'classroom';
+    const meta = groupTypeMeta(data?.groupType);
     try {
       await householdApi.leave();
-      toast.success(isClassroom ? 'Left the team.' : 'Left the household.');
+      toast.success(`Left the ${meta.nounSingular}.`);
       load();
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not leave that group.'));
@@ -630,13 +668,15 @@ export default function Household() {
         icon={Users}
         eyebrow="Group mode"
         title="Your"
-        titleAccent={data.inHousehold && data.groupType === 'classroom' ? 'Team' : 'Household'}
+        titleAccent={data.inHousehold ? groupTypeMeta(data.groupType).titleAccent : 'Household'}
         subtitle={
           data.inHousehold
             ? data.groupType === 'classroom'
               ? "A shared footprint and a leaderboard for your class or team."
+              : data.groupType === 'workplace'
+              ? 'A shared footprint and a leaderboard for your workplace or work team.'
               : 'A shared footprint and a leaderboard for the people you actually live with.'
-            : 'A shared footprint and a leaderboard for your household — or your class, club, or team.'
+            : 'A shared footprint and a leaderboard for your household — or your class, workplace, club, or team.'
         }
         action={
           data.inHousehold ? (
@@ -675,7 +715,7 @@ export default function Household() {
                     combined this month · {data.memberCount}
                     {data.maxMembers ? `/${data.maxMembers}` : ''} {data.memberCount === 1 ? 'member' : 'members'}
                     {data.isOwner && (
-                      <> · <span style={{ color: 'var(--eco-primary)' }}>you're the {data.groupType === 'classroom' ? 'organizer' : 'owner'}</span></>
+                      <> · <span style={{ color: 'var(--eco-primary)' }}>you're the {groupTypeMeta(data.groupType).organizerTitle}</span></>
                     )}
                   </span>
                 </div>

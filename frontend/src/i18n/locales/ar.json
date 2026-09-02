@@ -24,7 +24,8 @@
     "openMenu": "فتح القائمة",
     "closeMenu": "إغلاق القائمة",
     "switchToDarkMode": "التبديل إلى الوضع الداكن",
-    "switchToLightMode": "التبديل إلى الوضع الفاتح"
+    "switchToLightMode": "التبديل إلى الوضع الفاتح",
+    "research": "البحث"
   },
   "home": {
     "atmosphericTag": "وما زال يرتفع",

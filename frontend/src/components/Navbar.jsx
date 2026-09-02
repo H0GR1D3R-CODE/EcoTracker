@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Calculator,
   FileText,
+  FlaskConical,
   Heart,
   LayoutDashboard,
   Leaf,
@@ -57,6 +58,12 @@ const APP_LINKS = [
 // personal footprint, so it gets its own single link instead of APP_LINKS.
 const ADMIN_LINKS = [{ to: '/admin', labelKey: 'nav.admin', icon: Shield }];
 
+// A non-admin researcher (see backend/routes/admin.py's require_researcher)
+// still tracks their own footprint like any normal user, so unlike the
+// admin account this is appended to APP_LINKS rather than replacing it -
+// see primaryLinks below.
+const RESEARCH_LINK = { to: '/research', labelKey: 'nav.research', icon: FlaskConical };
+
 // The public content pages, shown next to the logo for signed-out visitors
 // (the marketing site). Signed-in users get the app links instead, so the bar
 // never shows both sets at once.
@@ -78,7 +85,7 @@ const PUBLIC_LINKS = [
 
 export default function Navbar() {
   const { t } = useTranslation();
-  const { user, profile, isAdmin, logout } = useAuth();
+  const { user, profile, isAdmin, isResearcher, logout } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -121,10 +128,15 @@ export default function Navbar() {
   };
 
   // Which primary links show in the bar:
-  //   admin account  -> just the Admin console (no personal tracking)
-  //   normal user    -> the app links
-  //   signed out      -> none (they get the public links + auth buttons)
-  const primaryLinks = isAdmin ? ADMIN_LINKS : user ? APP_LINKS : [];
+  //   admin account       -> just the Admin console (no personal tracking)
+  //   researcher (non-admin) -> the normal app links, plus Research
+  //   normal user         -> the app links
+  //   signed out           -> none (they get the public links + auth buttons)
+  const primaryLinks = isAdmin
+    ? ADMIN_LINKS
+    : user
+    ? (isResearcher ? [...APP_LINKS, RESEARCH_LINK] : APP_LINKS)
+    : [];
 
   // Where the logo points: admins home is the console, users' is the dashboard
   const homeTo = isAdmin ? '/admin' : user ? '/dashboard' : '/';

@@ -236,6 +236,12 @@ export const factorsApi = {
   create: (payload) => api.post('/api/factors', payload).then(unwrap),
   update: (factorId, payload) => api.put(`/api/factors/${factorId}`, payload).then(unwrap),
   remove: (factorId) => api.delete(`/api/factors/${factorId}`).then(unwrap),
+
+  // Admin-only - provenance: how many saved records this factor's current
+  // edit left stale, and bringing them up to date. See backend/routes/
+  // factors.py's PROVENANCE note and factor_impact/recalculate_factor.
+  impact: (factorId) => api.get(`/api/factors/${factorId}/impact`).then(unwrap),
+  recalculate: (factorId) => api.post(`/api/factors/${factorId}/recalculate`).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
@@ -265,6 +271,12 @@ export const carbonApi = {
   // ActivityLog.jsx's ImportModal. The backend re-validates and
   // recalculates every row exactly as a manual entry would.
   importRecords: (csv) => api.post('/api/carbon/import', { csv }).then(unwrap),
+
+  // Data quality - see backend/routes/carbon.py's module docstring.
+  // A dry run: nothing is saved. {category, subType, quantity} in,
+  // {flagged, reason, sampleSize, medianQuantity} out.
+  checkQuantity: (payload) => api.post('/api/carbon/check', payload).then(unwrap),
+  getQualityScore: () => api.get('/api/carbon/quality-score').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
@@ -376,6 +388,18 @@ export const adminApi = {
   // AdminDashboard.jsx's invite form.
   inviteAdmin: (email, name) =>
     api.post('/api/admin/invite', { email, name }, { skipErrorToast: true }).then(unwrap),
+
+  // Manage the researcher role - see backend/routes/admin.py's
+  // list_researchers/add_researcher/remove_researcher and
+  // frontend/src/pages/ResearchDashboard.jsx, the page it grants access to.
+  getResearchers: () => api.get('/api/admin/researchers').then(unwrap),
+  addResearcher: (email) =>
+    api.post('/api/admin/researchers', { email }, { skipErrorToast: true }).then(unwrap),
+  removeResearcher: (uid) => api.delete(`/api/admin/researchers/${uid}`).then(unwrap),
+
+  // Platform-wide view of routes/carbon.py's anomaly flag - see
+  // backend/routes/admin.py's data_quality().
+  getDataQuality: () => api.get('/api/admin/data-quality').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------
@@ -492,6 +516,16 @@ export const insightsApi = {
 
   // Time-of-day grid carbon intensity - see backend/grid_engine.py.
   getGrid: () => api.get('/api/insights/grid').then(unwrap),
+
+  // "Run this at 11pm instead of 7pm" - built on the same model as getGrid.
+  // See backend/grid_engine.py's best_time_to_run and APPLIANCE_CATALOG.
+  getAppliances: () => api.get('/api/insights/appliances').then(unwrap),
+  getApplianceSchedule: (appliance) =>
+    api.get('/api/insights/appliance-schedule', { params: { appliance } }).then(unwrap),
+
+  // Current air quality at the user's region - see
+  // backend/air_quality_engine.py's module docstring.
+  getAirQuality: () => api.get('/api/insights/air-quality').then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

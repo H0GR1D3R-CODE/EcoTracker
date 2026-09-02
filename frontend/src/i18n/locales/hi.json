@@ -24,7 +24,8 @@
     "openMenu": "मेनू खोलें",
     "closeMenu": "मेनू बंद करें",
     "switchToDarkMode": "डार्क मोड में बदलें",
-    "switchToLightMode": "लाइट मोड में बदलें"
+    "switchToLightMode": "लाइट मोड में बदलें",
+    "research": "शोध"
   },
   "home": {
     "atmosphericTag": "और बढ़ रहा है",
@@ -158,5 +159,21 @@
     "couldNotLoad": "आपका डैशबोर्ड लोड नहीं हो सका",
     "tryAgain": "फिर से कोशिश करें",
     "wakingServer": "सर्वर को जगाया जा रहा है — शांत अवधि के बाद पहले अनुरोध में कुछ सेकंड लग सकते हैं।"
+  },
+  "calculator": {
+    "subtitle": "एक श्रेणी चुनें, आपने जो किया उसे दर्ज करें, और सहेजने से पहले उत्सर्जन देखें।",
+    "dateLabel": "तिथि",
+    "submitIdle": "यह उत्सर्जन दर्ज करें",
+    "submitSaving": "सहेजा जा रहा है…",
+    "submitChecking": "जांच हो रही है…",
+    "anomalyTitle": "यह असामान्य लगता है",
+    "anomalyBody": "{{reason}} अगर यह सही है, तो इसे ऐसे ही दर्ज करें।",
+    "anomalyFixIt": "मुझे इसे ठीक करने दें",
+    "anomalyLogAnyway": "फिर भी दर्ज करें",
+    "savedToRecord": "आपके रिकॉर्ड में सहेजा गया",
+    "ofDailyAverage": "आपके दैनिक औसत का",
+    "averageNote": "पिछले 30 दिनों में आपका औसत {{value}} प्रतिदिन है।",
+    "computedWith": "{{factorValue}} किलो CO₂/{{unit}} से गणना की गई — {{source}}",
+    "budgetNote": "इस वर्ष आपका जलवायु-सुरक्षित बजट लगभग {{value}} किलो/महीना है।"
   }
 }

@@ -563,6 +563,18 @@ export default function ActivityLog() {
                         <td style={{ color: meta?.color }}>{formatCategory(record.category)}</td>
                         <td>{formatSubType(record.subType)}</td>
                         <td className="eco-text-muted">
+                          {record.flaggedAnomaly && (
+                            /* Data quality flag from POST /api/carbon/calculate's
+                               own anomaly check (or a later edit) - see
+                               backend/routes/carbon.py's module docstring.
+                               Informational only, never blocks or hides
+                               the entry. */
+                            <AlertCircle
+                              size={13}
+                              style={{ color: 'var(--eco-warning, #b8860b)', marginRight: 5, verticalAlign: -2 }}
+                              title={record.anomalyReason || 'Unusual compared to your own history'}
+                            />
+                          )}
                           {record.quantity} {record.unit}
                         </td>
                         <td className="eco-readout" style={{ fontWeight: 500 }}>

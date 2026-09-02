@@ -17,6 +17,7 @@ from routes.household import (  # noqa: E402
     INVITE_CODE_LENGTH,
     MAX_CLASSROOM_MEMBERS,
     MAX_HOUSEHOLD_MEMBERS,
+    MAX_WORKPLACE_MEMBERS,
     VALID_GROUP_TYPES,
     _max_members,
 )
@@ -42,17 +43,22 @@ def test_invite_code_length_and_member_cap_are_sane():
     assert MAX_HOUSEHOLD_MEMBERS == 10
 
 
-def test_classroom_cap_is_larger_than_household():
-    # The whole point of a second groupType - see MAX_CLASSROOM_MEMBERS'
-    # own comment for why a classroom/team needs to scale past a family.
+def test_classroom_and_workplace_caps_are_larger_than_household():
+    # The whole point of a second/third groupType - see MAX_CLASSROOM_MEMBERS
+    # and MAX_WORKPLACE_MEMBERS' own comments for why each needs to scale
+    # past a family, and past each other (a workplace can be bigger than a
+    # single class).
     assert MAX_CLASSROOM_MEMBERS > MAX_HOUSEHOLD_MEMBERS
+    assert MAX_WORKPLACE_MEMBERS > MAX_CLASSROOM_MEMBERS
     assert "household" in VALID_GROUP_TYPES
     assert "classroom" in VALID_GROUP_TYPES
+    assert "workplace" in VALID_GROUP_TYPES
 
 
 def test_max_members_picks_the_right_cap_per_group_type():
     assert _max_members("household") == MAX_HOUSEHOLD_MEMBERS
     assert _max_members("classroom") == MAX_CLASSROOM_MEMBERS
+    assert _max_members("workplace") == MAX_WORKPLACE_MEMBERS
     # An unset/unknown groupType (every household created before this
     # feature existed) must default to the original, smaller cap - not
     # silently let old households grow past what they signed up for.

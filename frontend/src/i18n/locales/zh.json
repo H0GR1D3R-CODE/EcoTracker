@@ -24,7 +24,8 @@
     "openMenu": "打开菜单",
     "closeMenu": "关闭菜单",
     "switchToDarkMode": "切换到深色模式",
-    "switchToLightMode": "切换到浅色模式"
+    "switchToLightMode": "切换到浅色模式",
+    "research": "研究"
   },
   "home": {
     "atmosphericTag": "且仍在上升",

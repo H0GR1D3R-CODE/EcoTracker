@@ -592,6 +592,9 @@ export function AuthProvider({ children }) {
       // Hiding the admin link is convenience, not security: every admin route
       // re-checks the admins collection server-side on every request.
       isAdmin: Boolean(profile?.isAdmin),
+      // Same reasoning as isAdmin just above, for the narrower read-only
+      // research role - see backend/routes/admin.py's researcher routes.
+      isResearcher: Boolean(profile?.isResearcher),
       twoFactorPending,
       twoFactorEmail,
       register,

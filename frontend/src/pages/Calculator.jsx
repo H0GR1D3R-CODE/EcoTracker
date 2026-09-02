@@ -17,10 +17,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { AlertCircle, CheckCircle2, CloudOff, Info, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
 
 import { carbonApi, factorsApi, getErrorMessage } from '../utils/api';
+import { currentMonthlyBudgetKg } from '../utils/carbonBudget';
 import { flushOutbox, getQueuedRecords, queueRecord, removeQueuedRecord } from '../utils/offlineOutbox';
 import { useTheme } from '../context/ThemeContext';
 import GoalRing from '../components/GoalRing';
@@ -32,6 +34,7 @@ import Reveal from '../components/Reveal';
 import QuickLogChips from '../components/QuickLogChips';
 import BillScanner from '../components/BillScanner';
 import VoiceLogger from '../components/VoiceLogger';
+import TripMeter from '../components/TripMeter';
 import { CATEGORY_ICONS } from '../utils/categoryIcons';
 import {
   CATEGORY_META,
@@ -63,7 +66,10 @@ const QUICK_AMOUNTS = {
   item: [1, 2, 3, 5],
 };
 
-// A climate-safe personal footprint is ~2 tonnes a year, so ~167 kg a month.
+// A climate-safe personal footprint - a five-year glidepath from 2 tonnes a
+// year down to 1.5 by 2030, not a flat number forever. See
+// utils/carbonBudget.js for the shared figure (backend/carbon_budget.py's
+// exact JS mirror) and its own module docstring for the full reasoning.
 //
 // MONTHLY, not daily, and that matters. An entry does not represent a day: an
 // electricity reading is usually a whole month's bill, and a laptop is a one-off
@@ -71,7 +77,7 @@ const QUICK_AMOUNTS = {
 // 100 kWh bill reads "1296%", which is alarming and meaningless. Against the
 // month it reads 43%, which is both true and useful - a contribution to the
 // month, with no claim about how long the activity took.
-const MONTHLY_BUDGET_KG = 2000 / 12;
+const MONTHLY_BUDGET_KG = currentMonthlyBudgetKg();
 
 // Emission factors barely change (an admin edits them, not a user), so
 // caching the last successful fetch in localStorage is what lets the
@@ -119,6 +125,7 @@ function pendingToDisplayRecord(entry) {
 }
 
 export default function Calculator() {
+  const { t } = useTranslation();
   const { prefersReducedMotion } = useTheme();
 
   // --- emission factors, loaded once from the public API ---
@@ -133,6 +140,14 @@ export default function Calculator() {
   const [recordedDate, setRecordedDate] = useState(todayISO());
   const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Data quality: set when POST /api/carbon/check (a dry run - see
+  // backend/routes/carbon.py's module docstring) flags the quantity just
+  // typed as unusual for this user's own history. Holding the payload here
+  // is what lets "Log anyway" submit the exact same entry a second later
+  // without re-running validation.
+  const [pendingAnomaly, setPendingAnomaly] = useState(null);
+  const [checkingAnomaly, setCheckingAnomaly] = useState(false);
 
   // --- what came back from the last successful submit ---
   const [result, setResult] = useState(null);
@@ -276,6 +291,14 @@ export default function Calculator() {
   };
   const isValid = !errors.quantity && !errors.recordedDate && !errors.subType;
 
+  // The pending "unusual entry" confirmation only ever applies to the exact
+  // quantity/sub-type it was raised for - if the user edits any of those
+  // instead of confirming, the stale banner should disappear rather than
+  // silently attach itself to whatever is typed next.
+  useEffect(() => {
+    setPendingAnomaly(null);
+  }, [quantity, subType, category]);
+
   const handleCategoryChange = (nextCategory) => {
     setCategory(nextCategory);
     // Clearing the result stops a card about transport hanging around after the
@@ -284,22 +307,11 @@ export default function Calculator() {
     setTouched({});
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    setTouched({ quantity: true, recordedDate: true, subType: true });
-    if (!isValid || submitting || !selectedFactor) return;
-
+  // The actual save - shared by the normal path and "Log anyway" below, so
+  // an unusual-but-confirmed entry goes through the exact same offline
+  // fallback and result handling as an ordinary one.
+  const saveRecord = async (payload) => {
     setSubmitting(true);
-
-    const payload = {
-      category,
-      subType,
-      quantity: parseFloat(quantity),
-      unit: selectedFactor.unit,
-      recordedDate,
-    };
-
     try {
       const data = await carbonApi.calculate(payload);
 
@@ -311,6 +323,7 @@ export default function Calculator() {
       // similar things in one sitting
       setQuantity('');
       setTouched({});
+      setPendingAnomaly(null);
 
       loadRecords();
     } catch (error) {
@@ -318,11 +331,12 @@ export default function Calculator() {
         // Not a real rejection - the request never reached the server, so
         // this is queued rather than lost. localEmissionKg is the exact
         // same figure the live preview already showed for this entry.
-        const localEmissionKg = calculateEmission(quantity, selectedFactor.factorValue);
+        const localEmissionKg = calculateEmission(payload.quantity, selectedFactor.factorValue);
         await queueRecord(payload, localEmissionKg);
         toast.success(`Saved offline (${formatEmission(localEmissionKg)}) - will sync once you're back online.`);
         setQuantity('');
         setTouched({});
+        setPendingAnomaly(null);
         refreshPending();
       } else {
         toast.error(getErrorMessage(error, 'Could not save that entry.'));
@@ -330,6 +344,51 @@ export default function Calculator() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    setTouched({ quantity: true, recordedDate: true, subType: true });
+    if (!isValid || submitting || checkingAnomaly || !selectedFactor) return;
+
+    const payload = {
+      category,
+      subType,
+      quantity: parseFloat(quantity),
+      unit: selectedFactor.unit,
+      recordedDate,
+    };
+
+    // A dry run BEFORE saving - see backend/routes/carbon.py's module
+    // docstring. Skipped only when the pending confirmation already on
+    // screen is for this exact entry (the user already said "log anyway"
+    // and nothing has changed since) - handleLogAnyway below covers that
+    // path directly instead.
+    setCheckingAnomaly(true);
+    try {
+      const check = await carbonApi.checkQuantity({
+        category: payload.category,
+        subType: payload.subType,
+        quantity: payload.quantity,
+      });
+      if (check.flagged) {
+        setPendingAnomaly({ payload, ...check });
+        return;
+      }
+    } catch {
+      // The check itself failing (offline, a slow cold start) should never
+      // block logging - fall through and save normally, the same as if
+      // nothing had been flagged.
+    } finally {
+      setCheckingAnomaly(false);
+    }
+
+    await saveRecord(payload);
+  };
+
+  const handleLogAnyway = () => {
+    if (pendingAnomaly) saveRecord(pendingAnomaly.payload);
   };
 
   const handleDelete = async (recordId) => {
@@ -416,7 +475,7 @@ export default function Calculator() {
         eyebrow="Measure your impact"
         title="Carbon"
         titleAccent="Calculator"
-        subtitle="Pick a category, enter what you did, and see the emissions before you save."
+        subtitle={t('calculator.subtitle')}
       />
 
       {/* ============ BILL SCANNER ============ */}
@@ -630,6 +689,19 @@ export default function Calculator() {
                   })}
                 </div>
               )}
+
+              {/* Manual GPS trip measurement - transport-by-distance
+                  categories only, see TripMeter.jsx's own module comment
+                  for why this is two taps and never continuous tracking. */}
+              {category === 'transport' && selectedFactor?.unit === 'km' && (
+                <TripMeter
+                  disabled={submitting}
+                  onMeasured={(km) => {
+                    setQuantity(String(km));
+                    setTouched((prev) => ({ ...prev, quantity: true }));
+                  }}
+                />
+              )}
             </div>
 
             {/* Date */}
@@ -647,7 +719,7 @@ export default function Calculator() {
                   max={todayISO()}
                   disabled={submitting}
                 />
-                <label htmlFor="calc-date">Date</label>
+                <label htmlFor="calc-date">{t('calculator.dateLabel')}</label>
               </div>
               {touched.recordedDate && errors.recordedDate && (
                 <div className="eco-field-error">
@@ -657,21 +729,74 @@ export default function Calculator() {
               )}
             </div>
 
+            {/* Data quality: an unusual-for-this-user quantity, caught by
+                POST /api/carbon/check BEFORE anything is saved - see
+                backend/routes/carbon.py's module docstring. Never a hard
+                block: "Log anyway" saves the exact entry just checked. */}
+            {pendingAnomaly && (
+              <div
+                className="eco-card"
+                style={{
+                  marginBottom: '0.9rem',
+                  padding: '0.9rem 1rem',
+                  border: '1px solid var(--eco-warning, #b8860b)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.6rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+                  <AlertCircle size={17} style={{ color: 'var(--eco-warning, #b8860b)', flexShrink: 0, marginTop: 2 }} />
+                  <div style={{ fontSize: '0.85rem' }}>
+                    <strong>{t('calculator.anomalyTitle')}</strong>
+                    <p className="eco-text-muted" style={{ margin: '0.2rem 0 0', fontSize: '0.82rem' }}>
+                      {t('calculator.anomalyBody', { reason: pendingAnomaly.reason })}
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="eco-btn eco-btn-ghost"
+                    style={{ flex: 1, fontSize: '0.82rem', padding: '0.5rem' }}
+                    onClick={() => setPendingAnomaly(null)}
+                    disabled={submitting}
+                  >
+                    {t('calculator.anomalyFixIt')}
+                  </button>
+                  <button
+                    type="button"
+                    className="eco-btn eco-btn-primary"
+                    style={{ flex: 1, fontSize: '0.82rem', padding: '0.5rem' }}
+                    onClick={handleLogAnyway}
+                    disabled={submitting}
+                  >
+                    {t('calculator.anomalyLogAnyway')}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button
               type="submit"
               className="eco-btn eco-btn-primary"
               style={{ width: '100%', marginTop: '0.6rem', padding: '0.85rem' }}
-              disabled={submitting || !isValid}
+              disabled={submitting || checkingAnomaly || !isValid || Boolean(pendingAnomaly)}
             >
               {submitting ? (
                 <>
                   <Loader2 size={17} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
-                  Saving…
+                  {t('calculator.submitSaving')}
+                </>
+              ) : checkingAnomaly ? (
+                <>
+                  <Loader2 size={17} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+                  {t('calculator.submitChecking')}
                 </>
               ) : (
                 <>
                   <Plus size={17} />
-                  Log this emission
+                  {t('calculator.submitIdle')}
                 </>
               )}
             </button>
@@ -812,7 +937,7 @@ export default function Calculator() {
                       margin: '0.45rem 0 0',
                     }}
                   >
-                    A 2-tonne year works out at {formatNumber(MONTHLY_BUDGET_KG, 0)} kg a month.
+                    {t('calculator.budgetNote', { value: formatNumber(MONTHLY_BUDGET_KG, 0) })}
                   </p>
                 </div>
 
@@ -889,7 +1014,7 @@ export default function Calculator() {
                 >
                   <CheckCircle2 size={17} />
                   <span className="eco-marker" style={{ color: 'var(--eco-primary)' }}>
-                    Saved to your record
+                    {t('calculator.savedToRecord')}
                   </span>
                 </div>
 
@@ -909,7 +1034,7 @@ export default function Calculator() {
                         ? `${Math.round(result.percentOfDailyAverage)}%`
                         : '—'
                     }
-                    sublabel="of your daily average"
+                    sublabel={t('calculator.ofDailyAverage')}
                   />
                 </div>
 
@@ -950,8 +1075,30 @@ export default function Calculator() {
                       marginBottom: 0,
                     }}
                   >
-                    Your average is {formatEmission(result.dailyAverage)} per day
-                    over the last 30 days.
+                    {t('calculator.averageNote', { value: formatEmission(result.dailyAverage) })}
+                  </p>
+                )}
+
+                {/* Provenance: which published factor this exact figure came
+                    from, so it stays reproducible even if that factor is
+                    later revised - see backend/routes/factors.py's
+                    PROVENANCE note. */}
+                {result.factorSource && (
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.65rem',
+                      color: 'var(--eco-text-muted)',
+                      opacity: 0.6,
+                      marginTop: '0.4rem',
+                      marginBottom: 0,
+                    }}
+                  >
+                    {t('calculator.computedWith', {
+                      factorValue: result.factorUsed,
+                      unit: result.record?.unit,
+                      source: result.factorSource,
+                    })}
                   </p>
                 )}
               </div>

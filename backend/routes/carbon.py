@@ -13,11 +13,38 @@ The emission factor is never hardcoded here. It is read from the
 emissionFactors collection in Firestore every time, so an admin can update a
 factor when a new DEFRA or IPCC report is published without any code change.
 
+DATA QUALITY: FLAGGING AN UNUSUAL ENTRY, NEVER BLOCKING ONE
+-------------------------------------------------------------
+"3,000 km of driving, logged as one day's petrol_car entry" is almost always
+a typo (a missing decimal point, a stray zero), not a real commute - and a
+single entry like that quietly drags the /insights forecast's prediction
+interval and the dashboard's own average out of shape until someone notices
+by eye. _anomaly_check compares a new quantity against THIS user's own
+recent history for that exact category+subType using a modified z-score
+(median and median absolute deviation, not mean/stddev - MAD stays stable
+even though the very outlier being tested is itself in the sample, which a
+mean-based test would not: Iglewicz & Hoaglin, NIST/SEMATECH e-Handbook of
+Statistical Methods, 2012).
+
+This never rejects a save - see save_calculated_record's own "never a
+different number for what was already drawn" reasoning in grid_engine.py,
+applied here to REJECTING rather than reframing: a real 3,000 km trip is
+rare but not impossible, and refusing to log it would be a worse failure
+than logging it with a flag. Two things use the flag instead:
+  1. POST /api/carbon/check - a dry run the Calculator page calls BEFORE
+     submitting, so a typo can be caught and fixed before it is ever saved.
+  2. Every save (including a CSV import row) stores flaggedAnomaly on the
+     record regardless of whether the frontend checked first, so GET
+     /api/carbon/quality-score and an admin's data-quality view both have a
+     real, complete signal to work from - never just an unenforced client
+     convention.
+
 Mounted at /api/carbon
 """
 
 import csv
 import io
+import statistics
 from datetime import date, timedelta
 
 from flask import Blueprint, g, request
@@ -55,6 +82,85 @@ SEVERITY_MEDIUM_MAX = 20.0
 # How many days of history the "compared to your daily average" ring looks at
 DAILY_AVERAGE_WINDOW_DAYS = 30
 
+# --- Data quality / anomaly detection - see this file's own module
+# docstring for the full reasoning. ---
+
+# How far back _anomaly_check looks to build "this user's usual range" for
+# one category+subType. Half a year, not the user's whole history: recent
+# behaviour (a new commute, a house move) should be what "usual" means, not
+# something from a year ago diluting a real, lasting change.
+ANOMALY_HISTORY_WINDOW_DAYS = 180
+
+# Need at least this many past entries for the SAME category+subType before
+# a modified z-score means anything - three data points cannot tell a real
+# pattern from a coincidence, so with fewer than this, nothing is flagged.
+ANOMALY_MIN_HISTORY = 5
+
+# The standard Iglewicz & Hoaglin cutoff for "unusual enough to look twice
+# at" (|modified z-score| > 3.5) - loose enough that ordinary day-to-day
+# variation never trips it, tight enough to catch a stray extra digit.
+ANOMALY_ZSCORE_THRESHOLD = 3.5
+
+
+def _median_absolute_deviation(values, median):
+    """MAD: the median of each value's absolute distance from the median -
+    a spread measure that, unlike standard deviation, is not itself dragged
+    around by the one outlier being tested."""
+    return statistics.median(abs(v - median) for v in values)
+
+
+def _anomaly_check(uid, category, sub_type, quantity):
+    """
+    Compare `quantity` against this user's own recent history for this
+    exact category+subType. Returns a dict, never raises, never blocks a
+    save - see this file's module docstring.
+
+    {"flagged": bool, "reason": str | None, "sampleSize": int,
+     "medianQuantity": float | None}
+    """
+    window_start = (date.today() - timedelta(days=ANOMALY_HISTORY_WINDOW_DAYS)).isoformat()
+    records = fetch_user_records(uid, start_date=window_start, end_date=today_string())
+    quantities = [
+        float(r["quantity"]) for r in records
+        if r["category"] == category and r["subType"] == sub_type
+    ]
+
+    if len(quantities) < ANOMALY_MIN_HISTORY:
+        return {"flagged": False, "reason": None, "sampleSize": len(quantities), "medianQuantity": None}
+
+    median = statistics.median(quantities)
+    mad = _median_absolute_deviation(quantities, median)
+
+    # A MAD of exactly zero means every past entry was identical - the
+    # honest reading is "any different value at all deserves a second
+    # look", not "undefined, so never flag". A small fraction of the
+    # median (or a flat floor when the median is itself 0, e.g. the
+    # bicycle/solar factors) keeps that literal without dividing by zero.
+    if mad == 0:
+        mad = median * 0.05 if median > 0 else 1.0
+
+    # 0.6745 rescales MAD to be comparable to a standard deviation for a
+    # normal distribution - the standard modified z-score constant.
+    modified_z = 0.6745 * (quantity - median) / mad
+
+    if abs(modified_z) <= ANOMALY_ZSCORE_THRESHOLD:
+        return {"flagged": False, "reason": None, "sampleSize": len(quantities), "medianQuantity": round(median, 3)}
+
+    direction = "above" if modified_z > 0 else "below"
+    multiple = round(quantity / median, 1) if median > 0 else None
+    reason = (
+        f"{multiple}x your usual amount for this activity ({round(median, 2)} typical)"
+        if multiple else
+        f"Unusually far {direction} your usual amount for this activity ({round(median, 2)} typical)"
+    )
+
+    return {
+        "flagged": True,
+        "reason": reason,
+        "sampleSize": len(quantities),
+        "medianQuantity": round(median, 3),
+    }
+
 
 # ---------------------------------------------------------------------------
 # Helpers used only inside this file
@@ -84,17 +190,25 @@ def _find_emission_factor(category, sub_type, preferred_region=""):
             "Please pick a different option."
         )
 
-    chosen = matches[0].to_dict()
+    chosen_doc = matches[0]
 
     # Prefer a factor defined for this user's region, if one exists
     if preferred_region:
         for doc in matches:
             data = doc.to_dict()
             if str(data.get("region", "")).lower() == preferred_region.lower():
-                chosen = data
+                chosen_doc = doc
                 break
 
+    chosen = chosen_doc.to_dict()
+
     return {
+        # The document id and version are what make a saved record
+        # reproducible later - see PROVENANCE in this file's module
+        # docstring. Without them a record is just a number nobody can
+        # re-derive once an admin edits the factor it came from.
+        "id": chosen_doc.id,
+        "version": int(chosen.get("version", 1)),
         "factorValue": float(chosen.get("factorValue", 0)),
         "unit": chosen.get("unit", ""),
         "region": chosen.get("region", ""),
@@ -206,6 +320,11 @@ def save_calculated_record(uid, category, sub_type, quantity_raw, unit, recorded
     # THE CALCULATION
     emission = round(quantity * factor["factorValue"], 3)
 
+    # Computed and stored on every save regardless of whether the frontend
+    # already ran POST /api/carbon/check first (a CSV import row never
+    # does) - see this file's module docstring.
+    anomaly = _anomaly_check(uid, category, sub_type, quantity)
+
     db = get_db()
     record_ref = db.collection(Config.COLLECTION_CARBON_RECORDS).document()
     record_ref.set({
@@ -217,6 +336,17 @@ def save_calculated_record(uid, category, sub_type, quantity_raw, unit, recorded
         "emissionKgco2": emission,
         "recordedDate": recorded_date.isoformat(),
         "createdAt": gcloud_firestore.SERVER_TIMESTAMP,
+        # Provenance - see routes/factors.py's PROVENANCE note. Stored once,
+        # here, never re-fetched live: if an admin later edits this factor,
+        # this record keeps saying what actually computed it until (and
+        # unless) an admin explicitly runs POST /api/factors/<id>/recalculate.
+        "factorId": factor["id"],
+        "factorVersion": factor["version"],
+        "factorValue": factor["factorValue"],
+        "factorSource": factor["source"],
+        # Data quality - see _anomaly_check above.
+        "flaggedAnomaly": anomaly["flagged"],
+        "anomalyReason": anomaly["reason"],
     })
 
     saved = serialize_record(record_ref.get())
@@ -234,6 +364,7 @@ def save_calculated_record(uid, category, sub_type, quantity_raw, unit, recorded
         "severity": _severity_for(emission),
         "dailyAverage": daily_average,
         "percentOfDailyAverage": percent_of_average,
+        "anomaly": anomaly,
     }, None
 
 
@@ -264,6 +395,89 @@ def calculate():
         message=f"Logged {result['emissionKgco2']} kg CO2 for {result['record']['subType'].replace('_', ' ')}.",
         status=201,
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/carbon/check     (dry run - no save, no side effects)
+# ---------------------------------------------------------------------------
+
+@carbon_bp.route("/check", methods=["POST"])
+@require_auth
+def check_quantity():
+    """
+    Run _anomaly_check without saving anything - the Calculator page calls
+    this right before submitting, so a typo (an extra zero, a missing
+    decimal point) can be caught and fixed before it is ever logged rather
+    than after. See this file's module docstring.
+
+    Body: {"category": "transport", "subType": "petrol_car", "quantity": 30}
+    """
+    body = request.get_json(silent=True) or {}
+    category = str(body.get("category", "")).strip().lower()
+    sub_type = str(body.get("subType", "")).strip().lower()
+
+    if category not in Config.CATEGORIES:
+        return api_error(
+            f"Invalid category. Choose one of: {', '.join(Config.CATEGORIES)}.",
+            400,
+            code="invalid_category",
+        )
+    if not sub_type:
+        return api_error("subType is required.", 400, code="missing_sub_type")
+
+    try:
+        quantity = float(body.get("quantity"))
+    except (TypeError, ValueError):
+        return api_error("Quantity must be a number.", 400, code="invalid_quantity")
+    if quantity <= 0:
+        return api_error("Quantity must be greater than zero.", 400, code="invalid_quantity")
+
+    return api_success(_anomaly_check(g.uid, category, sub_type, quantity))
+
+
+# ---------------------------------------------------------------------------
+# GET /api/carbon/quality-score
+# ---------------------------------------------------------------------------
+
+@carbon_bp.route("/quality-score", methods=["GET"])
+@require_auth
+def quality_score():
+    """
+    How much of this user's recent logging looks clean vs. flagged as an
+    outlier by _anomaly_check at the time it was saved - a rough, honest
+    signal of how much to trust their own recent trend, not a judgement of
+    the person (a genuinely unusual week is still real data, just data
+    worth a second look).
+
+    Missing data (score 100, no penalty) beats a fabricated one: someone
+    who has logged nothing yet has not made an error either.
+    """
+    window_start = (date.today() - timedelta(days=ANOMALY_HISTORY_WINDOW_DAYS)).isoformat()
+    records = fetch_user_records(g.uid, start_date=window_start, end_date=today_string())
+
+    total = len(records)
+    flagged = [r for r in records if r.get("flaggedAnomaly")]
+
+    score = round(100 * (1 - len(flagged) / total), 1) if total else 100.0
+
+    return api_success({
+        "score": score,
+        "totalRecords": total,
+        "flaggedCount": len(flagged),
+        # Most recent first, capped - enough to show without the response
+        # growing with the user's whole history.
+        "recentFlags": [
+            {
+                "id": r["id"],
+                "category": r["category"],
+                "subType": r["subType"],
+                "quantity": r["quantity"],
+                "recordedDate": r["recordedDate"],
+                "reason": r.get("anomalyReason"),
+            }
+            for r in sorted(flagged, key=lambda r: r["recordedDate"], reverse=True)[:10]
+        ],
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -491,6 +705,7 @@ def update_record(record_id):
         )
 
     emission = round(quantity * factor["factorValue"], 3)
+    anomaly = _anomaly_check(g.uid, category, sub_type, quantity)
 
     record_ref.update({
         "subType": sub_type,
@@ -498,6 +713,15 @@ def update_record(record_id):
         "unit": factor["unit"] or unit or existing.get("unit"),
         "emissionKgco2": emission,
         "recordedDate": recorded_date.isoformat(),
+        "flaggedAnomaly": anomaly["flagged"],
+        "anomalyReason": anomaly["reason"],
+        # Re-run through the same factor lookup as a fresh save, so an edited
+        # record's provenance reflects whatever factor actually computed its
+        # NEW emissionKgco2 - see routes/factors.py's PROVENANCE note.
+        "factorId": factor["id"],
+        "factorVersion": factor["version"],
+        "factorValue": factor["factorValue"],
+        "factorSource": factor["source"],
     })
 
     return api_success(

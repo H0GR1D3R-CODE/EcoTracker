@@ -24,7 +24,8 @@
     "openMenu": "メニューを開く",
     "closeMenu": "メニューを閉じる",
     "switchToDarkMode": "ダークモードに切り替え",
-    "switchToLightMode": "ライトモードに切り替え"
+    "switchToLightMode": "ライトモードに切り替え",
+    "research": "研究"
   },
   "home": {
     "atmosphericTag": "そして今も上昇中",

@@ -24,7 +24,8 @@
     "openMenu": "Ouvrir le menu",
     "closeMenu": "Fermer le menu",
     "switchToDarkMode": "Passer en mode sombre",
-    "switchToLightMode": "Passer en mode clair"
+    "switchToLightMode": "Passer en mode clair",
+    "research": "Recherche"
   },
   "home": {
     "atmosphericTag": "et ça continue de grimper",

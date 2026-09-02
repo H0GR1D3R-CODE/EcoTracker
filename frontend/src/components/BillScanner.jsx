@@ -1,6 +1,8 @@
 // EcoTrack/frontend/src/components/BillScanner.jsx
-// Photograph a bill or receipt and let Groq's vision model read the
-// quantity off it, instead of typing it in by hand. See
+// Photograph a bill, receipt, or the product itself (packaging/label) and
+// let Groq's vision model read the quantity off it, instead of typing it
+// in by hand - this app's "barcode scanner", without an actual barcode.
+// See
 // backend/routes/ingest.py for the extraction route (and its
 // BILL_EXTRACTION_INSTRUCTION for the full list of what it recognises) -
 // it saves nothing itself; this component only ever PRE-FILLS the
@@ -208,12 +210,13 @@ export default function BillScanner({ onExtracted }) {
             <Sparkles size={12} /> AI-powered
           </span>
           <h2 className="eco-display" style={{ margin: '0 0 0.3rem', fontSize: '1.15rem' }}>
-            Scan a bill instead of typing it in
+            Scan a bill or product instead of typing it in
           </h2>
           <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.5 }}>
-            A photo of an electricity bill, fuel receipt, water bill or
-            shopping invoice. We'll read the category, type and quantity off
-            it for you.
+            A photo of an electricity bill, fuel receipt, water bill, shopping
+            invoice - or just the product itself (its packaging or a clothing
+            tag) when you don't have a receipt. We'll read the category, type
+            and quantity off it for you.
           </p>
         </div>
 

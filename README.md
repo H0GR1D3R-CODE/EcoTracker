@@ -150,7 +150,11 @@ published emission factors, send feedback, and donate without an account.
 | POST | `/api/auth/2fa/resend`, `/api/auth/2fa/verify` | The 2FA sign-in step |
 | GET | `/api/factors` | **Public.** Emission factors, grouped by category |
 | GET | `/api/factors/:category/:subType` | A single factor, for the live preview |
+| GET | `/api/factors/:id/impact` | **Admin only.** How many saved records used an older version of this factor |
+| POST | `/api/factors/:id/recalculate` | **Admin only.** Bring those records' emissionKgco2 up to date with the current value |
 | POST | `/api/carbon/calculate` | Calculate and save an emission record |
+| POST | `/api/carbon/check` | Dry run: flags a quantity unusual for your own history, saves nothing |
+| GET | `/api/carbon/quality-score` | How much of your recent logging was flagged as unusual |
 | GET | `/api/carbon/records` | Records for `?month=YYYY-MM` or `?year=YYYY` |
 | DELETE | `/api/carbon/records/:id` | Delete one of your own records |
 | GET | `/api/dashboard/summary` | Every dashboard figure in one request |
@@ -164,6 +168,9 @@ published emission factors, send feedback, and donate without an account.
 | GET | `/api/insights/swaps` | Ranked, cited counterfactual swaps + a MACC curve |
 | POST | `/api/insights/simulate` | Authoritative recompute behind the what-if sandbox |
 | GET | `/api/insights/cohort` | Percentile vs. your region (k-anonymised, n≥10 only) |
+| GET | `/api/insights/grid` | Time-of-day grid carbon intensity nudge for your region |
+| GET | `/api/insights/appliances`, `/api/insights/appliance-schedule` | "Run this at 11pm instead of 7pm" for one appliance |
+| GET | `/api/insights/air-quality` | Current AQI at your region, with a health-framed nudge |
 | GET / POST | `/api/templates` | List / create quick-log templates |
 | DELETE | `/api/templates/:id` | Delete a template |
 | POST | `/api/templates/:id/log` | One-tap log from a saved template |
@@ -186,7 +193,12 @@ published emission factors, send feedback, and donate without an account.
 | GET | `/api/admin/feedback`, `/api/admin/donations` | **Admin only.** |
 | DELETE | `/api/admin/feedback/:id`, `/api/admin/donations/:id` | **Admin only.** |
 | GET | `/api/admin/system` | **Admin only.** Live health of every dependency |
-| GET | `/api/admin/research/export` | **Admin only.** Anonymised CSV of every logged intervention |
+| GET | `/api/admin/data-quality` | **Admin only.** Platform-wide view of flagged/unusual entries |
+| GET | `/api/admin/researchers` | **Admin only.** Who currently holds read-only research access |
+| POST | `/api/admin/researchers` | **Admin only.** Grant research access to an existing account, by email |
+| DELETE | `/api/admin/researchers/:uid` | **Admin only.** Revoke research access |
+| GET | `/api/admin/research/export` | **Admin or researcher.** Anonymised CSV of every logged intervention |
+| GET | `/api/admin/research/stats` | **Admin or researcher.** Adoption rates and impact, pre-aggregated |
 
 ---
 
@@ -232,6 +244,14 @@ hole. Do it once by hand:
 2. **Firebase Console → Authentication** → copy your User UID
 3. **Firestore** → create a collection `admins` → document ID = that UID
 4. Add fields: `name` (string), `email` (string), `createdAt` (timestamp)
+
+### Granting research access
+
+A narrower, read-only role - the anonymised intervention export and adoption
+stats only, none of an admin's other powers. Unlike the first admin above,
+this is a normal, in-app admin action: **Admin console → Research → Research
+access**, or `POST /api/admin/researchers` with `{"email": "..."}` for an
+account that has already registered.
 
 ---
 

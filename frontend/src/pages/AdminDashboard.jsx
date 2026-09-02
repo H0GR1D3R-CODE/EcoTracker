@@ -40,6 +40,7 @@ import {
   Search,
   Send,
   Shield,
+  ShieldAlert,
   Sigma,
   Star,
   Target,
@@ -129,6 +130,14 @@ export default function AdminDashboard() {
   const [researchStats, setResearchStats] = useState(null);
   const [researchStatsLoading, setResearchStatsLoading] = useState(false);
 
+  // Who currently holds the researcher role - see backend/routes/admin.py's
+  // list_researchers/add_researcher/remove_researcher.
+  const [researchers, setResearchers] = useState(null);
+  const [researchersLoading, setResearchersLoading] = useState(false);
+  const [newResearcherEmail, setNewResearcherEmail] = useState('');
+  const [addingResearcher, setAddingResearcher] = useState(false);
+  const [removingResearcherUid, setRemovingResearcherUid] = useState(null);
+
   // The Factors tab - lazy-loaded the same way as System/Research above.
   // Reuses GET /api/factors (the same public endpoint the Calculator page
   // itself reads from), not a separate admin-only listing route - there is
@@ -149,6 +158,19 @@ export default function AdminDashboard() {
   const [editingFactorId, setEditingFactorId] = useState(null);
   const [editFactorValue, setEditFactorValue] = useState('');
   const [deletingFactorId, setDeletingFactorId] = useState(null);
+  // Provenance: how many saved records used an older version of each
+  // factor, keyed by factorId - fetched on demand (not for every row up
+  // front, which would be one Firestore query per factor on every visit
+  // to this tab) via GET /api/factors/:id/impact. See backend/routes/
+  // factors.py's PROVENANCE note.
+  const [factorImpact, setFactorImpact] = useState({});
+  const [checkingImpactId, setCheckingImpactId] = useState(null);
+  const [recalculatingId, setRecalculatingId] = useState(null);
+
+  // The Data quality tab - lazy-loaded the same way as System/Research/
+  // Factors above. See backend/routes/admin.py's data_quality().
+  const [dataQuality, setDataQuality] = useState(null);
+  const [dataQualityLoading, setDataQualityLoading] = useState(false);
 
   const factorCount = allFactors?.count ?? null;
 
@@ -268,6 +290,22 @@ export default function AdminDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
+  const loadDataQuality = async () => {
+    setDataQualityLoading(true);
+    try {
+      setDataQuality(await adminApi.getDataQuality());
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not load the data-quality report.'));
+    } finally {
+      setDataQualityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'quality' && !dataQuality && !dataQualityLoading) loadDataQuality();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const loadAnnouncements = async () => {
     setAnnouncementsLoading(true);
     try {
@@ -376,10 +414,43 @@ export default function AdminDashboard() {
       toast.success('Factor updated.');
       setEditingFactorId(null);
       loadFactors();
+      // The edit just bumped this factor's version (if the value actually
+      // changed) - refresh its impact figure so the "N records now
+      // outdated" prompt below the row reflects reality immediately,
+      // rather than showing whatever was checked before the edit.
+      handleCheckImpact(factorId);
     } catch (requestError) {
       toast.error(getErrorMessage(requestError, 'Could not update that factor.'));
     } finally {
       setSavingFactor(false);
+    }
+  };
+
+  const handleCheckImpact = async (factorId) => {
+    setCheckingImpactId(factorId);
+    try {
+      const impact = await factorsApi.impact(factorId);
+      setFactorImpact((previous) => ({ ...previous, [factorId]: impact }));
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not check this factor\'s impact.'));
+    } finally {
+      setCheckingImpactId(null);
+    }
+  };
+
+  const handleRecalculateFactor = async (factorId) => {
+    setRecalculatingId(factorId);
+    try {
+      const result = await factorsApi.recalculate(factorId);
+      toast.success(result.message || 'Records recalculated.');
+      setFactorImpact((previous) => ({
+        ...previous,
+        [factorId]: { ...previous[factorId], staleCount: 0 },
+      }));
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not recalculate those records.'));
+    } finally {
+      setRecalculatingId(null);
     }
   };
 
@@ -411,6 +482,53 @@ export default function AdminDashboard() {
     if (tab === 'research' && !researchStats && !researchStatsLoading) loadResearchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const loadResearchers = async () => {
+    setResearchersLoading(true);
+    try {
+      const data = await adminApi.getResearchers();
+      setResearchers(data.researchers);
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not load researchers.'));
+    } finally {
+      setResearchersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'research' && !researchers && !researchersLoading) loadResearchers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const handleAddResearcher = async (event) => {
+    event.preventDefault();
+    const email = newResearcherEmail.trim().toLowerCase();
+    if (!email) return;
+    setAddingResearcher(true);
+    try {
+      await adminApi.addResearcher(email);
+      toast.success(`Research access granted to ${email}.`);
+      setNewResearcherEmail('');
+      loadResearchers();
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not grant research access.'));
+    } finally {
+      setAddingResearcher(false);
+    }
+  };
+
+  const handleRemoveResearcher = async (uid) => {
+    setRemovingResearcherUid(uid);
+    try {
+      await adminApi.removeResearcher(uid);
+      toast.success('Research access revoked.');
+      setResearchers((previous) => (previous || []).filter((r) => r.uid !== uid));
+    } catch (requestError) {
+      toast.error(getErrorMessage(requestError, 'Could not revoke research access.'));
+    } finally {
+      setRemovingResearcherUid(null);
+    }
+  };
 
   const handleDeleteDonation = async (id, amount) => {
     setDeletingDonationId(id);
@@ -855,6 +973,7 @@ export default function AdminDashboard() {
           { id: 'system', label: 'System', icon: Activity, count: null, dot: system?.overall },
           { id: 'research', label: 'Research', icon: FlaskConical, count: null },
           { id: 'factors', label: 'Factors', icon: Sigma, count: factorCount },
+          { id: 'quality', label: 'Data quality', icon: ShieldAlert, count: dataQuality?.flaggedCount ?? null },
           { id: 'report', label: 'Report', icon: Printer, count: null },
           { id: 'api', label: 'API', icon: Code2, count: null },
         ].map((item) => {
@@ -2662,6 +2781,72 @@ export default function AdminDashboard() {
             backend folder to produce that table.
           </p>
         </div>
+
+        {/* ---- researcher role management ---- */}
+        <div style={{ paddingTop: '1.6rem', marginTop: '1.6rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem' }}>
+            <Users size={17} style={{ color: 'var(--eco-text-muted)' }} />
+            <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Research access</h2>
+          </div>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.2rem', fontSize: '0.85rem', maxWidth: '64ch' }}>
+            Grant an existing EcoTrack account read-only access to this tab and its export at
+            its own page (<code>/research</code>) - never anything an admin alone can do,
+            like editing a factor or deleting a user. See backend/routes/admin.py's
+            require_researcher note.
+          </p>
+
+          <form onSubmit={handleAddResearcher} style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1.4rem' }}>
+            <input
+              type="email"
+              className="form-control"
+              placeholder="guide@university.edu"
+              value={newResearcherEmail}
+              onChange={(event) => setNewResearcherEmail(event.target.value)}
+              style={{ flex: '1 1 260px', maxWidth: 360 }}
+              required
+            />
+            <button type="submit" className="eco-btn eco-btn-primary" disabled={addingResearcher}>
+              {addingResearcher ? 'Granting…' : 'Grant access'}
+            </button>
+          </form>
+
+          {researchersLoading && !researchers && <p className="eco-text-muted" style={{ fontSize: '0.88rem' }}>Loading…</p>}
+
+          {researchers && researchers.length === 0 && (
+            <p className="eco-text-muted" style={{ fontSize: '0.88rem' }}>Nobody has research access yet.</p>
+          )}
+
+          {researchers && researchers.length > 0 && (
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {researchers.map((r) => (
+                <div
+                  key={r.uid}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.8rem',
+                    padding: '0.6rem 0',
+                    borderTop: '1px solid var(--rule)',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.86rem' }}>{r.name || r.email}</div>
+                    <div className="eco-text-muted" style={{ fontSize: '0.76rem' }}>{r.email}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveResearcher(r.uid)}
+                    disabled={removingResearcherUid === r.uid}
+                    className="eco-btn eco-btn-ghost"
+                    style={{ padding: '0.35rem 0.7rem', fontSize: '0.78rem' }}
+                  >
+                    {removingResearcherUid === r.uid ? 'Revoking…' : 'Revoke'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </motion.div>
       )}
 
@@ -2811,7 +2996,9 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {CATEGORY_ORDER.flatMap((category) => allFactors.factors?.[category] || []).map((factor) => (
+                  {CATEGORY_ORDER.flatMap((category) => allFactors.factors?.[category] || []).map((factor) => {
+                    const impact = factorImpact[factor.id];
+                    return (
                     <tr key={factor.id}>
                       <td style={{ color: CATEGORY_META[factor.category]?.color }}>{formatCategory(factor.category)}</td>
                       <td>{formatSubType(factor.subType)}</td>
@@ -2832,7 +3019,35 @@ export default function AdminDashboard() {
                       </td>
                       <td className="eco-text-muted">{factor.unit}</td>
                       <td className="eco-text-muted">{factor.region || '—'}</td>
-                      <td className="eco-text-muted" style={{ fontSize: '0.82rem' }}>{factor.source || '—'}</td>
+                      <td className="eco-text-muted" style={{ fontSize: '0.82rem' }}>
+                        {factor.source || '—'}
+                        {/* Provenance: which records were computed from an
+                            older value of this factor, and a way to bring
+                            them current - see backend/routes/factors.py's
+                            PROVENANCE note. */}
+                        {impact && (
+                          <div style={{ marginTop: 4, fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>
+                            {impact.staleCount > 0 ? (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--eco-warning, #b8860b)' }}>
+                                <AlertTriangle size={12} />
+                                {impact.staleCount} of {impact.recordsUsingThisFactor} records outdated
+                                <button
+                                  type="button"
+                                  onClick={() => handleRecalculateFactor(factor.id)}
+                                  disabled={recalculatingId === factor.id}
+                                  style={{ background: 'transparent', border: '1px solid currentColor', borderRadius: 4, color: 'inherit', cursor: 'pointer', padding: '1px 6px', fontSize: '0.68rem' }}
+                                >
+                                  {recalculatingId === factor.id ? 'Recalculating…' : 'Recalculate'}
+                                </button>
+                              </span>
+                            ) : (
+                              <span className="eco-text-muted">
+                                {impact.recordsUsingThisFactor} record{impact.recordsUsingThisFactor === 1 ? '' : 's'} up to date
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
                           {editingFactorId === factor.id ? (
@@ -2857,6 +3072,20 @@ export default function AdminDashboard() {
                             </>
                           ) : (
                             <>
+                              <button
+                                type="button"
+                                onClick={() => handleCheckImpact(factor.id)}
+                                disabled={checkingImpactId === factor.id}
+                                aria-label="Check how many records use this factor"
+                                title="Check impact"
+                                style={{ background: 'transparent', border: 'none', color: 'var(--eco-text-muted)', cursor: 'pointer', padding: 6, display: 'flex' }}
+                              >
+                                {checkingImpactId === factor.id ? (
+                                  <span style={{ width: 14, height: 14, border: '2px solid var(--eco-border)', borderTopColor: 'var(--eco-text-muted)', borderRadius: '50%', display: 'inline-block', animation: 'eco-spin 0.8s linear infinite' }} />
+                                ) : (
+                                  <RefreshCw size={15} />
+                                )}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -2886,10 +3115,107 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+      </motion.div>
+      )}
+
+      {/* ============ DATA QUALITY ============ */}
+      {/* Platform-wide view of routes/carbon.py's anomaly flag - see
+          backend/routes/admin.py's data_quality() module note on why this
+          is read-only visibility, never a way to edit another user's
+          individual record. */}
+      {tab === 'quality' && (
+      <motion.div
+        key="tab-quality"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32 }}
+      >
+        <div style={{ paddingTop: '1.05rem', borderTop: '1px solid var(--rule-strong)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.3rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <ShieldAlert size={17} style={{ color: 'var(--eco-text-muted)' }} />
+              <h2 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>Data quality</h2>
+            </div>
+            <button
+              type="button"
+              onClick={loadDataQuality}
+              disabled={dataQualityLoading}
+              className="eco-btn eco-btn-ghost"
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.82rem' }}
+            >
+              <RefreshCw size={14} style={dataQualityLoading ? { animation: 'eco-spin 0.9s linear infinite' } : undefined} />
+              Re-check
+            </button>
+          </div>
+          <p className="eco-text-muted" style={{ margin: '0 0 1.6rem', fontSize: '0.85rem', maxWidth: '64ch' }}>
+            Entries flagged at save time as unusual against the logging user's own history
+            (a modified z-score against their median for that exact activity - see
+            routes/carbon.py's module docstring). Never edited or deleted from here - user
+            ids are hashed, the same as the Research export.
+          </p>
+
+          {dataQualityLoading && !dataQuality && <SkeletonStatCard />}
+
+          {dataQuality && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.6rem', marginBottom: '2rem' }}>
+                <StatCard
+                  icon={ShieldAlert}
+                  label="Flagged entries"
+                  value={dataQuality.flaggedCount}
+                  decimals={0}
+                  accent="var(--eco-warning, #b8860b)"
+                  hint={`out of ${formatNumber(dataQuality.totalRecords, 0)} total records`}
+                />
+                <StatCard
+                  icon={Sigma}
+                  label="Flagged rate"
+                  value={dataQuality.flaggedRate}
+                  unit="%"
+                  decimals={2}
+                  accent="var(--cat-transport)"
+                  hint="Platform-wide, all time"
+                />
+              </div>
+
+              {dataQuality.recentFlags.length === 0 ? (
+                <p className="eco-text-muted" style={{ fontSize: '0.9rem' }}>Nothing flagged. Logging looks clean.</p>
+              ) : (
+                <div className="eco-table-wrap">
+                  <table className="eco-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>User</th>
+                        <th>Category</th>
+                        <th>Type</th>
+                        <th>Quantity</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dataQuality.recentFlags.map((flag) => (
+                        <tr key={flag.id}>
+                          <td className="eco-text-muted">{formatDate(flag.recordedDate)}</td>
+                          <td className="eco-readout" style={{ fontSize: '0.78rem' }}>{flag.userHash}</td>
+                          <td>{formatCategory(flag.category)}</td>
+                          <td>{formatSubType(flag.subType)}</td>
+                          <td className="eco-text-muted">{flag.quantity}</td>
+                          <td className="eco-text-muted" style={{ fontSize: '0.82rem' }}>{flag.reason || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
       </motion.div>

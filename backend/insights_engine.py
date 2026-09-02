@@ -30,10 +30,20 @@ backend/tests/test_parity.py checks the two agree on a fixture set.
 import math
 from datetime import date, timedelta
 
-# The personal carbon budget consistent with 1.5C of warming: ~2 tonnes/year.
-# Matches routes/assistant.py's MONTHLY_BUDGET_KG and Estimate.jsx's
-# MONTHLY_BUDGET (167, the rounded display value of the same 2000/12 figure).
-MONTHLY_BUDGET_KG = 2000 / 12
+from carbon_budget import CURRENT_MONTHLY_BUDGET_KG
+
+# The personal carbon budget consistent with 1.5C of warming - a glidepath,
+# not a flat 2 tonnes/year forever. See carbon_budget.py's own module
+# docstring for the full reasoning; routes/assistant.py imports the same
+# two names from there too, so this stays the one other place (alongside
+# assistant.py) this figure is sourced from, matching frontend/src/utils/
+# carbonBudget.js's own JS mirror of the identical glidepath. Kept as its
+# own name here (not just imported and used inline) because this module is
+# deliberately framework-free (see this file's own module docstring) and
+# forecast_month's signature below already takes budget_kg as a named
+# default parameter - callers like evaluate_forecast.py can still pass a
+# different figure explicitly for a historical backtest year if they want to.
+MONTHLY_BUDGET_KG = CURRENT_MONTHLY_BUDGET_KG
 
 # --- forecast tuning ---------------------------------------------------------
 

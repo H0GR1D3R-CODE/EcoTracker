@@ -25,7 +25,7 @@ from flask import Blueprint, g, request
 from google.cloud import firestore as gcloud_firestore
 
 from config import Config, get_db
-from grid_engine import grid_intensity_now
+from grid_engine import APPLIANCE_CATALOG, best_time_to_run, grid_intensity_now
 from insights_engine import (
     COHORT_MIN_SIZE,
     MONTHLY_BUDGET_KG,
@@ -47,6 +47,7 @@ from weather_engine import (
     weather_adjusted_electricity,
     weather_context,
 )
+from air_quality_engine import air_quality_advice
 
 insights_bp = Blueprint("insights", __name__, url_prefix="/api/insights")
 
@@ -64,6 +65,13 @@ OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 WEATHER_CACHE_HOURS = 12
 WEATHER_HISTORY_DAYS = 90  # matches insights_engine.FORECAST_WINDOW_DAYS
 WEATHER_REQUEST_TIMEOUT_SECONDS = 10
+
+# AQI moves noticeably within a day (traffic, weather) in a way a daily
+# temperature series does not, so a much shorter cache than weather's own
+# 12 hours - still one shared reading per region rather than one Open-Meteo
+# call per page load.
+OPEN_METEO_AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
+AIR_QUALITY_CACHE_HOURS = 2
 
 
 # ---------------------------------------------------------------------------
@@ -446,6 +454,55 @@ def _fetch_daily_temperatures(region):
     return [(date.fromisoformat(item["date"]), item["temp"]) for item in series]
 
 
+def _fetch_current_air_quality(region):
+    """
+    {"aqi": int, "pm25": float} or None - the current US AQI and PM2.5 at a
+    region's approximate coordinates, cached in Firestore per region. Same
+    fail-closed-not-loud reasoning as _fetch_daily_temperatures above: a
+    missing reading just hides one card on /insights.
+    """
+    db = get_db()
+    doc_ref = db.collection(Config.COLLECTION_AIR_QUALITY_CACHE).document(region)
+    doc = doc_ref.get()
+    cached = doc.to_dict() if doc.exists else None
+
+    if cached:
+        fetched_at = cached.get("fetchedAt")
+        if fetched_at and (datetime.now(timezone.utc) - fetched_at) < timedelta(hours=AIR_QUALITY_CACHE_HOURS):
+            return {"aqi": cached.get("aqi"), "pm25": cached.get("pm25")}
+
+    lat, lon = coordinates_for_region(region)
+    try:
+        response = requests.get(
+            OPEN_METEO_AIR_QUALITY_URL,
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "current": "us_aqi,pm2_5",
+            },
+            timeout=WEATHER_REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        aqi = payload["current"]["us_aqi"]
+        pm25 = payload["current"]["pm2_5"]
+        if aqi is None:
+            raise ValueError("no current AQI in response")
+    except (requests.RequestException, KeyError, ValueError, TypeError):
+        if cached:
+            return {"aqi": cached.get("aqi"), "pm25": cached.get("pm25")}
+        return None
+
+    doc_ref.set({
+        "region": region,
+        "aqi": int(aqi),
+        "pm25": pm25,
+        "fetchedAt": gcloud_firestore.SERVER_TIMESTAMP,
+    })
+
+    return {"aqi": int(aqi), "pm25": pm25}
+
+
 @insights_bp.route("/weather", methods=["GET"])
 @require_auth
 def weather():
@@ -513,6 +570,36 @@ def weather():
 
 
 # ---------------------------------------------------------------------------
+# GET /api/insights/air-quality
+# ---------------------------------------------------------------------------
+
+@insights_bp.route("/air-quality", methods=["GET"])
+@require_auth
+def air_quality():
+    """
+    Current US AQI at this user's region - a second, health-framed reason
+    to act, alongside the emissions figure itself. See
+    air_quality_engine.py's module docstring for the full reasoning and
+    citation.
+    """
+    region = _user_region(g.uid) or "India"
+    reading = _fetch_current_air_quality(region)
+
+    if reading is None or reading.get("aqi") is None:
+        return api_success({"status": "unavailable", "region": region})
+
+    result = air_quality_advice(reading["aqi"], reading.get("pm25"))
+
+    intervention_id = None
+    if result["worthANudge"]:
+        intervention_id = _log_intervention(
+            g.uid, "air_quality_nudge", result["category"], {"region": region, "aqi": result["aqi"]}
+        )
+
+    return api_success({"status": "ok", "region": region, **result, "interventionId": intervention_id})
+
+
+# ---------------------------------------------------------------------------
 # GET /api/insights/grid
 # ---------------------------------------------------------------------------
 
@@ -537,3 +624,47 @@ def grid():
         )
 
     return api_success({**result, "interventionId": intervention_id})
+
+
+@insights_bp.route("/appliance-schedule", methods=["GET"])
+@require_auth
+def appliance_schedule():
+    """
+    "Run this at 11pm instead of 7pm, save X kg" for one appliance - see
+    grid_engine.py's best_time_to_run for the maths, built on the exact same
+    time-of-day model /grid above already uses.
+
+    Query: ?appliance=washing_machine  (one of grid_engine.APPLIANCE_CATALOG)
+    """
+    appliance_key = str(request.args.get("appliance", "")).strip().lower()
+    if appliance_key not in APPLIANCE_CATALOG:
+        return api_error(
+            f"Unknown appliance. Choose one of: {', '.join(APPLIANCE_CATALOG)}.",
+            400,
+            code="invalid_appliance",
+        )
+
+    region = _user_region(g.uid) or "India"
+    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    result = best_time_to_run(region, appliance_key, now_ist.hour)
+
+    intervention_id = None
+    if not result["isAlreadyCleanest"] and result["savingKg"] > 0:
+        intervention_id = _log_intervention(
+            g.uid, "appliance_schedule", appliance_key,
+            {"region": region, "savingKg": result["savingKg"]},
+        )
+
+    return api_success({**result, "interventionId": intervention_id})
+
+
+@insights_bp.route("/appliances", methods=["GET"])
+@require_auth
+def list_appliances():
+    """The catalog appliance_schedule accepts, for the frontend's dropdown."""
+    return api_success({
+        "appliances": [
+            {"key": key, "label": meta["label"], "typicalKwh": meta["typicalKwh"]}
+            for key, meta in APPLIANCE_CATALOG.items()
+        ]
+    })

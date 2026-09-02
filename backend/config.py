@@ -181,6 +181,13 @@ class Config:
     COLLECTION_EMISSION_FACTORS = "emissionFactors"
     COLLECTION_ADMINS = "admins"
     COLLECTION_TWO_FACTOR_CODES = "twoFactorCodes"
+    # A read-only role, one notch below admin: access to the anonymised
+    # research export/stats (routes/admin.py's research_export and
+    # research_stats) without the ability to delete a user, edit a factor,
+    # or do anything else an admin can. A document here grants it, the same
+    # admins/{uid}-collection pattern is_admin already uses - see
+    # routes/__init__.py's is_researcher/require_researcher.
+    COLLECTION_RESEARCHERS = "researchers"
 
     # --- Insights / closed-loop feedback (forecast, swaps, templates, streaks) ---
     COLLECTION_ACTIVITY_TEMPLATES = "activityTemplates"
@@ -198,6 +205,11 @@ class Config:
     # by every user in it, the same "Firestore as shared cache" reasoning as
     # COLLECTION_COHORT_STATS just above.
     COLLECTION_WEATHER_CACHE = "weatherCache"
+    # Cached current air-quality reading per region - same "Firestore as
+    # shared cache" pattern as COLLECTION_WEATHER_CACHE, a shorter TTL
+    # since AQI moves faster than a daily temperature series. See
+    # air_quality_engine.py and routes/insights.py's air-quality route.
+    COLLECTION_AIR_QUALITY_CACHE = "airQualityCache"
     # Household/group mode - see routes/household.py. A user belongs to at
     # most one household at a time (users/{uid}.householdId points back here).
     COLLECTION_HOUSEHOLDS = "households"

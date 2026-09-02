@@ -52,6 +52,7 @@ import Photo from '../components/Photo';
 import { PHOTOS } from '../utils/photos';
 import { useTheme } from '../context/ThemeContext';
 import { useCounter } from '../hooks/useCounter';
+import { currentMonthlyBudgetKg } from '../utils/carbonBudget';
 
 // A real photo for each question's category header.
 const QUESTION_PHOTOS = {
@@ -61,8 +62,12 @@ const QUESTION_PHOTOS = {
   shopping: 'shopping',
 };
 
-// A climate-safe personal footprint is ~2 tonnes/year ≈ 167 kg/month.
-const MONTHLY_BUDGET = 167;
+// A climate-safe personal footprint - see utils/carbonBudget.js for the
+// shared five-year glidepath (2 tonnes/year now, down to 1.5 by 2030) every
+// other page's own budget figure is computed from. Rounded once here, the
+// same as the flat "167" this used to be hardcoded as, since this page
+// only ever displays it as a whole number.
+const MONTHLY_BUDGET = Math.round(currentMonthlyBudgetKg());
 
 // ---------------------------------------------------------------------------
 // THE PUBLISHED FACTORS

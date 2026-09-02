@@ -37,7 +37,7 @@
 // maths of its own: the backend calculated and stored each value when the user
 // logged it, and this screen only ever arranges those numbers.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -57,6 +57,7 @@ import {
   Plus,
   RefreshCw,
   Share2,
+  ShieldCheck,
   Sparkles,
   Target,
   TrendingDown,
@@ -66,6 +67,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboard } from '../hooks/useDashboard';
+import { carbonApi } from '../utils/api';
 import StatCard from '../components/StatCard';
 import ImpactEquivalents from '../components/ImpactEquivalents';
 import PageBanner from '../components/PageBanner';
@@ -211,6 +213,19 @@ export default function Dashboard() {
 
   // Opens the Carbon Wrapped recap overlay - see components/WrappedCard.jsx
   const [showWrapped, setShowWrapped] = useState(false);
+
+  // Data quality score - fetched independently of useDashboard's own
+  // summary/chart calls rather than folded into that hook, since it is a
+  // single lightweight number nothing else on this page depends on. See
+  // backend/routes/carbon.py's quality_score() and module docstring.
+  const [qualityScore, setQualityScore] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    carbonApi.getQualityScore()
+      .then((data) => { if (!cancelled) setQualityScore(data); })
+      .catch(() => {}); // informational only - a failed fetch just hides the card
+    return () => { cancelled = true; };
+  }, []);
 
   // Same reasoning as ProtectedRoute's own use of this hook: the backend can
   // take several real seconds to answer on a cold start, and a skeleton with
@@ -550,6 +565,27 @@ export default function Dashboard() {
           hint={summary?.activeGoals ? t('dashboard.inProgressNow') : t('dashboard.noGoalsSetYet')}
           delay={0.18}
         />
+        {/* Data quality - only shown once there is enough history for the
+            figure to mean anything (quality_score() itself always returns
+            100 with no records, which would be a misleadingly perfect
+            number to lead with for a brand new account). See
+            backend/routes/carbon.py's quality_score(). */}
+        {qualityScore && qualityScore.totalRecords > 0 && (
+          <StatCard
+            icon={ShieldCheck}
+            label="Data quality"
+            value={qualityScore.score}
+            unit="%"
+            decimals={0}
+            accent={qualityScore.flaggedCount > 0 ? 'var(--eco-warning, #b8860b)' : 'var(--eco-primary)'}
+            hint={
+              qualityScore.flaggedCount > 0
+                ? `${qualityScore.flaggedCount} recent ${qualityScore.flaggedCount === 1 ? 'entry looks' : 'entries look'} unusual — worth a second look`
+                : 'Nothing unusual in your recent entries'
+            }
+            delay={0.24}
+          />
+        )}
       </div>
 
       {/* ============ 2a. AI-SUGGESTED GOAL ============ */}

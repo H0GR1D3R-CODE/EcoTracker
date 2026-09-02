@@ -47,6 +47,7 @@ from routes import (
     client_ip,
     fetch_user_records,
     is_admin,
+    is_researcher,
     is_valid_email,
     require_auth,
     verify_recaptcha,
@@ -393,6 +394,7 @@ def login():
 
     profile = _serialize_user(uid, user_doc.to_dict())
     profile["isAdmin"] = is_admin(uid, email)  # lets React decide whether to show admin links
+    profile["isResearcher"] = is_researcher(uid)  # same idea, for the /research link
 
     # ---- two-step verification gate ----
     # Firebase has already fully authenticated this person by the time this
@@ -493,6 +495,7 @@ def set_two_factor():
     refreshed = user_ref.get()
     profile = _serialize_user(g.uid, refreshed.to_dict())
     profile["isAdmin"] = is_admin(g.uid, g.email)
+    profile["isResearcher"] = is_researcher(g.uid)
 
     message = "Two-step verification turned on." if body["enabled"] else "Two-step verification turned off."
     return api_success(profile, message=message)
@@ -582,6 +585,7 @@ def verify_two_factor():
 
     profile = _serialize_user(g.uid, user_doc.to_dict())
     profile["isAdmin"] = is_admin(g.uid, g.email)
+    profile["isResearcher"] = is_researcher(g.uid)
     return api_success(profile, message="Verified.")
 
 
@@ -750,6 +754,7 @@ def get_profile():
 
     profile = _serialize_user(g.uid, user_doc.to_dict())
     profile["isAdmin"] = is_admin(g.uid, g.email)
+    profile["isResearcher"] = is_researcher(g.uid)
     return api_success(profile)
 
 
@@ -877,6 +882,7 @@ def update_profile():
     refreshed = user_ref.get()
     profile = _serialize_user(g.uid, refreshed.to_dict())
     profile["isAdmin"] = is_admin(g.uid, g.email)
+    profile["isResearcher"] = is_researcher(g.uid)
 
     return api_success(profile, message="Profile updated successfully.")
 
@@ -991,6 +997,7 @@ def upload_avatar():
     refreshed = user_ref.get()
     profile = _serialize_user(g.uid, refreshed.to_dict())
     profile["isAdmin"] = is_admin(g.uid, g.email)
+    profile["isResearcher"] = is_researcher(g.uid)
 
     return api_success(profile, message="Avatar updated.")
 
