@@ -221,6 +221,16 @@ class Config:
     # idempotent - see routes/household.py's cheer routes.
     COLLECTION_HOUSEHOLD_CHEERS = "householdCheers"
 
+    # A tier above a classroom: a campus green cell or eco-club lead running
+    # several classroom groups as one institution, aggregate-only (never a
+    # single student's row) - see routes/institution.py. A classroom household
+    # document optionally carries an institutionId pointing back here, the
+    # same "child points at parent" shape COLLECTION_HOUSEHOLDS itself uses
+    # for users/{uid}.householdId. A coordinator is just a normal user who
+    # owns one of these documents (users/{uid}.institutionId), not a new
+    # Firebase-level role - see routes/institution.py's own module docstring.
+    COLLECTION_INSTITUTIONS = "institutions"
+
     # One document per recurring "remind me to log X" reminder a user sets
     # up - see routes/reminders.py. Delivered through the SAME once-daily
     # cron job routes/cron.py already runs (Vercel's Hobby tier caps how

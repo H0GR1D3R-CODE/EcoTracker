@@ -175,5 +175,29 @@
     "averageNote": "Your average is {{value}} per day over the last 30 days.",
     "computedWith": "Computed with {{factorValue}} kg CO₂/{{unit}} — {{source}}",
     "budgetNote": "Your climate-safe budget this year works out at {{value}} kg a month."
+  },
+  "institution": {
+    "eyebrow": "For a green cell or eco-club lead",
+    "titleAccent": "Institution",
+    "subtitleNoInstitution": "Run several classroom groups as one institution, with an inter-class league table.",
+    "subtitleHasInstitution": "An aggregate, per-classroom view — never a single student's row.",
+    "disband": "Disband",
+    "createExplainer": "For a campus green cell, eco-club, or department running several classroom groups at once. You'll get an invite code to hand to each classroom's own organizer — they link their class in from their own Household page, on their own terms. You only ever see combined totals per class, never an individual student's name or record.",
+    "nameLabel": "Institution name",
+    "createButton": "Create institution",
+    "inviteCodeLabel": "Invite code",
+    "inviteCodeHint": "Hand this to a classroom's own organizer — they link it in from their Household page.",
+    "classroomsHeading": "Classrooms, by average lifetime points",
+    "emptyClassrooms": "No classrooms linked yet. Share your invite code with a classroom's organizer to get started.",
+    "unlinkAction": "Unlink this classroom",
+    "householdCard": {
+      "heading": "Institution",
+      "linkedToPrefix": "Linked to",
+      "linkedToSuffix": "— your coordinator sees this class's combined totals, never an individual student's.",
+      "unlink": "Unlink",
+      "inviteCodeLabel": "Institution invite code (optional)",
+      "linkButton": "Link this class",
+      "discoveryLink": "Running a whole campus or eco-club? Set up an institution →"
+    }
   }
 }

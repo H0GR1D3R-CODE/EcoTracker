@@ -166,6 +166,21 @@ def _serialize_household(household_doc, uid):
 
     group_type = data.get("groupType") or "household"
 
+    institution_id = data.get("institutionId")
+    institution_name = None
+    if institution_id:
+        db = get_db()
+        institution_doc = db.collection(Config.COLLECTION_INSTITUTIONS).document(institution_id).get()
+        # A classroom can point at an institution that was since deleted (the
+        # coordinator disbanded it) - self-heal the same way _get_own_household_doc
+        # already does for a stale users/{uid}.householdId, rather than
+        # showing a broken link forever.
+        if institution_doc.exists:
+            institution_name = institution_doc.to_dict().get("name", "")
+        else:
+            household_doc.reference.update({"institutionId": None})
+            institution_id = None
+
     return {
         "inHousehold": True,
         "id": household_doc.id,
@@ -183,6 +198,11 @@ def _serialize_household(household_doc, uid):
         # None means "auto (whatever the group emits most)", the only
         # behaviour a plain household ever had.
         "preferredChallengeCategory": data.get("preferredChallengeCategory"),
+        # Only ever set for a classroom - see PUT .../institution below and
+        # routes/institution.py's own module docstring for the tier this
+        # points at.
+        "institutionId": institution_id,
+        "institutionName": institution_name,
         "members": members,
     }
 
@@ -757,4 +777,87 @@ def set_challenge_focus():
     return api_success(
         _serialize_household(household_ref.get(), g.uid),
         message="Focus set for next week's challenge." if category else "Back to an automatic focus.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/household/institution     (owner-only, links/unlinks a CLASSROOM)
+# ---------------------------------------------------------------------------
+
+@household_bp.route("/institution", methods=["PUT"])
+@require_auth
+def set_institution_link():
+    """
+    Body: {"inviteCode": "AB3XZQ"} to link this classroom to an institution,
+    or {"inviteCode": null} to unlink - the same null-clears shape
+    set_challenge_focus above already uses.
+
+    Classroom groups only - a household or workplace linking itself to a
+    campus institution would put a family's or a company's own data inside
+    an eco-club lead's aggregate view, which is not what either side signed
+    up for. Owner-only, same authority as challenge-focus: the institution
+    tier only ever sees an AGGREGATE across this classroom (member count,
+    combined emission, average points) via routes/institution.py, never
+    this classroom's own member list - see that file's own module
+    docstring for the privacy boundary this enforces.
+    """
+    body = request.get_json(silent=True) or {}
+    invite_code = body.get("inviteCode")
+
+    household_ref, household_doc = _get_own_household_doc(g.uid)
+    if household_ref is None:
+        return api_error("You're not in a household.", 400, code="not_in_household")
+
+    data = household_doc.to_dict()
+    if data.get("ownerUid") != g.uid:
+        return api_error("Only the organizer can link this classroom to an institution.", 403, code="not_owner")
+
+    if data.get("groupType") != "classroom":
+        return api_error(
+            "Only a classroom/team group can link to an institution.", 400, code="not_a_classroom"
+        )
+
+    if invite_code is None:
+        household_ref.update({"institutionId": None})
+        return api_success(
+            _serialize_household(household_ref.get(), g.uid), message="Unlinked from the institution."
+        )
+
+    invite_code = str(invite_code).strip().upper()
+    if not invite_code:
+        return api_error("An invite code is required.", 400, code="missing_invite_code")
+
+    db = get_db()
+    matches = list(
+        db.collection(Config.COLLECTION_INSTITUTIONS)
+        .where(filter=gcloud_firestore.FieldFilter("inviteCode", "==", invite_code))
+        .limit(1)
+        .stream()
+    )
+    if not matches:
+        return api_error("No institution found for that invite code.", 404, code="institution_not_found")
+
+    institution_doc = matches[0]
+    linked_count = len(
+        list(
+            db.collection(Config.COLLECTION_HOUSEHOLDS)
+            .where(filter=gcloud_firestore.FieldFilter("institutionId", "==", institution_doc.id))
+            .stream()
+        )
+    )
+    # Imported here, not at module level, to avoid a circular import -
+    # routes/institution.py itself imports _member_stats from this module.
+    from routes.institution import MAX_LINKED_CLASSROOMS
+
+    if linked_count >= MAX_LINKED_CLASSROOMS:
+        return api_error(
+            f"This institution already has the maximum of {MAX_LINKED_CLASSROOMS} linked classrooms.",
+            400,
+            code="institution_full",
+        )
+
+    household_ref.update({"institutionId": institution_doc.id})
+    return api_success(
+        _serialize_household(household_ref.get(), g.uid),
+        message=f"Linked to {institution_doc.to_dict().get('name', 'the institution')}.",
     )

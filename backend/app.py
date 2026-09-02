@@ -47,6 +47,7 @@ from routes.notifications import notifications_bp
 from routes.cron import cron_bp
 from routes.wrapped import wrapped_bp
 from routes.household import household_bp
+from routes.institution import institution_bp
 from routes.community import community_bp
 from routes.learn import learn_bp
 from routes.voice import voice_bp
@@ -105,6 +106,7 @@ def create_app():
     app.register_blueprint(cron_bp)        # /api/cron/*  (Vercel Cron only - see routes/cron.py)
     app.register_blueprint(wrapped_bp)     # /api/wrapped  (Carbon Wrapped recap)
     app.register_blueprint(household_bp)   # /api/household/*  (group mode + leaderboard)
+    app.register_blueprint(institution_bp)  # /api/institution/*  (campus/eco-club aggregate view)
     app.register_blueprint(community_bp)   # /api/community/impact  (public, aggregate-only)
     app.register_blueprint(learn_bp)       # /api/learn/*  (climate literacy quiz progress)
     app.register_blueprint(voice_bp)       # /api/voice/*  (speech-to-log extraction)

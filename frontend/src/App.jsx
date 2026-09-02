@@ -69,6 +69,7 @@ const Insights = lazy(() => import('./pages/Insights'));
 const Goals = lazy(() => import('./pages/Goals'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Household = lazy(() => import('./pages/Household'));
+const Institution = lazy(() => import('./pages/Institution'));
 const Achievements = lazy(() => import('./pages/Achievements'));
 const ActivityLog = lazy(() => import('./pages/ActivityLog'));
 const Profile = lazy(() => import('./pages/Profile'));
@@ -334,6 +335,14 @@ export default function App() {
               element={
                 <ProtectedRoute userOnly>
                   <MotionPage><Household /></MotionPage>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/institution"
+              element={
+                <ProtectedRoute userOnly>
+                  <MotionPage><Institution /></MotionPage>
                 </ProtectedRoute>
               }
             />

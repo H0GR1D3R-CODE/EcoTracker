@@ -16,13 +16,17 @@
 // Mounted at /household
 
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import {
   Check,
   ChevronDown,
   Copy,
+  GraduationCap,
   Heart,
+  Link2Off,
   LogOut,
   Sprout,
   Target,
@@ -511,6 +515,97 @@ function HouseholdChallengeCard({ groupType, isOwner, preferredChallengeCategory
   );
 }
 
+/** Classroom-organizer-only: link this classroom into a campus institution's
+    aggregate view, or unlink it - see backend/routes/household.py's own
+    set_institution_link and the Institution.jsx page this connects to. Never
+    shown for a household or workplace group - see that route's own docstring
+    for why an institution only ever aggregates classrooms. */
+function InstitutionLinkCard({ institutionId, institutionName, onChanged }) {
+  const { t } = useTranslation();
+  const [inviteCode, setInviteCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleLink = async (event) => {
+    event.preventDefault();
+    if (!inviteCode.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await householdApi.setInstitutionLink(inviteCode.trim());
+      toast.success('Linked to the institution.');
+      setInviteCode('');
+      onChanged();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not link with that code.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUnlink = async () => {
+    setSubmitting(true);
+    try {
+      await householdApi.setInstitutionLink(null);
+      toast.success('Unlinked from the institution.');
+      onChanged();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not unlink.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="eco-card" style={{ marginBottom: '1.8rem' }}>
+      <span className="eco-marker" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem' }}>
+        <GraduationCap size={14} /> {t('institution.householdCard.heading')}
+      </span>
+
+      {institutionId ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <p style={{ fontSize: '0.9rem', margin: 0 }}>
+            {t('institution.householdCard.linkedToPrefix')}{' '}
+            <strong>{institutionName || 'an institution'}</strong>{' '}
+            {t('institution.householdCard.linkedToSuffix')}
+          </p>
+          <button
+            type="button"
+            onClick={handleUnlink}
+            disabled={submitting}
+            className="eco-btn eco-btn-ghost"
+            style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <Link2Off size={14} /> {t('institution.householdCard.unlink')}
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleLink} noValidate style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="form-floating" style={{ flex: '1 1 200px', marginBottom: 0 }}>
+            <input
+              type="text"
+              id="institution-invite-code"
+              className="form-control"
+              placeholder="AB3XZQ"
+              value={inviteCode}
+              onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
+              maxLength={6}
+              style={{ textTransform: 'uppercase', letterSpacing: '0.15em' }}
+            />
+            <label htmlFor="institution-invite-code">{t('institution.householdCard.inviteCodeLabel')}</label>
+          </div>
+          <button
+            type="submit"
+            className="eco-btn eco-btn-outline"
+            disabled={submitting || !inviteCode.trim()}
+            style={{ flexShrink: 0 }}
+          >
+            {t('institution.householdCard.linkButton')}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 function ActivityFeed() {
   const [activity, setActivity] = useState(null);
 
@@ -603,6 +698,7 @@ function ActivityFeed() {
 }
 
 export default function Household() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { prefersReducedMotion } = useTheme();
   const [data, setData] = useState(null);
@@ -688,7 +784,18 @@ export default function Household() {
       />
 
       {!data.inHousehold ? (
-        <CreateOrJoinPanel onChanged={load} />
+        <>
+          <CreateOrJoinPanel onChanged={load} />
+          <p style={{ textAlign: 'center', margin: '1.4rem 0 0' }}>
+            <Link
+              to="/institution"
+              className="eco-text-muted"
+              style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <GraduationCap size={14} /> {t('institution.householdCard.discoveryLink')}
+            </Link>
+          </p>
+        </>
       ) : (
         <motion.div
           initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
@@ -744,6 +851,14 @@ export default function Household() {
             preferredChallengeCategory={data.preferredChallengeCategory}
             onFocusSaved={load}
           />
+
+          {data.groupType === 'classroom' && data.isOwner && (
+            <InstitutionLinkCard
+              institutionId={data.institutionId}
+              institutionName={data.institutionName}
+              onChanged={load}
+            />
+          )}
 
           <div className="eco-card" style={{ marginBottom: '1.8rem' }}>
             <span className="eco-marker" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1.1rem' }}>

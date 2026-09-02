@@ -665,6 +665,29 @@ export const householdApi = {
   // challenge should target. category is a string, or null for "auto".
   setChallengeFocus: (category) =>
     api.put('/api/household/challenge-focus', { category }).then(unwrap),
+
+  // Classroom organizer only: link/unlink this classroom to an institution
+  // by invite code - see routes/household.py's set_institution_link and
+  // institutionApi below, the coordinator's own side of this same link.
+  // inviteCode is a string to link, or null to unlink.
+  setInstitutionLink: (inviteCode) =>
+    api.put('/api/household/institution', { inviteCode }).then(unwrap),
+};
+
+// ---------------------------------------------------------------------------
+// INSTITUTION (a tier above classroom groups - see routes/institution.py)
+//
+// Aggregate-only: nothing this namespace can return is a single student's
+// row, only per-classroom totals and averages. Becoming a coordinator is
+// just creating one of these - no application, no admin approval.
+// ---------------------------------------------------------------------------
+
+export const institutionApi = {
+  get: () => api.get('/api/institution').then(unwrap),
+  create: (name) => api.post('/api/institution', { name }).then(unwrap),
+  remove: () => api.delete('/api/institution').then(unwrap),
+  removeClassroom: (householdId) =>
+    api.delete(`/api/institution/classrooms/${householdId}`).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

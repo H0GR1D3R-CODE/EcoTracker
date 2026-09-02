@@ -171,6 +171,11 @@ published emission factors, send feedback, and donate without an account.
 | GET | `/api/insights/grid` | Time-of-day grid carbon intensity nudge for your region |
 | GET | `/api/insights/appliances`, `/api/insights/appliance-schedule` | "Run this at 11pm instead of 7pm" for one appliance |
 | GET | `/api/insights/air-quality` | Current AQI at your region, with a health-framed nudge |
+| GET / POST | `/api/household` | Read / create your household, classroom, or workplace group |
+| POST | `/api/household/join`, `/api/household/leave` | Join by invite code / leave your current group |
+| PUT | `/api/household/institution` | Classroom organizer only: link/unlink this classroom to an institution, by invite code |
+| GET / POST | `/api/institution` | Read / create the institution you coordinate (a tier above classroom groups) |
+| DELETE | `/api/institution`, `/api/institution/classrooms/:id` | Disband your institution / unlink one classroom from it |
 | GET / POST | `/api/templates` | List / create quick-log templates |
 | DELETE | `/api/templates/:id` | Delete a template |
 | POST | `/api/templates/:id/log` | One-tap log from a saved template |

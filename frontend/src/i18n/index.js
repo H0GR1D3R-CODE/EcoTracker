@@ -8,17 +8,23 @@
 // COVERAGE, STATED HONESTLY
 // The navbar, the Home page's hero, both auth pages (Login, Register),
 // Dashboard's STATIC chrome (headings, labels, buttons, empty/error states),
-// and now Calculator's own static chrome (the page subtitle, the date field,
-// the submit button's three states, the data-quality confirmation banner,
-// and the result card's static copy) are translated - fully, in every
-// language, for the first group; Calculator's own `calculator` namespace so
-// far exists in full ONLY in en.json and hi.json (the flagged-priority
-// language), not mechanically stamped into the other eight locale files
-// with unverified translations - fallbackLng: 'en' below means every other
-// language quietly shows the English string for those keys rather than a
-// raw "calculator.subtitle" placeholder, which is the same honest fallback
-// this file already relies on for any missing key. Extending Calculator's
-// own namespace to the rest, and covering the next page, are both the same
+// Calculator's own static chrome (the page subtitle, the date field, the
+// submit button's three states, the data-quality confirmation banner, and
+// the result card's static copy), and the Institution page (the whole
+// page - creation form, invite-code card, classroom leaderboard, empty
+// state) plus the institution-linking card on the Household page are
+// translated - fully, in every language, for the first group; the
+// `calculator` and `institution` namespaces so far exist in full ONLY in
+// en.json and hi.json (the flagged-priority language), not mechanically
+// stamped into the other eight locale files with unverified translations -
+// fallbackLng: 'en' below means every other language quietly shows the
+// English string for those keys rather than a raw "institution.eyebrow"
+// placeholder, which is the same honest fallback this file already relies
+// on for any missing key. Household.jsx itself is NOT translated beyond
+// that one card - it predates this effort and its per-groupType copy
+// (GROUP_TYPE_META in that file) would need restructuring into
+// interpolated keys first, a bigger, separate pass. Extending any
+// namespace to the rest, and covering the next page, are both the same
 // bounded mechanism: add keys to a locale file, swap a literal string for
 // t('namespace.key').
 //

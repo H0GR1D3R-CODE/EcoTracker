@@ -1085,9 +1085,11 @@ def delete_account():
 
     WHAT IS DELETED VS. WHAT IS KEPT
     carbonRecords, goals, reports, challenges, interventions, activity
-    templates, activity reminders, the twoFactorCodes doc, and household
+    templates, activity reminders, the twoFactorCodes doc, household
     membership (via the exact same _leave_household_for household.py's own
-    /leave route uses) are all removed outright. A
+    /leave route uses), and an institution this account coordinates (via
+    routes/institution.py's own _disband_institution_for) are all removed
+    outright. A
     donations row (routes/payments.py) is NOT deleted - it is a real,
     Razorpay-verified financial transaction, and most jurisdictions'
     accounting rules expect those kept - but its userId is cleared, the
@@ -1100,6 +1102,12 @@ def delete_account():
     # --- household membership, via the exact same rules /leave uses ---
     from routes.household import _leave_household_for
     _leave_household_for(uid)
+
+    # --- an institution this account coordinates, if any - see that
+    # function's own docstring for why this is not optional: without it, a
+    # coordinator's institution would outlive their own account. ---
+    from routes.institution import _disband_institution_for
+    _disband_institution_for(uid)
 
     # --- every collection keyed by userId ---
     for collection_name in (
