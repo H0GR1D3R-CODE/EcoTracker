@@ -83,7 +83,7 @@ def _percentage_change(current, previous):
     return round(change, 1), trend
 
 
-def _best_category(this_month_totals, previous_month_totals):
+def _best_category(this_month_totals, previous_month_totals, categories_logged):
     """
     Pick the "Best Category" stat card value.
 
@@ -92,9 +92,24 @@ def _best_category(this_month_totals, previous_month_totals):
     Rule 2 (fallback):  if there is nothing to compare against, the category
                         with the lowest emissions this month.
 
+    `categories_logged` - the set of categories with at least one real record
+    this month, computed straight from the raw records (see the caller).
+    group_by_category always returns all seven categories, defaulting any
+    untouched one to 0.0 - the exact same 0.0 a category with a real,
+    perfectly legitimate zero-emission entry (a bicycle ride, a solar
+    electricity reading in some regions) would also show. Filtering
+    Rule 2's candidates on totals > 0 would treat those two different
+    situations identically, silently disqualifying a user's most genuinely
+    eco-friendly logged activity from ever being their own "best category" -
+    filtering on whether anything was actually LOGGED there, instead, is
+    what actually tells them apart. Caught live 2026-09-03 verifying the
+    demo build: a bicycle-only transport entry (0.0 kg CO2, real and
+    logged) lost to a 6.6 kg diet entry for "lowest emissions", which is
+    backwards - 0.0 kg is the lowest emissions.
+
     Returns None when the user has logged nothing at all yet.
     """
-    active = {c: v for c, v in this_month_totals.items() if v > 0}
+    active = {c: v for c, v in this_month_totals.items() if c in categories_logged}
     if not active:
         return None
 
@@ -205,6 +220,7 @@ def summary():
         "bestCategory": _best_category(
             group_by_category(this_month_records),
             group_by_category(previous_month_records),
+            {record["category"] for record in this_month_records},
         ),
         "activeGoals": _count_active_goals(g.uid),
         "monthlyTrend": _build_trend(records, DEFAULT_TREND_MONTHS),
