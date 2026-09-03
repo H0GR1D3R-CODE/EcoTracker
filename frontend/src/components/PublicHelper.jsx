@@ -196,9 +196,6 @@ export default function PublicHelper() {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>EcoTrack Guide</div>
-                <div className="eco-text-muted" style={{ fontSize: '0.74rem' }}>
-                  Free to use, right now - no sign-in
-                </div>
               </div>
 
               {messages.length > 0 && (
