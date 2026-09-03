@@ -6,7 +6,11 @@
 // loading flash for no real benefit at this size.
 //
 // COVERAGE, STATED HONESTLY
-// The navbar, the Home page's hero, both auth pages (Login, Register),
+// The navbar, the Home page's hero - including, since 2026-09-03, the actual
+// headline words and the four hero-stat labels/notes, previously the one
+// hardcoded-English holdout on this page (found live: switching to Hindi and
+// using "Read this page aloud" read the headline in English mid-sentence) -
+// both auth pages (Login, Register),
 // Dashboard's STATIC chrome (headings, labels, buttons, empty/error states),
 // Calculator's own static chrome (the page subtitle, the date field, the
 // submit button's three states, the data-quality confirmation banner, and

@@ -29,10 +29,20 @@
   },
   "home": {
     "atmosphericTag": "and rising",
+    "headlineLine1": "Know your carbon.",
+    "headlineLine2": "Then change it.",
     "subtitle": "EcoTrack turns everyday choices — your commute, your meals, your electricity bill — into a number you can see, compare and bring down. Seven categories. Published science. No guesswork.",
     "startTrackingFree": "Start tracking free",
     "goToDashboard": "Go to your dashboard",
-    "seeHowItWorks": "See how it works"
+    "seeHowItWorks": "See how it works",
+    "stat1Label": "Categories measured",
+    "stat1Note": "transport → water",
+    "stat2Label": "Published factors",
+    "stat2Note": "DEFRA · IPCC · CEA",
+    "stat3Label": "kg CO₂ per kWh",
+    "stat3Note": "India's grid, CEA 2023",
+    "stat4Label": "Climate-safe year",
+    "stat4Note": "per person, 1.5 °C"
   },
   "language": {
     "selectLanguage": "Select language",

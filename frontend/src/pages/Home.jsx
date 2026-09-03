@@ -147,11 +147,17 @@ const CONTRIBUTIONS = [
 
 // The headline is split into words so each one can be revealed separately.
 // Splitting in the markup rather than with .split(' ') keeps the line break
-// under our control instead of leaving it to the browser.
-const HEADLINE_LINES = [
-  { words: ['Know', 'your', 'carbon.'], accent: false },
-  { words: ['Then', 'change', 'it.'], accent: true },
-];
+// under our control instead of leaving it to the browser. The actual text
+// is NOT here - it is built inside the component itself, from
+// t('home.headlineLine1'/'headlineLine2').split(' '), because translating it
+// needs the t() hook, which only exists inside a component. Caught live
+// verifying the read-aloud feature in Hindi: this headline used to be the
+// one hardcoded-English holdout on an otherwise-translated Home page, so
+// switching languages silently left the very first thing anyone reads (or
+// hears read aloud) in English regardless of what was selected. Kept as a
+// words-array shape (not a single translated string) so the per-word
+// reveal animation and the two-line/accent-on-line-2 structure both still
+// work the same way for a Hindi translation as they did for the English one.
 
 // The instrument's specification - four constants, every one of them checkable.
 //
@@ -165,33 +171,37 @@ const HEADLINE_LINES = [
 // on usage numbers, but the science it applies is the same science a large one
 // would apply - and a reader can verify every line below against the published
 // source, which is worth more than a number they have to take on trust.
+//
+// Only the NUMBERS live here - label/note are translation KEYS, not text
+// (same reasoning as HEADLINE_LINES just above: t() needs to run inside the
+// component), resolved to home.stat*Label/home.stat*Note where this is used.
 const HERO_STATS = [
   {
     value: 7,
     suffix: '',
-    label: 'Categories measured',
-    note: 'transport → water',
+    labelKey: 'home.stat1Label',
+    noteKey: 'home.stat1Note',
     decimals: 0,
   },
   {
     value: 21,
     suffix: '',
-    label: 'Published factors',
-    note: 'DEFRA · IPCC · CEA',
+    labelKey: 'home.stat2Label',
+    noteKey: 'home.stat2Note',
     decimals: 0,
   },
   {
     value: 0.71,
     suffix: '',
-    label: 'kg CO₂ per kWh',
-    note: "India's grid, CEA 2023",
+    labelKey: 'home.stat3Label',
+    noteKey: 'home.stat3Note',
     decimals: 2,
   },
   {
     value: 2000,
     suffix: ' kg',
-    label: 'Climate-safe year',
-    note: 'per person, 1.5 °C',
+    labelKey: 'home.stat4Label',
+    noteKey: 'home.stat4Note',
     decimals: 0,
   },
 ];
@@ -489,6 +499,13 @@ export default function Home() {
   const { user } = useAuth();
   const { prefersReducedMotion } = useTheme();
 
+  // See HEADLINE_LINES' own module-level comment on why the actual text
+  // lives here, computed from t(), rather than in that constant itself.
+  const headlineLines = [
+    { words: t('home.headlineLine1').split(' '), accent: false },
+    { words: t('home.headlineLine2').split(' '), accent: true },
+  ];
+
   // The drifting-particle background was removed on purpose. Continuous ambient
   // motion behind the headline reads as the page never settling, which is the
   // opposite of the calm, premium feel we want. The hero now holds still: the
@@ -600,7 +617,7 @@ export default function Home() {
                 marginBottom: '1.6rem',
               }}
             >
-              {HEADLINE_LINES.map((line, lineIndex) => (
+              {headlineLines.map((line, lineIndex) => (
                 <span key={line.words.join('-')} style={{ display: 'block' }}>
                   {line.words.map((word, wordIndex) => (
                     <RevealWord
@@ -684,7 +701,14 @@ export default function Home() {
               }}
             >
               {HERO_STATS.map((stat) => (
-                <CountUpStat key={stat.label} {...stat} />
+                <CountUpStat
+                  key={stat.labelKey}
+                  value={stat.value}
+                  suffix={stat.suffix}
+                  decimals={stat.decimals}
+                  label={t(stat.labelKey)}
+                  note={t(stat.noteKey)}
+                />
               ))}
             </div>
           </div>
