@@ -121,7 +121,16 @@ function buildNarrative(report) {
 
   // --- dominant category ---
   if (data.highestCategory) {
-    const { category, emission, sharePercent } = data.highestCategory;
+    const { category, emission } = data.highestCategory;
+    // Computed straight from emission/total here, NOT from the backend's own
+    // pre-rounded sharePercent (rounded to 1 decimal for its own purposes) -
+    // rounding an already-rounded number a second time can land on a
+    // different integer than rounding the true ratio once would (e.g. a true
+    // 91.49% rounds to 91.5% at one decimal, which then rounds UP to 92% -
+    // one whole point off from the correct, direct 91%). The breakdown table
+    // and biggest-contributors table below both already compute their own
+    // percentages this same direct way, for the same reason.
+    const sharePercent = total > 0 ? (emission / total) * 100 : 0;
 
     paragraphs.push({
       tone: sharePercent > 50 ? 'warning' : 'neutral',
