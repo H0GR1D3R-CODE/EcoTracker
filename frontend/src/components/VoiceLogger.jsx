@@ -53,10 +53,24 @@ const SpeechRecognitionCtor =
 // one sentence but short enough that a genuine hang is caught quickly.
 const LISTEN_TIMEOUT_MS = 12000;
 
+// How long to give the recognition engine to fire its own onstart before
+// concluding this browser cannot run it at all (see startListening's own
+// comment on Opera/Brave/Vivaldi inheriting the constructor but not the
+// working backend) - short, because onstart on a browser that DOES support
+// this fires close to immediately; this is not competing with real speech
+// latency the way LISTEN_TIMEOUT_MS is.
+const ENGINE_CHECK_MS = 4000;
+
 export default function VoiceLogger({ onExtracted }) {
   const { prefersReducedMotion } = useTheme();
   const [available, setAvailable] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Distinct from `listening`: this is the getUserMedia round trip BEFORE
+  // SpeechRecognition ever starts - see startListening's own comment on why
+  // that ordering matters (a new user is asked, visibly, before the app
+  // ever tries to hear them, not implicitly by whatever SpeechRecognition
+  // itself would have done).
+  const [requestingMic, setRequestingMic] = useState(false);
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [parsing, setParsing] = useState(false);
@@ -64,6 +78,7 @@ export default function VoiceLogger({ onExtracted }) {
   const [error, setError] = useState(null);
   const recognitionRef = useRef(null);
   const timeoutRef = useRef(null);
+  const engineCheckRef = useRef(null);
   // Mirrors `transcript` state for the timeout callback below, which closes
   // over whatever `transcript` was AT THE MOMENT startListening ran (always
   // '') rather than its live value - a ref is what actually stays current.
@@ -76,12 +91,20 @@ export default function VoiceLogger({ onExtracted }) {
     }
   };
 
+  const clearEngineCheckTimeout = () => {
+    if (engineCheckRef.current) {
+      clearTimeout(engineCheckRef.current);
+      engineCheckRef.current = null;
+    }
+  };
+
   // Stop listening on unmount too - navigating away mid-listen should not
   // leave the browser's mic indicator on or a stray timeout firing later
   // against a component that is no longer there to update.
   useEffect(() => {
     return () => {
       clearListenTimeout();
+      clearEngineCheckTimeout();
       recognitionRef.current?.stop();
     };
   }, []);
@@ -96,7 +119,9 @@ export default function VoiceLogger({ onExtracted }) {
 
   const closePanel = () => {
     clearListenTimeout();
+    clearEngineCheckTimeout();
     setPanelOpen(false);
+    setRequestingMic(false);
     setListening(false);
     setTranscript('');
     transcriptRef.current = '';
@@ -125,34 +150,40 @@ export default function VoiceLogger({ onExtracted }) {
     closePanel();
     setPanelOpen(true);
 
-    // A PRE-FLIGHT CHECK, NOT JUST THE onerror HANDLER BELOW
-    // Chrome remembers a mic decision per-site independently of whatever a
-    // Permissions-Policy header currently allows - if this origin was ever
-    // denied (including the browser silently treating a Permissions-Policy
-    // block as a denial, back when that header disabled microphone outright
-    // - see firebase.json's own history on this), the SpeechRecognition API
-    // can fail closed with no onerror firing at all on some Chrome versions,
-    // which is exactly "stuck on Listening..." forever with nothing to click
-    // but Cancel. Checking navigator.permissions first catches that BEFORE
-    // ever calling recognition.start(), with a message that actually says
-    // what changed and what to do about it, rather than a generic timeout.
-    // Wrapped in a try/catch because Safari/older browsers do not support
-    // querying the 'microphone' permission name at all - silently falls
-    // through to the normal start() attempt for those.
-    if (navigator.permissions?.query) {
-      try {
-        const status = await navigator.permissions.query({ name: 'microphone' });
-        if (status.state === 'denied') {
-          setError(
-            'Microphone access is blocked for this site - probably from before this was fixed. ' +
-            'Click the lock/info icon next to the address bar, set Microphone to "Allow", then reload the page and try again.'
-          );
-          return;
-        }
-      } catch {
-        // Permission name not supported by this browser - fall through
+    // STEP 1: ASK FOR MICROPHONE ACCESS OURSELVES, FIRST - VIA getUserMedia,
+    // NOT BY LETTING recognition.start() TRIGGER IT IMPLICITLY
+    // getUserMedia is the standard, broadly-supported permission surface
+    // (every real browser implements it) - unlike SpeechRecognition itself,
+    // which is a much narrower Chrome-specific API (see the module docstring).
+    // Requesting through it first means: a genuine, visible native browser
+    // prompt appears before anything says "Listening…" (so a new user is
+    // asked, in the ordinary way, before the app ever tries to hear them),
+    // and a real Promise rejection to build an ACCURATE message from -
+    // "denied" vs "no microphone at all" are different problems with
+    // different fixes, and this is the only reliable way to tell them apart
+    // BEFORE ever touching SpeechRecognition.
+    setRequestingMic(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Only needed to trigger/confirm the permission grant - the actual
+      // capture for recognition is managed entirely inside SpeechRecognition
+      // itself, so this stream is stopped immediately rather than held open.
+      stream.getTracks().forEach((track) => track.stop());
+    } catch (mediaError) {
+      setRequestingMic(false);
+      if (mediaError.name === 'NotAllowedError' || mediaError.name === 'PermissionDeniedError') {
+        setError(
+          'Microphone access is blocked for this site. Click the lock/site-info icon next to the ' +
+          'address bar, set Microphone to "Allow", then try again.'
+        );
+      } else if (mediaError.name === 'NotFoundError' || mediaError.name === 'DevicesNotFoundError') {
+        setError('No microphone was found on this device.');
+      } else {
+        setError('Could not access the microphone. Please try again or enter it manually.');
       }
+      return;
     }
+    setRequestingMic(false);
 
     const recognition = new SpeechRecognitionCtor();
     recognition.lang = 'en-IN';
@@ -160,6 +191,26 @@ export default function VoiceLogger({ onExtracted }) {
     // why this is what actually fixes "nothing shows up while I'm talking".
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
+
+    // STEP 2: DID THE RECOGNITION ENGINE ITSELF EVEN START?
+    // A permission grant (step 1) proves the microphone works - it says
+    // nothing about whether THIS BROWSER's SpeechRecognition can actually
+    // reach a working speech-to-text backend at all. Chrome's own
+    // implementation streams audio to Google's speech servers using an API
+    // key that ships only in Google-branded Chrome; other Chromium-based
+    // browsers (Opera, Brave, Vivaldi...) inherit the same `window.
+    // webkitSpeechRecognition` constructor - so SpeechRecognitionCtor above
+    // is truthy and this whole card renders - but silently cannot complete a
+    // real recognition session: no onstart, no onresult, no onerror, ever.
+    // That is a materially different, unfixable-by-the-user failure from
+    // "listening fine, just hasn't heard you yet", so it gets caught fast
+    // and named honestly instead of eventually hitting the same generic
+    // "didn't hear anything" message LISTEN_TIMEOUT_MS gives a real hang.
+    let engineStarted = false;
+    recognition.onstart = () => {
+      engineStarted = true;
+      clearEngineCheckTimeout();
+    };
 
     recognition.onresult = (event) => {
       // event.results is every result seen so far this session, each with
@@ -180,6 +231,7 @@ export default function VoiceLogger({ onExtracted }) {
 
     recognition.onerror = (event) => {
       clearListenTimeout();
+      clearEngineCheckTimeout();
       setListening(false);
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setError('Microphone access was denied. Allow it in your browser settings to use voice logging.');
@@ -200,6 +252,7 @@ export default function VoiceLogger({ onExtracted }) {
 
     recognition.onend = () => {
       clearListenTimeout();
+      clearEngineCheckTimeout();
       setListening(false);
     };
 
@@ -214,12 +267,40 @@ export default function VoiceLogger({ onExtracted }) {
     timeoutRef.current = setTimeout(() => {
       recognition.stop();
       setListening(false);
-      setError(
-        transcriptRef.current
-          ? "Didn't finish making that out - try again, a little slower."
-          : "Didn't hear anything usable - check your internet connection, or enter it manually."
-      );
+      if (!engineStarted) {
+        // onstart never fired even once in the full 12s - the engine-check
+        // timeout below should have already caught this sooner in the
+        // normal case, but this is the fallback if that one somehow did not.
+        setError(
+          "This browser's speech engine never responded - voice logging needs Google Chrome " +
+          "(or another browser built on it that ships Chrome's own speech service). " +
+          'Try Chrome, or enter this one manually.'
+        );
+      } else {
+        setError(
+          transcriptRef.current
+            ? "Didn't finish making that out - try again, a little slower."
+            : "Didn't hear anything usable - check your internet connection, or enter it manually."
+        );
+      }
     }, LISTEN_TIMEOUT_MS);
+
+    // The FAST version of the same check above, specifically for the
+    // "this browser's engine cannot run at all" case - onstart on a working
+    // engine fires close to immediately, so ENGINE_CHECK_MS gives a real
+    // hang in a supported browser plenty of margin while still catching an
+    // unsupported one (Opera and kin) far sooner than the full 12s backstop.
+    engineCheckRef.current = setTimeout(() => {
+      if (engineStarted) return;
+      recognition.stop();
+      clearListenTimeout();
+      setListening(false);
+      setError(
+        "This browser's speech engine never responded - voice logging needs Google Chrome " +
+        "(or another browser built on it that ships Chrome's own speech service). " +
+        'Try Chrome, or enter this one manually.'
+      );
+    }, ENGINE_CHECK_MS);
   };
 
   const handleUse = () => {
@@ -303,6 +384,16 @@ export default function VoiceLogger({ onExtracted }) {
               borderTop: '1px solid color-mix(in srgb, var(--eco-purple) 20%, var(--eco-border))',
             }}
           >
+            {/* Its own, distinct state - see startListening's own comment on
+                why the microphone permission request happens BEFORE
+                anything says "Listening…", not implicitly inside it. */}
+            {requestingMic && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', padding: '1.4rem 0', fontSize: '0.9rem' }}>
+                <Sparkles size={15} style={{ animation: 'eco-spin 1.4s linear infinite' }} />
+                Requesting microphone access…
+              </div>
+            )}
+
             {listening && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.7rem', padding: '1.4rem 0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
@@ -389,7 +480,7 @@ export default function VoiceLogger({ onExtracted }) {
               </motion.div>
             )}
 
-            {!listening && !parsing && !result && !error && (
+            {!requestingMic && !listening && !parsing && !result && !error && (
               <button type="button" className="eco-btn eco-btn-ghost" onClick={closePanel} style={{ fontSize: '0.8rem' }}>
                 <X size={14} /> Cancel
               </button>
