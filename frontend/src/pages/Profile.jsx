@@ -32,11 +32,11 @@ import {
   Download,
   Eye,
   EyeOff,
+  FlaskConical,
   KeyRound,
   Leaf,
   Loader2,
   Mail,
-  MapPin,
   Moon,
   Pencil,
   Plus,
@@ -70,7 +70,7 @@ import PageBanner from '../components/PageBanner';
 import Avatar from '../components/Avatar';
 import AvatarPicker from '../components/AvatarPicker';
 import { formatCategory, formatDate, formatEmission, formatNumber } from '../utils/formatters';
-import { NAME_ERROR, isValidName, sanitizeNameInput } from '../utils/validation';
+import { EMAIL_ERROR, NAME_ERROR, isValidEmail, isValidName, sanitizeNameInput } from '../utils/validation';
 
 // One tab per real question a visit to this page usually answers - "how do
 // I change X" now means "which tab is X in", not "where in this long page
@@ -121,7 +121,7 @@ const REGIONS = [
 ];
 
 export default function Profile() {
-  const { user, profile, isAdmin, updateProfile, changePassword, setTwoFactorEnabled, logout } = useAuth();
+  const { user, profile, isAdmin, updateProfile, changePassword, changeEmail, resetPassword, setTwoFactorEnabled, logout } = useAuth();
   const navigate = useNavigate();
   const {
     isDark,
@@ -156,6 +156,21 @@ export default function Profile() {
   const [passwordTouched, setPasswordTouched] = useState({});
   const [showPasswords, setShowPasswords] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+
+  // Change email - same reauthenticate-with-current-password shape as
+  // Change password just above, and the same hasPasswordProvider gate: a
+  // Google-only account has no password on this side to reauthenticate
+  // with, and its email IS its Google identity, so this form does not
+  // apply to it either.
+  const [emailForm, setEmailForm] = useState({ newEmail: '', currentPassword: '' });
+  const [emailTouched, setEmailTouched] = useState({});
+  const [showEmailPassword, setShowEmailPassword] = useState(false);
+  const [changingEmail, setChangingEmail] = useState(false);
+  // Set once a confirmation email has genuinely gone out - the form
+  // disappears in favour of a plain "check your inbox" notice, the same
+  // "swap the form for a result" shape ResetPassword.jsx's own resetSent
+  // state already uses on the Login page's forgot-password panel.
+  const [emailChangeSent, setEmailChangeSent] = useState(null);
 
   const [togglingTwoFactor, setTogglingTwoFactor] = useState(false);
 
@@ -235,6 +250,27 @@ export default function Profile() {
       toast.success('Link copied.');
     } catch {
       toast.error('Could not copy the link. Copy it from the address bar instead.');
+    }
+  };
+
+  // --- research data sharing - see DataConsentModal.jsx's own module
+  // docstring for exactly what this toggles and what it does not ---
+  const [togglingDataSharing, setTogglingDataSharing] = useState(false);
+
+  const handleDataSharingToggle = async () => {
+    if (togglingDataSharing) return;
+    setTogglingDataSharing(true);
+    try {
+      await updateProfile({ dataSharingConsent: !profile?.dataSharingConsent });
+      toast.success(
+        profile?.dataSharingConsent
+          ? 'Your activity is no longer included in EcoTrack’s research data.'
+          : 'Thank you - your activity now helps EcoTrack’s own research.'
+      );
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setTogglingDataSharing(false);
     }
   };
 
@@ -527,6 +563,70 @@ export default function Profile() {
       toast.error(error.message);
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  // --- change email ---
+  const emailErrors = {
+    newEmail:
+      !emailForm.newEmail
+        ? 'Enter the new email address.'
+        : !isValidEmail(emailForm.newEmail)
+          ? EMAIL_ERROR
+          : emailForm.newEmail.trim().toLowerCase() === (profile?.email || '').toLowerCase()
+            ? "That's already your current email address."
+            : null,
+    currentPassword: !emailForm.currentPassword ? 'Enter your current password.' : null,
+  };
+  const isEmailFormValid = !emailErrors.newEmail && !emailErrors.currentPassword;
+
+  const handleEmailChange = (event) => {
+    const { name, value } = event.target;
+    setEmailForm((previous) => ({ ...previous, [name]: value }));
+  };
+
+  const handleEmailBlur = (event) => {
+    setEmailTouched((previous) => ({ ...previous, [event.target.name]: true }));
+  };
+
+  const emailFieldClass = (field) => {
+    if (!emailTouched[field]) return '';
+    return emailErrors[field] ? 'is-invalid' : 'is-valid';
+  };
+
+  const handleEmailSubmit = async (event) => {
+    event.preventDefault();
+
+    setEmailTouched({ newEmail: true, currentPassword: true });
+    if (!isEmailFormValid || changingEmail) return;
+
+    setChangingEmail(true);
+    try {
+      await changeEmail(emailForm.currentPassword, emailForm.newEmail.trim().toLowerCase());
+      setEmailChangeSent(profile?.email || '');
+      setEmailForm({ newEmail: '', currentPassword: '' });
+      setEmailTouched({});
+    } catch (error) {
+      toast.error(getErrorMessage(error, error.message));
+    } finally {
+      setChangingEmail(false);
+    }
+  };
+
+  // Same "send my own account a reset email" call Login.jsx's own forgot-
+  // password panel makes - offered right here because someone who cannot
+  // remember their current password has no way to reauthenticate for an
+  // email change at all otherwise. Signs them out of nothing and changes
+  // nothing about the email form's own pending state; they simply follow
+  // the emailed link, come back signed in with a fresh session, and try
+  // the email change again.
+  const handleEmailForgotPassword = async () => {
+    if (!profile?.email) return;
+    try {
+      await resetPassword(profile.email);
+      toast.success(`Password reset link sent to ${profile.email}.`);
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not send a reset link right now.'));
     }
   };
 
@@ -824,7 +924,9 @@ export default function Profile() {
             )}
           </div>
 
-          {/* Email is read-only, so it is disabled rather than editable */}
+          {/* Email is read-only here - see the dedicated "Change email"
+              card below this one for the real, confirmed-by-your-current-
+              inbox way to change it. */}
           <div className="mb-3">
             <div className="form-floating">
               <input
@@ -840,9 +942,6 @@ export default function Profile() {
                 <Mail size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
                 Email address
               </label>
-            </div>
-            <div className="eco-field-hint">
-              Email cannot be changed here — it is managed by Firebase Authentication.
             </div>
           </div>
 
@@ -863,10 +962,6 @@ export default function Profile() {
                 ...REGIONS.map((region) => ({ value: region, label: region })),
               ]}
             />
-            <div className="eco-field-hint">
-              <MapPin size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-              Used to pick region-specific emission factors where they exist.
-            </div>
           </div>
 
           <button
@@ -901,6 +996,182 @@ export default function Profile() {
           </button>
         </form>
       </motion.div>
+
+      {/* ---------- Change email ---------- */}
+      {/* Same reauthenticate-with-current-password shape as Change password
+          on the Security tab, and the same hasPasswordProvider gate - see
+          that state's own comment. Unlike a normal field edit, this never
+          changes the account's email directly: it sends a confirmation
+          link to the CURRENT address (never the new one), and nothing
+          actually changes until that link is opened - see
+          backend/routes/auth.py's request_email_change for why. */}
+      {hasPasswordProvider && (
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="eco-card"
+          style={{ marginTop: '1.3rem' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '1.4rem' }}>
+            <Mail size={17} style={{ color: 'var(--eco-primary)' }} />
+            <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: 0 }}>
+              Change email
+            </h3>
+          </div>
+
+          {emailChangeSent ? (
+            <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'flex-start' }}>
+              <Check size={18} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <p style={{ margin: '0 0 0.4rem', fontSize: '0.92rem' }}>
+                  Check <strong style={{ color: 'var(--eco-text)' }}>{emailChangeSent}</strong> for
+                  a link to confirm this change.
+                </p>
+                <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.83rem' }}>
+                  Your email stays exactly as it is until you open that link. Nothing to
+                  do here in the meantime - or{' '}
+                  <button
+                    type="button"
+                    onClick={() => setEmailChangeSent(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      color: 'var(--eco-primary)',
+                      cursor: 'pointer',
+                      fontSize: 'inherit',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    start over
+                  </button>
+                  .
+                </p>
+              </div>
+            </div>
+          ) : (
+            <form className="eco-form" onSubmit={handleEmailSubmit} noValidate>
+              <div className="mb-3">
+                <div className="form-floating">
+                  <input
+                    type="email"
+                    id="email-new"
+                    name="newEmail"
+                    className={`form-control ${emailFieldClass('newEmail')}`}
+                    placeholder="New email address"
+                    value={emailForm.newEmail}
+                    onChange={handleEmailChange}
+                    onBlur={handleEmailBlur}
+                    autoComplete="email"
+                    disabled={changingEmail}
+                  />
+                  <label htmlFor="email-new">New email address</label>
+                </div>
+                {emailTouched.newEmail && emailErrors.newEmail && (
+                  <div className="eco-field-error">
+                    <AlertCircle size={13} />
+                    {emailErrors.newEmail}
+                  </div>
+                )}
+              </div>
+
+              <div className="mb-3">
+                <div className="form-floating" style={{ position: 'relative' }}>
+                  <input
+                    type={showEmailPassword ? 'text' : 'password'}
+                    id="email-current-password"
+                    name="currentPassword"
+                    className={`form-control ${emailFieldClass('currentPassword')}`}
+                    placeholder="Current password"
+                    value={emailForm.currentPassword}
+                    onChange={handleEmailChange}
+                    onBlur={handleEmailBlur}
+                    autoComplete="current-password"
+                    disabled={changingEmail}
+                  />
+                  <label htmlFor="email-current-password">Current password</label>
+                </div>
+                {emailTouched.currentPassword && emailErrors.currentPassword && (
+                  <div className="eco-field-error">
+                    <AlertCircle size={13} />
+                    {emailErrors.currentPassword}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailPassword((shown) => !shown)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      fontSize: '0.83rem',
+                      color: 'var(--eco-text-muted)',
+                    }}
+                  >
+                    {showEmailPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                    {showEmailPassword ? 'Hide' : 'Show'}
+                  </button>
+
+                  {/* For anyone who cannot get past the password field above at
+                      all - see handleEmailForgotPassword's own comment. */}
+                  <button
+                    type="button"
+                    onClick={handleEmailForgotPassword}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      fontSize: '0.83rem',
+                      color: 'var(--eco-primary)',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  className="eco-btn eco-btn-primary"
+                  disabled={changingEmail}
+                  style={{ flexShrink: 0 }}
+                >
+                  {changingEmail ? (
+                    <>
+                      <span
+                        style={{
+                          width: 16,
+                          height: 16,
+                          border: '2px solid rgba(255,255,255,0.35)',
+                          borderTopColor: '#ffffff',
+                          borderRadius: '50%',
+                          animation: 'eco-spin 0.8s linear infinite',
+                        }}
+                      />
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Mail size={16} />
+                      Send confirmation
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+        </motion.div>
+      )}
 
       </>
       )}
@@ -1209,6 +1480,49 @@ export default function Profile() {
             </button>
           </div>
         )}
+      </motion.div>
+
+      {/* ---------- Research data sharing ---------- */}
+      {/* See DataConsentModal.jsx's own module docstring, shown once right
+          after sign-in - this card is where the same choice can be made
+          again later, in either direction. */}
+      <motion.div
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.01 }}
+        className="eco-card"
+        style={{ marginTop: '1.3rem' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1.2rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.7rem' }}>
+            <FlaskConical size={17} style={{ color: 'var(--eco-primary)', flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <h3 className="eco-display" style={{ fontSize: '1.15rem', margin: '0 0 0.4rem' }}>
+                Research data sharing
+              </h3>
+              <p className="eco-text-muted" style={{ margin: 0, fontSize: '0.87rem', lineHeight: 1.6, maxWidth: '48ch' }}>
+                {profile?.dataSharingConsent
+                  ? 'On. Your logged recommendations (shown/accepted/dismissed, fully anonymised - never your name or email) count toward EcoTrack’s own research export.'
+                  : 'Off. Turn this on to have your logged recommendations count toward EcoTrack’s own research export - fully anonymised, never your name or email.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleDataSharingToggle}
+            disabled={togglingDataSharing}
+            className={`eco-btn ${profile?.dataSharingConsent ? 'eco-btn-primary' : 'eco-btn-outline'}`}
+            style={{ padding: '0.5rem 1.1rem', fontSize: '0.85rem', flexShrink: 0 }}
+          >
+            {togglingDataSharing ? (
+              <Loader2 size={15} style={{ animation: 'eco-spin 0.8s linear infinite' }} />
+            ) : profile?.dataSharingConsent ? (
+              'On'
+            ) : (
+              'Off'
+            )}
+          </button>
+        </div>
       </motion.div>
 
       </>

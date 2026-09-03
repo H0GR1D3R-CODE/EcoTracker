@@ -181,6 +181,14 @@ class Config:
     COLLECTION_EMISSION_FACTORS = "emissionFactors"
     COLLECTION_ADMINS = "admins"
     COLLECTION_TWO_FACTOR_CODES = "twoFactorCodes"
+    # One pending email-change request per account, keyed by uid - the same
+    # single-document-per-uid, most-recent-wins shape COLLECTION_TWO_FACTOR_CODES
+    # already uses. Holds a hashed confirmation token (never the raw token,
+    # same reasoning as _hash_code for 2FA), the requested new email, and an
+    # expiry - see routes/auth.py's request_email_change/confirm_email_change
+    # and email_service.py's own "EMAIL CHANGE CONFIRMATION" section for why
+    # this exists as its own flow rather than Firebase's built-in one.
+    COLLECTION_EMAIL_CHANGE_REQUESTS = "emailChangeRequests"
     # A read-only role, one notch below admin: access to the anonymised
     # research export/stats (routes/admin.py's research_export and
     # research_stats) without the ability to delete a user, edit a factor,

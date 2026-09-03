@@ -9,6 +9,7 @@
 // The caller owns navigation - this component only signs in and reports errors.
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
@@ -49,6 +50,7 @@ function GoogleMark({ size = 18 }) {
 export default function GoogleSignInButton({ label = 'Continue with Google', onDone, requireExisting = false }) {
   const { loginWithGoogle } = useAuth();
   const { prefersReducedMotion } = useTheme();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
 
   // Google's OAuth popup does not complete inside Capacitor's embedded
@@ -72,6 +74,19 @@ export default function GoogleSignInButton({ label = 'Continue with Google', onD
     } catch (error) {
       // Closing the popup is a choice, not an error worth shouting about
       if (error.message === 'Sign-in cancelled.') {
+        setBusy(false);
+        return;
+      }
+      // Google itself succeeded and AuthContext.loginWithGoogle has already
+      // signed back out rather than leave that broken half-session sitting
+      // there - see that function's own comment. This is the one failure
+      // shape worth navigating away from here even though "the caller owns
+      // navigation" otherwise (this file's own top comment): there is
+      // nothing context-specific about it, Login or Register, the right
+      // place to land is the same either way.
+      if (error.code === 'sign_in_load_failed') {
+        toast.error(error.message);
+        navigate('/', { replace: true });
         setBusy(false);
         return;
       }

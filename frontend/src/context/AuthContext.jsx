@@ -204,11 +204,21 @@ export function AuthProvider({ children }) {
       setProfile(data);
       return data;
     } catch (error) {
-      // The account was created but sign-in failed - send them to the login
-      // page rather than leaving them stuck on a half-finished registration
-      throw new Error(
-        'Your account was created, but signing in failed. Please go to the login page.'
+      // The account was created, Firebase signed them in, but loading the
+      // profile failed - a real Firebase session now exists with nothing
+      // behind it in this app, which would otherwise sit there broken
+      // (ProtectedRoute would keep retrying against the same failure on
+      // every protected page). Sign out rather than leave that half-signed-
+      // in state hanging, and mark the error so the caller (Register.jsx)
+      // knows to send them to the home page instead of retrying this form -
+      // the account itself is fine and waiting; only this one sign-in
+      // attempt failed.
+      await signOut(auth).catch(() => {});
+      const wrapped = new Error(
+        'Your account was created, but signing in failed. Please try signing in again.'
       );
+      wrapped.code = 'sign_in_load_failed';
+      throw wrapped;
     }
   }, []);
 
@@ -266,7 +276,18 @@ export function AuthProvider({ children }) {
       const data = await authApi.login(idToken);
       return handleLoginResponse(data, email);
     } catch (error) {
-      throw new Error(getErrorMessage(error, 'Could not load your profile.'));
+      // Firebase itself already succeeded here - the password was correct,
+      // a real session exists - so this is specifically the backend profile
+      // load failing, not a bad credential. Leaving that Firebase session
+      // active with no profile behind it is what used to leave someone
+      // sitting on the login page looking "signed in" nowhere in
+      // particular; sign out and let the caller (Login.jsx) send them to
+      // the home page instead, the same treatment loginWithGoogle and
+      // register give this identical failure shape.
+      await signOut(auth).catch(() => {});
+      const wrapped = new Error(getErrorMessage(error, 'Could not load your profile. Please try again.'));
+      wrapped.code = 'sign_in_load_failed';
+      throw wrapped;
     }
   }, [handleLoginResponse]);
 
@@ -338,7 +359,12 @@ export function AuthProvider({ children }) {
       const data = await authApi.login(idToken);
       return handleLoginResponse(data, credential.user.email);
     } catch (error) {
-      throw new Error(getErrorMessage(error, 'Could not load your profile.'));
+      // Same reasoning as login()'s own identical catch just above - Google
+      // already succeeded, only the backend profile load failed.
+      await signOut(auth).catch(() => {});
+      const wrapped = new Error(getErrorMessage(error, 'Could not load your profile. Please try again.'));
+      wrapped.code = 'sign_in_load_failed';
+      throw wrapped;
     }
   }, [handleLoginResponse]);
 
@@ -499,6 +525,48 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
+   * Request a change to the signed-in account's email address.
+   *
+   * Re-authenticates with the current password first - same reasoning and
+   * same shape as changePassword just above (this is what gives the fresh
+   * ID token backend/routes/auth.py's request_email_change checks the
+   * recency of), doubling as confirming they actually know the current
+   * password. Unlike changePassword, this does NOT call Firebase's own
+   * updateEmail/verifyBeforeUpdateEmail - the backend route sends its own
+   * confirmation link to the CURRENT email instead, and nothing about the
+   * account actually changes until that link is opened. See
+   * backend/routes/auth.py's own module comment on why (confirming via the
+   * OLD address, not the new one, is what stops a hijacked session from
+   * quietly moving an account to an attacker's address).
+   *
+   * Only meaningful for an email/password account, same restriction as
+   * changePassword - Profile.jsx only shows this form under the same
+   * providerData check.
+   */
+  const changeEmail = useCallback(async (currentPassword, newEmail) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser?.email) {
+      throw new Error('You need to be signed in to change your email.');
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+    } catch (error) {
+      if (error?.code === 'auth/invalid-credential' || error?.code === 'auth/wrong-password') {
+        throw new Error('Your current password is incorrect.');
+      }
+      throw new Error(friendlyAuthError(error));
+    }
+
+    try {
+      return await authApi.requestEmailChange(newEmail);
+    } catch (error) {
+      throw new Error(getErrorMessage(error, 'Could not start the email change. Please try again.'));
+    }
+  }, []);
+
+  /**
    * Sign out. onAuthStateChanged fires straight after and clears the state.
    */
   const logout = useCallback(async () => {
@@ -606,6 +674,7 @@ export function AuthProvider({ children }) {
       refreshProfile,
       resetPassword,
       changePassword,
+      changeEmail,
       verifyTwoFactorCode,
       resendTwoFactorCode,
       cancelTwoFactor,
@@ -631,6 +700,7 @@ export function AuthProvider({ children }) {
       cancelTwoFactor,
       setTwoFactorEnabled,
       changePassword,
+      changeEmail,
     ]
   );
 

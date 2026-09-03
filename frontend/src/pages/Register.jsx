@@ -291,6 +291,18 @@ export default function Register() {
       toast.success('Account created.');
       navigate('/dashboard', { replace: true });
     } catch (error) {
+      // The account itself was created fine - only the sign-in step right
+      // after it failed, and AuthContext.register() has already signed
+      // back out rather than leave that broken half-session sitting there.
+      // Nothing left to fix on this form, so send them somewhere that
+      // works right now instead of leaving them stuck on a registration
+      // wizard for an account that already exists.
+      if (error.code === 'sign_in_load_failed') {
+        toast.error(error.message);
+        navigate('/', { replace: true });
+        return;
+      }
+
       // The email_exists case gets its own inline panel (rendered under the
       // email field on step 1, below) with real next steps - sign in, or
       // reset a forgotten password - rather than just a toast someone has

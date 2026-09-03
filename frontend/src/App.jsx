@@ -15,6 +15,7 @@ import Footer from './components/Footer';
 import AnnouncementBanner from './components/AnnouncementBanner';
 import ProtectedRoute from './components/ProtectedRoute';
 import CookieConsent from './components/CookieConsent';
+import DataConsentModal from './components/DataConsentModal';
 import { useTheme } from './context/ThemeContext';
 import { useAuth } from './context/AuthContext';
 
@@ -54,6 +55,7 @@ const Login = lazy(() => import('./pages/Login'));
 const VerifyTwoFactor = lazy(() => import('./pages/VerifyTwoFactor'));
 const Register = lazy(() => import('./pages/Register'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const ConfirmEmailChange = lazy(() => import('./pages/ConfirmEmailChange'));
 const About = lazy(() => import('./pages/About'));
 const Learn = lazy(() => import('./pages/Learn'));
 const Gallery = lazy(() => import('./pages/Gallery'));
@@ -275,6 +277,7 @@ export default function App() {
                 page) - reachable signed in or signed out, so it stays
                 outside ProtectedRoute like Login/Register. */}
             <Route path="/reset-password" element={<MotionPage><ResetPassword /></MotionPage>} />
+            <Route path="/confirm-email-change" element={<MotionPage><ConfirmEmailChange /></MotionPage>} />
             <Route path="/about" element={<MotionPage><About /></MotionPage>} />
             <Route path="/learn" element={<MotionPage><Learn /></MotionPage>} />
             <Route path="/gallery" element={<MotionPage><Gallery /></MotionPage>} />
@@ -421,6 +424,7 @@ export default function App() {
         <PublicHelper />
       </Suspense>
       <CookieConsent />
+      <DataConsentModal />
     </>
   );
 }

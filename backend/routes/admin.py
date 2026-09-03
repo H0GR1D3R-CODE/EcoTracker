@@ -973,6 +973,28 @@ def system_health():
 # GET /api/admin/research/export
 # ---------------------------------------------------------------------------
 
+def _opted_out_uids():
+    """
+    Every uid whose account has explicitly declined the one-time data-
+    sharing prompt (users/{uid}.dataSharingConsent == False, set by
+    frontend/src/components/DataConsentModal.jsx) - the set research_export
+    and research_stats both filter their own interventions read against.
+
+    Deliberately NOT the same as "never answered" (None, the default for
+    every account before this existed and for a few seconds on a brand new
+    one): a real, considered No is what this respects, not silence -
+    treating an unanswered prompt as an opt-out would exclude the entire
+    existing user base retroactively for a choice nobody actually made.
+    """
+    db = get_db()
+    return {
+        doc.id
+        for doc in db.collection(Config.COLLECTION_USERS)
+        .where(filter=gcloud_firestore.FieldFilter("dataSharingConsent", "==", False))
+        .stream()
+    }
+
+
 def _hashed_uid(uid):
     """
     A stable, one-way, per-deployment pseudonym for a user id.
@@ -1009,8 +1031,13 @@ def research_export():
     a real anonymisation property of the export, not a cosmetic one: a
     column rename would not be enough if the raw uid were still in the file,
     since uids are also the join key into every OTHER collection.
+
+    Also excludes anyone who has explicitly declined the data-sharing
+    prompt - see _opted_out_uids' own docstring for exactly what that does
+    and does not exclude.
     """
     db = get_db()
+    excluded = _opted_out_uids()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -1022,6 +1049,8 @@ def research_export():
     row_count = 0
     for doc in db.collection(Config.COLLECTION_INTERVENTIONS).stream():
         data = doc.to_dict()
+        if data.get("userId") in excluded:
+            continue
         shown_at = data.get("shownAt")
         acted_at = data.get("actedAt")
         writer.writerow([
@@ -1091,8 +1120,14 @@ def research_stats():
     enough users for statistical power - future work, not a live snapshot.
     Reporting the honest partial number here beats reporting a number that
     overclaims what a single admin-console request can actually prove.
+
+    Also excludes anyone who has explicitly declined the data-sharing
+    prompt - see _opted_out_uids' own docstring, and research_export's
+    identical exclusion just above for the same reasoning applied to the
+    CSV instead of these aggregate figures.
     """
     db = get_db()
+    excluded = _opted_out_uids()
 
     by_type = {}
     cohort_variants = {}
@@ -1105,6 +1140,8 @@ def research_stats():
 
     for doc in db.collection(Config.COLLECTION_INTERVENTIONS).stream():
         data = doc.to_dict()
+        if data.get("userId") in excluded:
+            continue
         intervention_type = data.get("type", "unknown")
         action = data.get("action", "shown")
         variant = data.get("variant", "")

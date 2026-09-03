@@ -144,6 +144,19 @@ export default function Login() {
       // The admin account is admin-only, so send it straight to the console
       navigate(result?.isAdmin ? '/admin' : redirectTo, { replace: true });
     } catch (error) {
+      // The password was correct and Firebase signed them in - only the
+      // profile load after that failed. AuthContext.login() has already
+      // signed them back out rather than leave that broken half-session
+      // sitting there, so this sends them somewhere that works right now
+      // instead of back onto a sign-in form for an account that isn't the
+      // problem - see AuthContext.login()'s own comment on this exact code.
+      if (error.code === 'sign_in_load_failed') {
+        toast.error(error.message);
+        setForm((previous) => ({ ...previous, password: '' }));
+        navigate('/', { replace: true });
+        return;
+      }
+
       // A credential-shaped failure could mean "wrong password" or "no
       // account at all" - Firebase's own error code no longer distinguishes
       // these (see accountNotFoundError's own comment above), so ask the

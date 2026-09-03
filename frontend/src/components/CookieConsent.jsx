@@ -33,6 +33,13 @@ export default function CookieConsent() {
   const accept = () => {
     localStorage.setItem(CONSENT_KEY, '1');
     setVisible(false);
+    // Both this banner and DataConsentModal.jsx use the exact same fixed,
+    // bottom-of-screen .eco-cookie-banner position - showing both at once
+    // would overlap. DataConsentModal waits for this event (or, on a page
+    // it happens to already be mounted for some other reason, the next
+    // re-render) before showing itself, so there is only ever one banner
+    // on screen at a time.
+    window.dispatchEvent(new Event('eco:cookie-consent-accepted'));
   };
 
   if (!visible) return null;

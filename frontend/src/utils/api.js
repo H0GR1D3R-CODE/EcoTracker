@@ -217,6 +217,14 @@ export const authApi = {
   setTwoFactor: (enabled) => api.put('/api/auth/2fa', { enabled }).then(unwrap),
   resendTwoFactorCode: () => api.post('/api/auth/2fa/resend').then(unwrap),
   verifyTwoFactorCode: (code) => api.post('/api/auth/2fa/verify', { code }).then(unwrap),
+
+  // Change the signed-in account's email - confirmed via a link sent to the
+  // CURRENT address, not the new one. See backend/routes/auth.py's own
+  // request_email_change/confirm_email_change and AuthContext.changeEmail.
+  requestEmailChange: (newEmail) => api.put('/api/auth/email', { newEmail }).then(unwrap),
+  // Public route (no token needed - the link itself is the credential).
+  confirmEmailChange: (uid, token) =>
+    api.post('/api/auth/email/confirm', { uid, token }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

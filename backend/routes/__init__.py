@@ -11,7 +11,9 @@ This module has four sections:
 SECURITY RULE
 -------------
 Every route in this project is protected with @require_auth or @require_admin,
-with exactly five documented exceptions:
+with exactly five documented exceptions (plus a handful of other narrowly-
+public routes documented at their own definition - forgot-password,
+check-email, feedback, the Razorpay/assistant public endpoints among them):
     GET  /api/health              - server status check, returns no user data
     POST /api/auth/register       - the user has no account yet, so no token exists
     GET  /api/factors             - published scientific constants, not user data
@@ -22,6 +24,9 @@ with exactly five documented exceptions:
     POST /api/cron/streak-reminders - not a user at all; guarded instead by
                                      @require_cron_secret (routes/cron.py),
                                      checking Vercel Cron's own signed header
+    POST /api/auth/email/confirm  - proof is the emailed token itself, not an
+                                     active session - see request_email_change/
+                                     confirm_email_change in routes/auth.py
 """
 
 import re

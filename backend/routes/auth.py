@@ -38,7 +38,12 @@ from firebase_admin import auth as firebase_auth
 from google.cloud import firestore as gcloud_firestore  # installed with firebase-admin
 
 from config import Config, get_db, get_storage_bucket
-from email_service import send_password_reset_email, send_two_factor_code_email
+from email_service import (
+    send_email_change_confirmation,
+    send_password_reset_email,
+    send_two_factor_code_email,
+    send_welcome_email,
+)
 from routes import (
     EMAIL_ERROR,
     api_error,
@@ -134,6 +139,17 @@ def _serialize_user(doc_id, data):
         # daily cron run that already sends push notifications, just gated
         # on this field instead of a push token).
         "digestFrequency": data.get("digestFrequency", "off"),
+        # True/False once answered, None (the default for every account
+        # before this existed, and for a few seconds on a brand new one)
+        # while the one-time consent prompt has not been shown or answered
+        # yet - see DataConsentModal.jsx's own comment for what a No
+        # actually changes: this account's interventions still get logged
+        # (the same anonymised, no-email-or-name shape every account's
+        # already are - see routes/engagement.py's own module docstring),
+        # but never counted into the research export/stats an admin or
+        # researcher can pull, the one place this flag actually gates
+        # anything real rather than just recording a preference.
+        "dataSharingConsent": data.get("dataSharingConsent"),
     }
 
 
@@ -327,6 +343,15 @@ def register():
             500,
             code="profile_save_failed",
         )
+
+    # --- step 3: the welcome email, best-effort ---
+    # Never lets a slow or failing send hold up the response the frontend is
+    # actively waiting on to move to the login step - see send_welcome_email's
+    # own docstring on why a False here is not an error worth reporting.
+    try:
+        send_welcome_email(email, name)
+    except Exception:
+        pass
 
     return api_success(
         {
@@ -776,7 +801,8 @@ AVATAR_PRESET_IDS = {"leaf", "sprout", "sun", "droplets", "mountain", "flower", 
 def update_profile():
     """
     Update the editable parts of the profile (name, region, the two
-    leaderboard-privacy fields, and the avatar).
+    leaderboard-privacy fields, the avatar, the digest-email frequency, and
+    the one-time data-sharing consent answer).
 
     Email is deliberately NOT editable here - changing an email address has to
     go through Firebase Auth itself, otherwise the Auth account and the Firestore
@@ -850,6 +876,14 @@ def update_profile():
             )
         updates["digestFrequency"] = digest_frequency
 
+    # The one-time consent prompt's answer - see _serialize_user's own
+    # comment on what True/False/None each mean, and DataConsentModal.jsx
+    # for where this actually gets sent. A real boolean only, never used to
+    # CLEAR back to None/unanswered - there is no UI path that should ever
+    # do that once a real choice has been made.
+    if "dataSharingConsent" in body and isinstance(body.get("dataSharingConsent"), bool):
+        updates["dataSharingConsent"] = body["dataSharingConsent"]
+
     # avatarType and avatarValue are only ever meaningfully set TOGETHER -
     # checking for either key's presence (not both) is deliberate: it is what
     # lets AvatarPicker.jsx's "Remove" action send just
@@ -885,6 +919,202 @@ def update_profile():
     profile["isResearcher"] = is_researcher(g.uid)
 
     return api_success(profile, message="Profile updated successfully.")
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/auth/email      (request a change - confirmed via the OLD email)
+# POST /api/auth/email/confirm      (PUBLIC - the link in that email)
+#
+# See email_service.py's own "EMAIL CHANGE CONFIRMATION" section for why
+# this is a custom flow rather than Firebase's built-in
+# verifyBeforeUpdateEmail: that confirms via the NEW address; this confirms
+# via the OLD one, which is the property that actually stops a hijacked
+# session from quietly moving an account to an attacker's address.
+#
+# THE TOKEN
+# A single emailChangeRequests/{uid} document, the same one-pending-
+# request-per-account shape COLLECTION_TWO_FACTOR_CODES already uses for
+# its own code: requesting a new change overwrites (and so silently
+# invalidates) any change already pending. Only the token's SHA-256 hash is
+# ever stored, never the raw token - _hash_email_change_token below is the
+# same one-way-hash-at-rest reasoning _hash_code already applies to a 2FA
+# code, just over a long random token (secrets.token_urlsafe) instead of a
+# short numeric one, since this one travels as a URL a person clicks rather
+# than a code they type back in.
+# ---------------------------------------------------------------------------
+
+EMAIL_CHANGE_TOKEN_TTL_MINUTES = 30
+
+# Firebase stamps auth_time on an ID token at the moment the user actually
+# entered their password (or otherwise authenticated) - refreshing an old
+# token does NOT move it forward. This is the server-side half of the same
+# "recent login required" rule AuthContext.changePassword's own docstring
+# describes for the client SDK: the frontend re-authenticates with the
+# current password before ever calling this route (getting a token with a
+# fresh auth_time in the process), and this checks that timestamp again
+# here so a stale-but-still-valid token cannot reach this route by skipping
+# that client-side step - the same defense-in-depth every other sensitive
+# mutation in this file already applies to its own inputs.
+RECENT_LOGIN_MAX_AGE_SECONDS = 5 * 60
+
+
+def _hash_email_change_token(token):
+    """One-way hash of the confirmation token - never store the raw token
+    at rest, same reasoning as _hash_code above for a 2FA code."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+@auth_bp.route("/email", methods=["PUT"])
+@require_auth
+def request_email_change():
+    """
+    Body: {"newEmail": "new@example.com"}
+
+    Requires a RECENT sign-in (see RECENT_LOGIN_MAX_AGE_SECONDS above) -
+    the frontend re-authenticates with the current password immediately
+    before calling this, exactly like AuthContext.changePassword already
+    does for changing a password. Sends a confirmation link to the CURRENT
+    email; nothing about the account actually changes until that link is
+    opened - see confirm_email_change below.
+    """
+    auth_time = g.token_claims.get("auth_time")
+    if not auth_time or (datetime.now(timezone.utc).timestamp() - auth_time) > RECENT_LOGIN_MAX_AGE_SECONDS:
+        return api_error(
+            "Please re-enter your password to confirm it's you before changing your email.",
+            401,
+            code="reauth_required",
+        )
+
+    body = request.get_json(silent=True) or {}
+    new_email = _clean_text(body.get("newEmail")).lower()
+
+    if not is_valid_email(new_email):
+        return api_error(EMAIL_ERROR, 400, code="invalid_email")
+
+    if new_email == g.email.lower():
+        return api_error("That's already your current email address.", 400, code="same_email")
+
+    # Same account-enumeration reasoning as forgot_password's own docstring
+    # would apply here IF this leaked whether an email was taken - but this
+    # one legitimately has to, the same way check_email() (used live, on
+    # the Register form, for the exact same reason) already does: someone
+    # choosing a new email needs to know if it is already in use by another
+    # EcoTrack account before this can proceed, and this route is already
+    # behind @require_auth, so it is not reachable by an anonymous prober
+    # the way a public route would be.
+    try:
+        firebase_auth.get_user_by_email(new_email)
+        return api_error(
+            "That email is already in use by another account.", 409, code="email_exists"
+        )
+    except firebase_auth.UserNotFoundError:
+        pass  # good - this is the case that should proceed
+
+    if not check_rate_limit("email-change", g.uid, max_attempts=3, window_seconds=3600):
+        return api_error(
+            "Too many email-change requests. Please wait a while and try again.",
+            429,
+            code="rate_limited",
+        )
+
+    token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+
+    db = get_db()
+    db.collection(Config.COLLECTION_EMAIL_CHANGE_REQUESTS).document(g.uid).set({
+        "tokenHash": _hash_email_change_token(token),
+        "newEmail": new_email,
+        "currentEmail": g.email,
+        "createdAt": now,
+        "expiresAt": now + timedelta(minutes=EMAIL_CHANGE_TOKEN_TTL_MINUTES),
+    })
+
+    confirm_link = (
+        f"{Config.PUBLIC_APP_URL}/confirm-email-change"
+        f"?uid={quote(g.uid)}&token={quote(token)}"
+    )
+    sent = send_email_change_confirmation(g.email, new_email, confirm_link)
+
+    if not sent:
+        # Nothing to fall back to for this one (see email_service.py's own
+        # docstring) - undo the pending request rather than leaving a
+        # confirmable-but-never-notified change sitting in Firestore.
+        db.collection(Config.COLLECTION_EMAIL_CHANGE_REQUESTS).document(g.uid).delete()
+        return api_error(
+            "Could not send the confirmation email right now. Please try again shortly.",
+            502,
+            code="email_send_failed",
+        )
+
+    return api_success(
+        {"sent": True, "newEmail": new_email},
+        message=f"Check {g.email} for a link to confirm this change.",
+    )
+
+
+@auth_bp.route("/email/confirm", methods=["POST"])
+def confirm_email_change():
+    """
+    Body: {"uid": "...", "token": "..."}
+
+    PUBLIC on purpose - the whole point is that clicking the link in the
+    confirmation email is what proves this, not an active session on
+    whichever device/browser happens to open it (someone might request the
+    change on their laptop and confirm it from their phone's mail app,
+    signed into nothing there at all).
+    """
+    body = request.get_json(silent=True) or {}
+    uid = _clean_text(body.get("uid"))
+    token = _clean_text(body.get("token"))
+
+    if not uid or not token:
+        return api_error("This confirmation link is invalid.", 400, code="invalid_link")
+
+    if not check_rate_limit("email-change-confirm", uid, max_attempts=10, window_seconds=3600):
+        return api_error("Too many attempts. Please request a new confirmation email.", 429, code="rate_limited")
+
+    db = get_db()
+    request_ref = db.collection(Config.COLLECTION_EMAIL_CHANGE_REQUESTS).document(uid)
+    request_doc = request_ref.get()
+
+    if not request_doc.exists:
+        return api_error(
+            "This link has already been used or a newer request replaced it.",
+            404,
+            code="request_not_found",
+        )
+
+    data = request_doc.to_dict()
+    if datetime.now(timezone.utc) > data.get("expiresAt"):
+        request_ref.delete()
+        return api_error(
+            "This link has expired. Please request the email change again.",
+            400,
+            code="link_expired",
+        )
+
+    if _hash_email_change_token(token) != data.get("tokenHash"):
+        return api_error("This confirmation link is invalid.", 400, code="invalid_link")
+
+    new_email = data.get("newEmail")
+
+    # --- the actual change: Firebase Auth first, then the mirrored Firestore field ---
+    try:
+        firebase_auth.update_user(uid, email=new_email)
+    except firebase_auth.EmailAlreadyExistsError:
+        request_ref.delete()
+        return api_error(
+            "That email was taken by another account since this link was sent.",
+            409,
+            code="email_exists",
+        )
+    except Exception:
+        return api_error("Could not update your email right now. Please try again.", 500, code="update_failed")
+
+    db.collection(Config.COLLECTION_USERS).document(uid).set({"email": new_email}, merge=True)
+    request_ref.delete()  # single-use
+
+    return api_success({"newEmail": new_email}, message="Your email address has been changed.")
 
 
 # ---------------------------------------------------------------------------
