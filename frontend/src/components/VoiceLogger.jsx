@@ -305,8 +305,11 @@ export default function VoiceLogger({ onExtracted }) {
 
   const handleUse = () => {
     if (!result) return;
+    // onExtracted (Calculator.jsx's handleVoiceExtracted) now saves this
+    // directly rather than only pre-filling the form - it shows its own
+    // "Logged X kg CO2" toast once that finishes, so nothing is shown here
+    // that would say something different a moment before that one lands.
     onExtracted({ category: result.category, subType: result.subType, quantity: result.quantity, unit: result.unit });
-    toast.success('Filled in — check it, then log it.');
     closePanel();
   };
 
@@ -465,13 +468,9 @@ export default function VoiceLogger({ onExtracted }) {
                   </div>
                 ))}
 
-                <span className="eco-marker" style={{ fontSize: '0.68rem', marginTop: '0.2rem' }}>
-                  Confidence {Math.round((result.confidence || 0) * 100)}%
-                </span>
-
                 <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.6rem' }}>
                   <button type="button" className="eco-btn eco-btn-primary" onClick={handleUse} disabled={!result.category || !result.quantity}>
-                    <Check size={15} /> Use these values
+                    <Check size={15} /> Log this
                   </button>
                   <button type="button" className="eco-btn eco-btn-ghost" onClick={closePanel}>
                     <X size={15} /> Try again

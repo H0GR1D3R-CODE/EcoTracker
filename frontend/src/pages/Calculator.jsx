@@ -307,10 +307,22 @@ export default function Calculator() {
     setTouched({});
   };
 
-  // The actual save - shared by the normal path and "Log anyway" below, so
-  // an unusual-but-confirmed entry goes through the exact same offline
-  // fallback and result handling as an ordinary one.
-  const saveRecord = async (payload) => {
+  // The actual save - shared by the normal path, "Log anyway" below, and
+  // the voice logger, so an unusual-but-confirmed or voice-extracted entry
+  // goes through the exact same offline fallback and result handling as an
+  // ordinary one.
+  //
+  // factorValueForOffline defaults to selectedFactor?.factorValue (the
+  // normal form-submit path, where that state genuinely matches payload's
+  // category+subType by the time this runs) but the voice path
+  // (handleVoiceExtracted below) passes its own freshly-looked-up factor
+  // value explicitly instead of relying on this default: saveRecord's own
+  // closure over `selectedFactor` is fixed at whatever render created THIS
+  // copy of the function, which can be one render behind a category/subType
+  // that voice just set moments earlier in the same call - relying on the
+  // default there could silently use the WRONG factor (or none at all) if
+  // the offline branch below ever ran for a voice-extracted entry.
+  const saveRecord = async (payload, factorValueForOffline = selectedFactor?.factorValue) => {
     setSubmitting(true);
     try {
       const data = await carbonApi.calculate(payload);
@@ -331,7 +343,7 @@ export default function Calculator() {
         // Not a real rejection - the request never reached the server, so
         // this is queued rather than lost. localEmissionKg is the exact
         // same figure the live preview already showed for this entry.
-        const localEmissionKg = calculateEmission(payload.quantity, selectedFactor.factorValue);
+        const localEmissionKg = calculateEmission(payload.quantity, factorValueForOffline);
         await queueRecord(payload, localEmissionKg);
         toast.success(`Saved offline (${formatEmission(localEmissionKg)}) - will sync once you're back online.`);
         setQuantity('');
@@ -389,6 +401,69 @@ export default function Calculator() {
 
   const handleLogAnyway = () => {
     if (pendingAnomaly) saveRecord(pendingAnomaly.payload);
+  };
+
+  // VoiceLogger's own review card (category/type/quantity, reviewed and
+  // confirmed with its "Log this" button) already IS the confirm-before-
+  // saving step every AI-assisted entry in this app requires - unlike
+  // BillScanner, which only ever proposes values with no review step of its
+  // own and so stays pre-fill-only, voice has already been confirmed once by
+  // the time this runs. So this actually saves, through the exact same
+  // check-then-save path handleSubmit uses, rather than just filling in the
+  // form and leaving a second, easy-to-miss "Log this emission" click
+  // pending - the whole point of a voice-logged entry is that it lands
+  // without a second confirmation, the same as this one already gave.
+  //
+  // The factor is looked up directly from `factors` using the EXTRACTED
+  // category+subType, not read from `selectedFactor` - that memo is derived
+  // from `category`/`subType` state, which the setters just below have not
+  // necessarily flushed into by the time the save runs a moment later in
+  // this same function.
+  const handleVoiceExtracted = async ({ category: extractedCategory, subType: extractedSubType, quantity: extractedQuantity }) => {
+    if (extractedCategory && extractedCategory !== category) {
+      handleCategoryChange(extractedCategory);
+    }
+    if (extractedSubType) setSubType(extractedSubType);
+    if (extractedQuantity) setQuantity(String(extractedQuantity));
+
+    if (!extractedCategory || !extractedSubType || !extractedQuantity) return;
+
+    const factor = (factors?.factors?.[extractedCategory] || []).find(
+      (item) => item.subType === extractedSubType
+    );
+    // No matching factor (a stale cached factor list, or the extraction
+    // named a subType this account's region does not have) - the form above
+    // is still pre-filled either way, so the user can fix and submit by
+    // hand instead of this silently doing nothing.
+    if (!factor) return;
+
+    const payload = {
+      category: extractedCategory,
+      subType: extractedSubType,
+      quantity: parseFloat(extractedQuantity),
+      unit: factor.unit,
+      recordedDate,
+    };
+
+    setCheckingAnomaly(true);
+    try {
+      const check = await carbonApi.checkQuantity({
+        category: payload.category,
+        subType: payload.subType,
+        quantity: payload.quantity,
+      });
+      if (check.flagged) {
+        setPendingAnomaly({ payload, ...check });
+        return;
+      }
+    } catch {
+      // Same reasoning as handleSubmit's own try/catch: a failed dry run
+      // should never block the actual save.
+    } finally {
+      setCheckingAnomaly(false);
+    }
+
+    await saveRecord(payload, factor.factorValue);
   };
 
   const handleDelete = async (recordId) => {
@@ -494,20 +569,15 @@ export default function Calculator() {
       />
 
       {/* ============ VOICE LOGGER ============ */}
-      {/* Same onExtracted shape as BillScanner above - both only ever
-          pre-fill the form below; "Log it" is still the one thing that
-          actually saves anything. Renders nothing at all when the browser
-          has no speech recognition or the server has no Groq key - see
+      {/* Unlike BillScanner above, this one actually saves - see
+          handleVoiceExtracted's own comment on why: voice's own review card
+          (category/type/quantity, confirmed with its "Log this" button) is
+          already the one confirm-before-saving step every AI-assisted entry
+          here requires, so there is no second "Log this emission" click left
+          pending after it. Renders nothing at all when the browser has no
+          speech recognition or the server has no Groq key - see
           VoiceLogger.jsx's own guard. */}
-      <VoiceLogger
-        onExtracted={({ category: extractedCategory, subType: extractedSubType, quantity: extractedQuantity }) => {
-          if (extractedCategory && extractedCategory !== category) {
-            handleCategoryChange(extractedCategory);
-          }
-          if (extractedSubType) setSubType(extractedSubType);
-          if (extractedQuantity) setQuantity(String(extractedQuantity));
-        }}
-      />
+      <VoiceLogger onExtracted={handleVoiceExtracted} />
 
       {/* ============ CATEGORY TABS ============ */}
       <div
