@@ -121,9 +121,38 @@ export default function VoiceLogger({ onExtracted }) {
     }
   };
 
-  const startListening = () => {
+  const startListening = async () => {
     closePanel();
     setPanelOpen(true);
+
+    // A PRE-FLIGHT CHECK, NOT JUST THE onerror HANDLER BELOW
+    // Chrome remembers a mic decision per-site independently of whatever a
+    // Permissions-Policy header currently allows - if this origin was ever
+    // denied (including the browser silently treating a Permissions-Policy
+    // block as a denial, back when that header disabled microphone outright
+    // - see firebase.json's own history on this), the SpeechRecognition API
+    // can fail closed with no onerror firing at all on some Chrome versions,
+    // which is exactly "stuck on Listening..." forever with nothing to click
+    // but Cancel. Checking navigator.permissions first catches that BEFORE
+    // ever calling recognition.start(), with a message that actually says
+    // what changed and what to do about it, rather than a generic timeout.
+    // Wrapped in a try/catch because Safari/older browsers do not support
+    // querying the 'microphone' permission name at all - silently falls
+    // through to the normal start() attempt for those.
+    if (navigator.permissions?.query) {
+      try {
+        const status = await navigator.permissions.query({ name: 'microphone' });
+        if (status.state === 'denied') {
+          setError(
+            'Microphone access is blocked for this site - probably from before this was fixed. ' +
+            'Click the lock/info icon next to the address bar, set Microphone to "Allow", then reload the page and try again.'
+          );
+          return;
+        }
+      } catch {
+        // Permission name not supported by this browser - fall through
+      }
+    }
 
     const recognition = new SpeechRecognitionCtor();
     recognition.lang = 'en-IN';
