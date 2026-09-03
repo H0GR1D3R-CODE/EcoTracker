@@ -607,6 +607,7 @@ export function AuthProvider({ children }) {
       avatarType,
       avatarValue,
       digestFrequency,
+      dataSharingConsent,
     }) => {
       try {
         const body = {};
@@ -618,6 +619,15 @@ export function AuthProvider({ children }) {
         if (avatarType !== undefined) body.avatarType = avatarType;
         if (avatarValue !== undefined) body.avatarValue = avatarValue;
         if (digestFrequency !== undefined) body.digestFrequency = digestFrequency;
+        // Caught live doing exactly what this function's own docstring
+        // warns about above, the same day it was written: DataConsentModal.jsx
+        // and Profile.jsx's own "Research data sharing" toggle both call
+        // updateProfile({dataSharingConsent: ...}), but this parameter list
+        // did not have it, so it was silently dropped and every request
+        // went out as an empty body - a 400 "Nothing to update" the caller
+        // never surfaced, since the whole point of a boolean opt-in is
+        // that clicking "No" (false) has to actually persist as false.
+        if (dataSharingConsent !== undefined) body.dataSharingConsent = dataSharingConsent;
 
         const data = await authApi.updateProfile(body);
         setProfile(data);
