@@ -1048,23 +1048,30 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 1030;
-  transition: background-color var(--eco-transition), backdrop-filter var(--eco-transition),
-    border-color var(--eco-transition), box-shadow var(--eco-transition);
-  background: transparent;
-  border-bottom: 1px solid transparent;
-  /* Clears the notch/status bar when this runs as the wrapped Capacitor app
-     (or is installed as a PWA) - a plain browser tab has no inset, so this is
-     0px there and changes nothing. */
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-/* JavaScript adds this class once the page is scrolled past 80px */
-.eco-navbar-scrolled {
+  /* WHY NOT TRANSPARENT AT THE TOP
+     This used to start fully transparent and only turn opaque once
+     JavaScript saw the page scrolled past 80px - a floating-over-the-hero
+     effect. Several of this app's own pages (Donate, and every signed-in
+     page built on PageBanner - Dashboard, Calculator, Goals, Reports...)
+     put a full-width photo as the very first thing on the page, directly
+     under this sticky navbar, so the transparent state sat the plain nav
+     link text (.eco-nav-link's --eco-text-muted, chosen to read against
+     this app's own cream/near-black page background, not an unpredictable
+     photo) straight over the image with nothing behind it - reported live
+     as barely-legible text over a forest photo on Donate, and the same
+     shape of problem on every PageBanner page. Always-on frosted glass
+     fixes it everywhere at once instead of per-page, and costs nothing:
+     the navbar was always going to look like this the instant a user
+     scrolled 80px anyway. */
   background: var(--eco-glass-bg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--eco-glass-border);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  /* Clears the notch/status bar when this runs as the wrapped Capacitor app
+     (or is installed as a PWA) - a plain browser tab has no inset, so this is
+     0px there and changes nothing. */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .eco-nav-link {

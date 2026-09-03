@@ -3,7 +3,8 @@
 // on phones.
 //
 // Behaviour:
-//   * transparent at the top of the page, frosted glass once scrolled past 80px
+//   * always frosted glass, even at the very top of the page - see the
+//     WHY NOT TRANSPARENT AT THE TOP note in index.css's .eco-navbar rule
 //   * desktop shows the links inline; mobile collapses them into a hamburger
 //   * signed-in users get app links, visitors get Login and Register buttons
 //   * the Admin link only appears for admins
@@ -36,9 +37,6 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import ThemeToggle from './ThemeToggle';
 import LanguageToggle from './LanguageToggle';
 import Avatar from './Avatar';
-
-// How far the user scrolls before the navbar turns opaque
-const SCROLL_THRESHOLD = 80;
 
 // The main app links, for signed-in NORMAL users. Used by both the top navbar
 // and the mobile bottom bar.
@@ -90,20 +88,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-
-  // Watch the scroll position so the navbar can change appearance
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > SCROLL_THRESHOLD);
-
-    handleScroll(); // run once in case the page loads already scrolled down
-    // passive: true tells the browser we will not block scrolling, which keeps
-    // scrolling smooth even while this handler runs
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Close the mobile menu whenever the route changes, otherwise it would stay
   // open on top of the page the user just navigated to
@@ -154,7 +139,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`eco-navbar ${scrolled ? 'eco-navbar-scrolled' : ''}`}>
+      <nav className="eco-navbar">
         <div
           className="container"
           style={{
