@@ -719,6 +719,11 @@ export const voiceApi = {
   getStatus: () => api.get('/api/voice/status').then(unwrap),
   parse: (transcript) =>
     api.post('/api/voice/parse', { transcript }, { skipErrorToast: true }).then(unwrap),
+  // audioBase64: no "data:audio/webm;base64," prefix - VoiceLogger.jsx strips
+  // it before calling this, the same convention ingestApi.scanBill already
+  // uses for a photographed bill.
+  transcribe: (audioBase64, mimeType) =>
+    api.post('/api/voice/transcribe', { audioBase64, mimeType }, { skipErrorToast: true }).then(unwrap),
 };
 
 // ---------------------------------------------------------------------------

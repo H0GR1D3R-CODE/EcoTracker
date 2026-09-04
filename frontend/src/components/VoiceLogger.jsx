@@ -1,38 +1,35 @@
 // EcoTrack/frontend/src/components/VoiceLogger.jsx
 // Say an activity instead of typing it in - "I drove ten kilometers to
-// work" becomes a pre-filled Calculator entry. The browser's own Web
-// Speech API turns speech into text - see the note on WHERE THAT TEXT
-// ACTUALLY COMES FROM below, this is NOT purely on-device in most
-// browsers - and that transcript is then sent to Groq for extraction; see
-// backend/routes/voice.py for the parsing route and why it never saves a
-// record itself, only proposes one, the exact same two-step rule
-// BillScanner.jsx already follows for a photographed bill.
+// work" becomes a pre-filled Calculator entry. See backend/routes/voice.py
+// for the parsing route and why it never saves a record itself, only
+// proposes one, the exact same two-step rule BillScanner.jsx already
+// follows for a photographed bill.
 //
-// WHERE THAT TEXT ACTUALLY COMES FROM
-// Chrome/Edge's webkitSpeechRecognition (the only implementation most
-// visitors have - Firefox and Safari ship no usable equivalent, hence the
-// SpeechRecognitionCtor gate below) is NOT a local model: it streams the
-// microphone audio to Google's own speech-recognition servers and gets text
-// back over the network. That matters for two real, user-facing reasons:
-// it needs a working internet connection to work AT ALL (a slow/blocked one
-// is a genuine, common cause of "stuck on Listening... forever", handled
-// below via LISTEN_TIMEOUT_MS and the 'network' error case), and it is not
-// an on-device privacy property this app can honestly claim - unlike the
-// BillScanner photo, which really does stay local until the user submits it.
+// WHY THIS RECORDS AUDIO INSTEAD OF USING THE BROWSER'S SpeechRecognition
+// This used to run on the Web Speech API (window.webkitSpeechRecognition) -
+// Chrome/Edge's built-in speech-to-text. That turned out to be a much
+// narrower promise than it looked: it is not a standard every browser
+// implements, and even among the browsers that DO expose the constructor
+// (so `available` looked true), Opera, Brave and Vivaldi inherit the same
+// `webkitSpeechRecognition` global from Chromium but cannot actually reach
+// Google's proprietary speech backend behind it - onstart never fires,
+// nothing ever works, for reasons entirely outside this app's control.
+// Firefox and Safari never implemented it at all.
 //
-// WHY interimResults IS ON
-// Without it, nothing appears on screen until Chrome is confident it has a
-// FINAL result - if that confidence never arrives (background noise, an
-// accent the model struggles with, a flaky connection to Google's service),
-// the whole panel just sits on "Listening..." with no sign anything was
-// ever heard, which reads as broken even when the mic is working perfectly.
-// Interim results show a live, updating guess as the words come in, so
-// there is always visible proof the microphone is doing something.
+// MediaRecorder + getUserMedia have no such gap: every real browser that
+// can use a microphone at all supports both. So this now records a short
+// clip locally, uploads it to EcoTrack's own backend (POST
+// /api/voice/transcribe), and Groq's Whisper model turns it into text
+// there - a network round trip either way (the old approach silently
+// streamed audio to Google's servers for the same reason), but one this
+// app controls end to end, and one that actually works everywhere a
+// microphone does. See backend/routes/voice.py's own module docstring for
+// the rest of this reasoning.
 //
-// Hidden entirely (not shown half-working) when either the browser has no
-// SpeechRecognition support (Firefox, some browsers) or the server has no
-// GROQ_API_KEY configured - the same "hide, don't half-work" rule the
-// AI plan card and the AI report summary button already follow.
+// Hidden entirely (not shown half-working) when either this browser cannot
+// record audio at all, or the server has no GROQ_API_KEY configured - the
+// same "hide, don't half-work" rule the AI plan card and the AI report
+// summary button already follow.
 
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -43,74 +40,101 @@ import { voiceApi, getErrorMessage } from '../utils/api';
 import { useTheme } from '../context/ThemeContext';
 import { formatCategory, formatSubType } from '../utils/formatters';
 
-const SpeechRecognitionCtor =
-  typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
+const MEDIA_RECORDING_SUPPORTED =
+  typeof window !== 'undefined' &&
+  typeof navigator !== 'undefined' &&
+  !!navigator.mediaDevices?.getUserMedia &&
+  typeof window.MediaRecorder !== 'undefined';
 
-// A real, hard ceiling on "Listening…" - without this, a hung connection to
-// the browser's speech-recognition backend (see the module docstring on why
-// that is a network call, not a local one) can leave the panel spinning
-// forever with no error and nothing to click but Cancel. 12s is generous for
-// one sentence but short enough that a genuine hang is caught quickly.
-const LISTEN_TIMEOUT_MS = 12000;
+// A real, hard ceiling on how long one recording can run - long enough for
+// one unhurried sentence, short enough that tapping the mic and stepping
+// away does not quietly upload a minute of silence. The Stop button ends
+// it earlier; this is only the backstop.
+const MAX_RECORD_MS = 15000;
 
-// How long to give the recognition engine to fire its own onstart before
-// concluding this browser cannot run it at all (see startListening's own
-// comment on Opera/Brave/Vivaldi inheriting the constructor but not the
-// working backend) - short, because onstart on a browser that DOES support
-// this fires close to immediately; this is not competing with real speech
-// latency the way LISTEN_TIMEOUT_MS is.
-const ENGINE_CHECK_MS = 4000;
+// Tried in order; the first one this browser's MediaRecorder actually
+// supports wins. Chrome, Edge and Firefox support webm/opus; Safari does
+// not, and falls through to mp4/aac. If NONE of these are supported (rare),
+// MediaRecorder is created with no mimeType at all and the browser picks
+// its own default - still readable, since the upload also sends whatever
+// type the resulting Blob reports.
+const RECORDER_MIME_CANDIDATES = [
+  'audio/webm;codecs=opus',
+  'audio/webm',
+  'audio/ogg;codecs=opus',
+  'audio/ogg',
+  'audio/mp4',
+];
+
+function pickRecorderMimeType() {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return '';
+  }
+  return RECORDER_MIME_CANDIDATES.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+// FileReader's data: URL, minus the "data:audio/webm;base64," prefix - the
+// same base64-JSON convention BillScanner.jsx already uses for a photo (see
+// backend/routes/voice.py's /transcribe docstring on why this app sends
+// binary data up this way rather than as multipart form data).
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(reader.error || new Error('Could not read the recording.'));
+    reader.readAsDataURL(blob);
+  });
+}
 
 export default function VoiceLogger({ onExtracted }) {
   const { prefersReducedMotion } = useTheme();
   const [available, setAvailable] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  // Distinct from `listening`: this is the getUserMedia round trip BEFORE
-  // SpeechRecognition ever starts - see startListening's own comment on why
-  // that ordering matters (a new user is asked, visibly, before the app
-  // ever tries to hear them, not implicitly by whatever SpeechRecognition
-  // itself would have done).
+  // The getUserMedia round trip BEFORE recording ever starts - a real,
+  // visible native browser prompt appears before anything says
+  // "Recording…", so a new user is asked, in the ordinary way, before the
+  // app ever tries to hear them.
   const [requestingMic, setRequestingMic] = useState(false);
-  const [listening, setListening] = useState(false);
+  const [recording, setRecording] = useState(false);
+  // Covers both the upload and the backend's transcribe-then-extract work -
+  // from the user's side this is one wait, not two.
+  const [transcribing, setTranscribing] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [parsing, setParsing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const recognitionRef = useRef(null);
-  const timeoutRef = useRef(null);
-  const engineCheckRef = useRef(null);
-  // Mirrors `transcript` state for the timeout callback below, which closes
-  // over whatever `transcript` was AT THE MOMENT startListening ran (always
-  // '') rather than its live value - a ref is what actually stays current.
-  const transcriptRef = useRef('');
 
-  const clearListenTimeout = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+  const streamRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const recordTimeoutRef = useRef(null);
+
+  const clearRecordTimeout = () => {
+    if (recordTimeoutRef.current) {
+      clearTimeout(recordTimeoutRef.current);
+      recordTimeoutRef.current = null;
     }
   };
 
-  const clearEngineCheckTimeout = () => {
-    if (engineCheckRef.current) {
-      clearTimeout(engineCheckRef.current);
-      engineCheckRef.current = null;
-    }
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
   };
 
-  // Stop listening on unmount too - navigating away mid-listen should not
-  // leave the browser's mic indicator on or a stray timeout firing later
-  // against a component that is no longer there to update.
+  // Stop recording on unmount too - navigating away mid-recording should
+  // not leave the browser's mic indicator on or a stray upload firing later
+  // against a component that is no longer there to show its result.
   useEffect(() => {
     return () => {
-      clearListenTimeout();
-      clearEngineCheckTimeout();
-      recognitionRef.current?.stop();
+      clearRecordTimeout();
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        recorderRef.current.stop();
+      }
+      stopStream();
     };
   }, []);
 
   useEffect(() => {
-    if (!SpeechRecognitionCtor) return;
+    if (!MEDIA_RECORDING_SUPPORTED) return;
     voiceApi
       .getStatus()
       .then((data) => setAvailable(Boolean(data.available)))
@@ -118,57 +142,67 @@ export default function VoiceLogger({ onExtracted }) {
   }, []);
 
   const closePanel = () => {
-    clearListenTimeout();
-    clearEngineCheckTimeout();
+    clearRecordTimeout();
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.stop();
+    }
+    stopStream();
+    recorderRef.current = null;
+    chunksRef.current = [];
     setPanelOpen(false);
     setRequestingMic(false);
-    setListening(false);
+    setRecording(false);
+    setTranscribing(false);
     setTranscript('');
-    transcriptRef.current = '';
-    setParsing(false);
     setResult(null);
     setError(null);
-    recognitionRef.current?.stop();
   };
 
-  const runExtraction = async (text) => {
-    setParsing(true);
+  // Called once MediaRecorder has finished assembling the clip (either the
+  // Stop button, or MAX_RECORD_MS below).
+  const handleRecordingStopped = async (mimeType) => {
+    stopStream();
+    const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' });
+    chunksRef.current = [];
+
+    if (blob.size === 0) {
+      setRecording(false);
+      setError("Didn't catch anything - try again and speak right after tapping the mic.");
+      return;
+    }
+
+    setRecording(false);
+    setTranscribing(true);
     try {
-      const data = await voiceApi.parse(text);
+      const audioBase64 = await blobToBase64(blob);
+      const data = await voiceApi.transcribe(audioBase64, blob.type);
+      setTranscript(data.transcript || '');
       setResult(data);
       if (data.parseError || !data.category || !data.quantity) {
-        setError("Couldn't make out a clear activity from that - try again, more directly (\"drove 8 kilometers\"), or enter it manually.");
+        setError(
+          data.transcript
+            ? "Couldn't make out a clear activity from that - try again, more directly (\"drove 8 kilometers\"), or enter it manually."
+            : "Didn't catch anything usable - try again, closer to the microphone."
+        );
       }
     } catch (requestError) {
-      setError(getErrorMessage(requestError, 'Could not process that.'));
+      setError(getErrorMessage(requestError, 'Could not process that recording.'));
     } finally {
-      setParsing(false);
+      setTranscribing(false);
     }
   };
 
-  const startListening = async () => {
+  const startRecording = async () => {
     closePanel();
     setPanelOpen(true);
 
-    // STEP 1: ASK FOR MICROPHONE ACCESS OURSELVES, FIRST - VIA getUserMedia,
-    // NOT BY LETTING recognition.start() TRIGGER IT IMPLICITLY
-    // getUserMedia is the standard, broadly-supported permission surface
-    // (every real browser implements it) - unlike SpeechRecognition itself,
-    // which is a much narrower Chrome-specific API (see the module docstring).
-    // Requesting through it first means: a genuine, visible native browser
-    // prompt appears before anything says "Listening…" (so a new user is
-    // asked, in the ordinary way, before the app ever tries to hear them),
-    // and a real Promise rejection to build an ACCURATE message from -
-    // "denied" vs "no microphone at all" are different problems with
-    // different fixes, and this is the only reliable way to tell them apart
-    // BEFORE ever touching SpeechRecognition.
+    // ASK FOR MICROPHONE ACCESS FIRST, VISIBLY - see the module docstring
+    // on why a genuine native prompt has to appear before anything on
+    // screen says "Recording…".
     setRequestingMic(true);
+    let stream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Only needed to trigger/confirm the permission grant - the actual
-      // capture for recognition is managed entirely inside SpeechRecognition
-      // itself, so this stream is stopped immediately rather than held open.
-      stream.getTracks().forEach((track) => track.stop());
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (mediaError) {
       setRequestingMic(false);
       if (mediaError.name === 'NotAllowedError' || mediaError.name === 'PermissionDeniedError') {
@@ -184,123 +218,51 @@ export default function VoiceLogger({ onExtracted }) {
       return;
     }
     setRequestingMic(false);
+    streamRef.current = stream;
 
-    const recognition = new SpeechRecognitionCtor();
-    recognition.lang = 'en-IN';
-    // Live partial guesses as speech comes in - see the module docstring on
-    // why this is what actually fixes "nothing shows up while I'm talking".
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+    const mimeType = pickRecorderMimeType();
+    let recorder;
+    try {
+      recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    } catch {
+      stopStream();
+      setError('This browser could not start recording. Please try again or enter it manually.');
+      return;
+    }
 
-    // STEP 2: DID THE RECOGNITION ENGINE ITSELF EVEN START?
-    // A permission grant (step 1) proves the microphone works - it says
-    // nothing about whether THIS BROWSER's SpeechRecognition can actually
-    // reach a working speech-to-text backend at all. Chrome's own
-    // implementation streams audio to Google's speech servers using an API
-    // key that ships only in Google-branded Chrome; other Chromium-based
-    // browsers (Opera, Brave, Vivaldi...) inherit the same `window.
-    // webkitSpeechRecognition` constructor - so SpeechRecognitionCtor above
-    // is truthy and this whole card renders - but silently cannot complete a
-    // real recognition session: no onstart, no onresult, no onerror, ever.
-    // That is a materially different, unfixable-by-the-user failure from
-    // "listening fine, just hasn't heard you yet", so it gets caught fast
-    // and named honestly instead of eventually hitting the same generic
-    // "didn't hear anything" message LISTEN_TIMEOUT_MS gives a real hang.
-    let engineStarted = false;
-    recognition.onstart = () => {
-      engineStarted = true;
-      clearEngineCheckTimeout();
+    chunksRef.current = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) chunksRef.current.push(event.data);
+    };
+    recorder.onstop = () => {
+      clearRecordTimeout();
+      handleRecordingStopped(recorder.mimeType || mimeType);
+    };
+    recorder.onerror = () => {
+      clearRecordTimeout();
+      stopStream();
+      setRecording(false);
+      setError('Something went wrong while recording. Please try again or enter it manually.');
     };
 
-    recognition.onresult = (event) => {
-      // event.results is every result seen so far this session, each with
-      // its own .isFinal - for a single-utterance capture (continuous is
-      // left at its default false) there is normally one, but reading the
-      // LAST entry rather than assuming index 0 is what actually matches
-      // what Chrome does when it revises an earlier interim guess.
-      const last = event.results[event.results.length - 1];
-      const text = last[0].transcript;
-      transcriptRef.current = text;
-      setTranscript(text);
+    recorderRef.current = recorder;
+    setRecording(true);
+    // A short timeslice keeps ondataavailable firing regularly rather than
+    // only once at the very end, so even a recording cut short by an error
+    // still has whatever audio was captured up to that point.
+    recorder.start(1000);
 
-      if (last.isFinal) {
-        clearListenTimeout();
-        runExtraction(text);
+    recordTimeoutRef.current = setTimeout(() => {
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        recorderRef.current.stop();
       }
-    };
+    }, MAX_RECORD_MS);
+  };
 
-    recognition.onerror = (event) => {
-      clearListenTimeout();
-      clearEngineCheckTimeout();
-      setListening(false);
-      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-        setError('Microphone access was denied. Allow it in your browser settings to use voice logging.');
-      } else if (event.error === 'no-speech') {
-        setError("Didn't catch anything - try again and speak right after tapping the mic.");
-      } else if (event.error === 'network') {
-        // The real, common cause behind "stuck on Listening... with no
-        // error" that this whole change targets - see the module docstring
-        // on why recognition needs a live connection to Google's own speech
-        // service at all. Chrome does not always surface this promptly, or
-        // at all, which is exactly what LISTEN_TIMEOUT_MS below is a
-        // backstop for.
-        setError('Could not reach the speech recognition service. Check your internet connection and try again.');
-      } else {
-        setError('Could not use the microphone. Please try again or enter it manually.');
-      }
-    };
-
-    recognition.onend = () => {
-      clearListenTimeout();
-      clearEngineCheckTimeout();
-      setListening(false);
-    };
-
-    recognitionRef.current = recognition;
-    setListening(true);
-    recognition.start();
-
-    // The backstop for a hang that fires neither onresult nor onerror nor
-    // onend in any reasonable time - a real, observed failure mode for a
-    // network-backed API, not a hypothetical one. Forcing stop() here is
-    // what turns an indefinite spinner into an honest, actionable message.
-    timeoutRef.current = setTimeout(() => {
-      recognition.stop();
-      setListening(false);
-      if (!engineStarted) {
-        // onstart never fired even once in the full 12s - the engine-check
-        // timeout below should have already caught this sooner in the
-        // normal case, but this is the fallback if that one somehow did not.
-        setError(
-          "This browser's speech engine never responded - voice logging needs Google Chrome " +
-          "(or another browser built on it that ships Chrome's own speech service). " +
-          'Try Chrome, or enter this one manually.'
-        );
-      } else {
-        setError(
-          transcriptRef.current
-            ? "Didn't finish making that out - try again, a little slower."
-            : "Didn't hear anything usable - check your internet connection, or enter it manually."
-        );
-      }
-    }, LISTEN_TIMEOUT_MS);
-
-    // The FAST version of the same check above, specifically for the
-    // "this browser's engine cannot run at all" case - onstart on a working
-    // engine fires close to immediately, so ENGINE_CHECK_MS gives a real
-    // hang in a supported browser plenty of margin while still catching an
-    // unsupported one (Opera and kin) far sooner than the full 12s backstop.
-    engineCheckRef.current = setTimeout(() => {
-      if (engineStarted) return;
-      recognition.stop();
-      clearListenTimeout();
-      setListening(false);
-      setError(
-        "This browser's speech engine never responded - voice logging needs Google Chrome " +
-        "(or another browser built on it that ships Chrome's own speech service). " +
-        'Try Chrome, or enter this one manually.'
-      );
-    }, ENGINE_CHECK_MS);
+  const stopRecording = () => {
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.stop();
+    }
   };
 
   const handleUse = () => {
@@ -313,7 +275,7 @@ export default function VoiceLogger({ onExtracted }) {
     closePanel();
   };
 
-  if (!SpeechRecognitionCtor || !available) return null;
+  if (!MEDIA_RECORDING_SUPPORTED || !available) return null;
 
   return (
     <div
@@ -360,7 +322,7 @@ export default function VoiceLogger({ onExtracted }) {
 
         <motion.button
           type="button"
-          onClick={startListening}
+          onClick={startRecording}
           whileHover={prefersReducedMotion ? {} : { y: -2 }}
           whileTap={prefersReducedMotion ? {} : { scale: 0.985 }}
           className="eco-btn eco-btn-primary"
@@ -387,9 +349,9 @@ export default function VoiceLogger({ onExtracted }) {
               borderTop: '1px solid color-mix(in srgb, var(--eco-purple) 20%, var(--eco-border))',
             }}
           >
-            {/* Its own, distinct state - see startListening's own comment on
-                why the microphone permission request happens BEFORE
-                anything says "Listening…", not implicitly inside it. */}
+            {/* Its own, distinct state - see startRecording's own comment
+                on why the microphone permission request happens BEFORE
+                anything says "Recording…", not implicitly inside it. */}
             {requestingMic && (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', padding: '1.4rem 0', fontSize: '0.9rem' }}>
                 <Sparkles size={15} style={{ animation: 'eco-spin 1.4s linear infinite' }} />
@@ -397,7 +359,7 @@ export default function VoiceLogger({ onExtracted }) {
               </div>
             )}
 
-            {listening && (
+            {recording && (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.7rem', padding: '1.4rem 0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
                   <motion.div
@@ -405,42 +367,32 @@ export default function VoiceLogger({ onExtracted }) {
                     transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
                     style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--eco-danger)' }}
                   />
-                  <span style={{ fontSize: '0.9rem' }}>Listening…</span>
+                  <span style={{ fontSize: '0.9rem' }}>Recording…</span>
                   <button
                     type="button"
-                    onClick={() => recognitionRef.current?.stop()}
+                    onClick={stopRecording}
                     className="eco-btn eco-btn-ghost"
                     style={{ padding: '0.3rem 0.6rem' }}
-                    aria-label="Stop listening"
+                    aria-label="Stop recording"
                   >
                     <Square size={13} />
                   </button>
                 </div>
-
-                {/* The live, still-updating guess as words come in - see the
-                    module docstring on interimResults: this is what proves
-                    the microphone is actually being heard, instead of an
-                    unexplained wait until a final result (or nothing) shows
-                    up. Kept visually distinct (no quote marks yet) from the
-                    settled transcript below, since it can still change. */}
-                <span
-                  className="eco-text-muted"
-                  style={{ fontSize: '0.85rem', fontStyle: 'italic', minHeight: '1.2em', textAlign: 'center' }}
-                >
-                  {transcript || 'Say something…'}
+                <span className="eco-text-muted" style={{ fontSize: '0.85rem', fontStyle: 'italic' }}>
+                  Say one sentence, then tap stop.
                 </span>
               </div>
             )}
 
-            {transcript && !listening && (
+            {transcript && !recording && !transcribing && (
               <p style={{ fontSize: '0.88rem', fontStyle: 'italic', margin: '0 0 1rem', color: 'var(--eco-text-muted)' }}>
                 "{transcript}"
               </p>
             )}
 
-            {parsing && (
+            {transcribing && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--eco-text-muted)' }}>
-                <Sparkles size={14} /> Working out what that means…
+                <Sparkles size={14} style={{ animation: 'eco-spin 1.4s linear infinite' }} /> Listening back and working out what that means…
               </div>
             )}
 
@@ -479,7 +431,7 @@ export default function VoiceLogger({ onExtracted }) {
               </motion.div>
             )}
 
-            {!requestingMic && !listening && !parsing && !result && !error && (
+            {!requestingMic && !recording && !transcribing && !result && !error && (
               <button type="button" className="eco-btn eco-btn-ghost" onClick={closePanel} style={{ fontSize: '0.8rem' }}>
                 <X size={14} /> Cancel
               </button>

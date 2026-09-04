@@ -1754,24 +1754,46 @@ export default function Profile() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setShowPasswords((shown) => !shown)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  background: 'none',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  fontSize: '0.83rem',
-                  color: 'var(--eco-text-muted)',
-                }}
-              >
-                {showPasswords ? <EyeOff size={14} /> : <Eye size={14} />}
-                {showPasswords ? 'Hide passwords' : 'Show passwords'}
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPasswords((shown) => !shown)}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    fontSize: '0.83rem',
+                    color: 'var(--eco-text-muted)',
+                  }}
+                >
+                  {showPasswords ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {showPasswords ? 'Hide passwords' : 'Show passwords'}
+                </button>
+
+                {/* Don't remember the current password at all, so the form
+                    above can never be completed - the same escape hatch as
+                    the Change email card's own forgot-password link, and the
+                    same handler: it only ever needs profile.email. */}
+                <button
+                  type="button"
+                  onClick={handleEmailForgotPassword}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    fontSize: '0.83rem',
+                    color: 'var(--eco-primary)',
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Forgot password?
+                </button>
+              </div>
 
               <button
                 type="submit"
